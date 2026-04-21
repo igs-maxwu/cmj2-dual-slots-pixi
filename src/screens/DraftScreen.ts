@@ -1,23 +1,38 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import type { Screen } from './ScreenManager';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, COLORS } from '@/config/GameConfig';
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
+import * as T from '@/config/DesignTokens';
 import {
   SYMBOLS, DEFAULT_TARGET_RTP, DEFAULT_TARGET_DMG,
   DEFAULT_TEAM_HP, DEFAULT_BET, DEFAULT_FAIRNESS_EXP,
+  DEFAULT_SELECTED_A, DEFAULT_SELECTED_B,
 } from '@/config/SymbolsConfig';
 import { buildUnionPool } from '@/systems/SymbolPool';
 import { calculateScales } from '@/systems/ScaleCalculator';
 
-const TILE_W = 130;
-const TILE_H = 100;
-const TILE_GAP = 14;
+// ─── Layout (proportional to canvas) ───────────────────────────────────────
+const TILE_W  = 160;
+const TILE_H  = 140;
+const TILE_GAP = T.SPACING.s4;
 const COLS = 4;
 const ROWS = 2;
 const GRID_W = COLS * TILE_W + (COLS - 1) * TILE_GAP;
 const GRID_H = ROWS * TILE_H + (ROWS - 1) * TILE_GAP;
 const GRID_X = Math.round((CANVAS_WIDTH - GRID_W) / 2);
-const GRID_Y = Math.round((CANVAS_HEIGHT - GRID_H) / 2) - 40;
+const GRID_Y = Math.round(CANVAS_HEIGHT * 0.22);
 const MAX_PICKS = 5;
+
+// ─── Tile sub-zones (relative to each tile origin) ─────────────────────────
+const SWATCH_CY   = 30;
+const SWATCH_R    = 18;
+const NAME_Y      = 56;
+const META_Y      = 82;
+const BTN_ZONE_Y  = 100;
+const BTN_ZONE_H  = 32;
+const BTN_INSET_X = 6;
+const BTN_GAP     = 4;
+const BTN_W       = (TILE_W - 2 * BTN_INSET_X - BTN_GAP) / 2;
+const BADGE_R     = 11;
 
 export interface DraftResult {
   selectedA: number[];
@@ -33,68 +48,117 @@ export interface DraftResult {
   fairnessExp: number;
 }
 
+interface TileRefs {
+  border:  Graphics;
+  badgeA:  Container;
+  badgeB:  Container;
+  btnA:    Container;
+  btnABg:  Graphics;
+  btnALbl: Text;
+  btnB:    Container;
+  btnBBg:  Graphics;
+  btnBLbl: Text;
+  hoverA:  boolean;
+  hoverB:  boolean;
+}
+
 export class DraftScreen implements Screen {
   private container = new Container();
-  private selectedA = new Set<number>();
-  private selectedB = new Set<number>();
-  private checkLabelsA: Text[] = [];
-  private checkLabelsB: Text[] = [];
+  private selectedA = new Set<number>(DEFAULT_SELECTED_A);
+  private selectedB = new Set<number>(DEFAULT_SELECTED_B);
+  private tiles: TileRefs[] = [];
   private statusText!: Text;
+  private distAText!: Text;
+  private distBText!: Text;
   private goButton!: Container;
-  private goBg!: Graphics;
-  private goLabel!: Text;
+  private goBtnBg!: Graphics;
+  private goBtnLbl!: Text;
+  private pulseElapsed = 0;
+  private app: Application | null = null;
+  private pulseTickFn: ((ticker: { deltaMS: number }) => void) | null = null;
 
   constructor(private onReady: (cfg: DraftResult) => void) {}
 
-  onMount(_app: Application, stage: Container): void {
+  onMount(app: Application, stage: Container): void {
+    this.app = app;
     stage.addChild(this.container);
     this.drawBackground();
     this.drawTitle();
+    this.drawDistribution();
     this.buildTiles();
     this.buildStatus();
+    this.buildToolbar();
     this.buildGoButton();
     this.refresh();
+
+    this.pulseTickFn = (ticker) => this.updatePulse(ticker.deltaMS);
+    app.ticker.add(this.pulseTickFn);
   }
 
   onUnmount(): void {
+    if (this.pulseTickFn && this.app) this.app.ticker.remove(this.pulseTickFn);
+    this.pulseTickFn = null;
     this.container.destroy({ children: true });
-    this.checkLabelsA = [];
-    this.checkLabelsB = [];
+    this.tiles = [];
   }
 
+  // ─── Background ──────────────────────────────────────────────────────────
   private drawBackground(): void {
-    const bg = new Graphics()
-      .rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
-      .fill(COLORS.bg);
+    const bg = new Graphics().rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT).fill(T.SEA.abyss);
     this.container.addChild(bg);
 
     const grid = new Graphics();
     for (let x = 0; x < CANVAS_WIDTH; x += 40) grid.moveTo(x, 0).lineTo(x, CANVAS_HEIGHT);
     for (let y = 0; y < CANVAS_HEIGHT; y += 40) grid.moveTo(0, y).lineTo(CANVAS_WIDTH, y);
-    grid.stroke({ width: 1, color: 0x1a2a40, alpha: 0.4 });
+    grid.stroke({ width: 1, color: T.SEA.deep, alpha: 0.35 });
     this.container.addChild(grid);
   }
 
   private drawTitle(): void {
     const title = new Text({
       text: 'SYMBOL DRAFT',
-      style: { fontFamily: 'Arial Black, sans-serif', fontSize: 36, fill: 0xf1c40f, stroke: { color: 0x000, width: 4 } },
+      style: {
+        fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.h1,
+        fill: T.GOLD.base, stroke: { color: T.GOLD.shadow, width: 4 },
+        letterSpacing: 2,
+      },
     });
     title.anchor.set(0.5, 0);
     title.x = CANVAS_WIDTH / 2;
-    title.y = 40;
+    title.y = Math.round(CANVAS_HEIGHT * 0.04);
     this.container.addChild(title);
 
     const sub = new Text({
-      text: 'Each player selects 5 symbols  |  Blue = Player A  |  Red = Player B',
-      style: { fontFamily: 'Arial', fontSize: 14, fill: COLORS.muted },
+      text: 'Pick 5 symbols for each player · Blue = A · Red = B',
+      style: { fontFamily: T.FONT.body, fontSize: T.FONT_SIZE.sm, fill: T.FG.muted },
     });
     sub.anchor.set(0.5, 0);
     sub.x = CANVAS_WIDTH / 2;
-    sub.y = 88;
+    sub.y = Math.round(CANVAS_HEIGHT * 0.13);
     this.container.addChild(sub);
   }
 
+  // ─── Team weight distribution ────────────────────────────────────────────
+  private drawDistribution(): void {
+    const right = CANVAS_WIDTH - Math.round(CANVAS_WIDTH * 0.04);
+    const top   = Math.round(CANVAS_HEIGHT * 0.05);
+
+    this.distAText = new Text({
+      text: '', style: { fontFamily: T.FONT.num, fontSize: T.FONT_SIZE.md, fill: T.TEAM.azure },
+    });
+    this.distAText.anchor.set(1, 0);
+    this.distAText.x = right; this.distAText.y = top;
+    this.container.addChild(this.distAText);
+
+    this.distBText = new Text({
+      text: '', style: { fontFamily: T.FONT.num, fontSize: T.FONT_SIZE.md, fill: T.TEAM.vermilion },
+    });
+    this.distBText.anchor.set(1, 0);
+    this.distBText.x = right; this.distBText.y = top + 22;
+    this.container.addChild(this.distBText);
+  }
+
+  // ─── Tile grid ───────────────────────────────────────────────────────────
   private buildTiles(): void {
     const totalW = SYMBOLS.reduce((s, x) => s + x.weight, 0);
 
@@ -105,114 +169,220 @@ export class DraftScreen implements Screen {
       const ty = GRID_Y + row * (TILE_H + TILE_GAP);
 
       const tile = new Container();
-      tile.x = tx;
-      tile.y = ty;
+      tile.x = tx; tile.y = ty;
       this.container.addChild(tile);
 
-      const bg = new Graphics()
-        .roundRect(0, 0, TILE_W, TILE_H, 8)
-        .fill(COLORS.tile)
-        .stroke({ width: 1.5, color: COLORS.border, alpha: 0.8 });
-      tile.addChild(bg);
+      // Border / fill (drawn dynamically in refresh)
+      const border = new Graphics();
+      tile.addChild(border);
 
+      // Symbol swatch
       const swatch = new Graphics()
-        .circle(TILE_W / 2, 28, 14)
-        .fill({ color: sym.color, alpha: 0.9 });
+        .circle(TILE_W / 2, SWATCH_CY, SWATCH_R)
+        .fill({ color: sym.color, alpha: 0.9 })
+        .stroke({ width: 1.5, color: T.GOLD.pale, alpha: 0.35 });
       tile.addChild(swatch);
 
+      // Name
       const name = new Text({
         text: sym.name,
-        style: { fontFamily: 'Arial', fontSize: 13, fill: COLORS.text },
+        style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.md, fill: T.FG.cream },
       });
       name.anchor.set(0.5, 0);
-      name.x = TILE_W / 2;
-      name.y = 50;
+      name.x = TILE_W / 2; name.y = NAME_Y;
       tile.addChild(name);
 
+      // Weight + probability
       const prob = ((sym.weight / totalW) * 100).toFixed(1);
       const meta = new Text({
-        text: `W:${sym.weight}  ${prob}%`,
-        style: { fontFamily: 'monospace', fontSize: 11, fill: COLORS.muted },
+        text: `W:${sym.weight}   ${prob}%`,
+        style: { fontFamily: T.FONT.num, fontSize: T.FONT_SIZE.sm, fill: T.FG.muted },
       });
       meta.anchor.set(0.5, 0);
-      meta.x = TILE_W / 2;
-      meta.y = 70;
+      meta.x = TILE_W / 2; meta.y = META_Y;
       tile.addChild(meta);
 
-      const checkA = new Text({
-        text: '[ ]',
-        style: { fontFamily: 'monospace', fontSize: 18, fill: COLORS.playerA },
+      // ── Pick buttons ──
+      const btnA = new Container();
+      btnA.x = BTN_INSET_X; btnA.y = BTN_ZONE_Y;
+      const btnABg = new Graphics();
+      btnA.addChild(btnABg);
+      const btnALbl = new Text({
+        text: 'A',
+        style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.lg, fill: T.FG.white, letterSpacing: 2 },
       });
-      checkA.anchor.set(0.5, 0.5);
-      checkA.x = -22;
-      checkA.y = TILE_H / 2;
-      checkA.eventMode = 'static';
-      checkA.cursor = 'pointer';
-      checkA.on('pointertap', () => this.toggle('A', i));
-      tile.addChild(checkA);
-      this.checkLabelsA.push(checkA);
+      btnALbl.anchor.set(0.5, 0.5);
+      btnALbl.x = BTN_W / 2; btnALbl.y = BTN_ZONE_H / 2;
+      btnA.addChild(btnALbl);
+      btnA.eventMode = 'static';
+      btnA.cursor = 'pointer';
+      tile.addChild(btnA);
 
-      const checkB = new Text({
-        text: '[ ]',
-        style: { fontFamily: 'monospace', fontSize: 18, fill: COLORS.playerB },
+      const btnB = new Container();
+      btnB.x = BTN_INSET_X + BTN_W + BTN_GAP; btnB.y = BTN_ZONE_Y;
+      const btnBBg = new Graphics();
+      btnB.addChild(btnBBg);
+      const btnBLbl = new Text({
+        text: 'B',
+        style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.lg, fill: T.FG.white, letterSpacing: 2 },
       });
-      checkB.anchor.set(0.5, 0.5);
-      checkB.x = TILE_W + 22;
-      checkB.y = TILE_H / 2;
-      checkB.eventMode = 'static';
-      checkB.cursor = 'pointer';
-      checkB.on('pointertap', () => this.toggle('B', i));
-      tile.addChild(checkB);
-      this.checkLabelsB.push(checkB);
+      btnBLbl.anchor.set(0.5, 0.5);
+      btnBLbl.x = BTN_W / 2; btnBLbl.y = BTN_ZONE_H / 2;
+      btnB.addChild(btnBLbl);
+      btnB.eventMode = 'static';
+      btnB.cursor = 'pointer';
+      tile.addChild(btnB);
 
-      bg.eventMode = 'static';
-      bg.cursor = 'pointer';
-      bg.on('pointertap', () => this.toggle('A', i));
+      // ── Corner badges (shown when selected) ──
+      const badgeA = this.createBadge('A', T.TEAM.azure);
+      badgeA.x = 4; badgeA.y = 4;
+      badgeA.visible = false;
+      tile.addChild(badgeA);
+
+      const badgeB = this.createBadge('B', T.TEAM.vermilion);
+      badgeB.x = TILE_W - BADGE_R * 2 - 4; badgeB.y = 4;
+      badgeB.visible = false;
+      tile.addChild(badgeB);
+
+      const refs: TileRefs = {
+        border, badgeA, badgeB,
+        btnA, btnABg, btnALbl,
+        btnB, btnBBg, btnBLbl,
+        hoverA: false, hoverB: false,
+      };
+
+      btnA.on('pointertap', () => this.toggle('A', i));
+      btnA.on('pointerover', () => { refs.hoverA = true; this.redrawTile(i); });
+      btnA.on('pointerout',  () => { refs.hoverA = false; this.redrawTile(i); });
+
+      btnB.on('pointertap', () => this.toggle('B', i));
+      btnB.on('pointerover', () => { refs.hoverB = true; this.redrawTile(i); });
+      btnB.on('pointerout',  () => { refs.hoverB = false; this.redrawTile(i); });
+
+      this.tiles.push(refs);
     });
   }
 
+  private createBadge(letter: string, color: number): Container {
+    const c = new Container();
+    const g = new Graphics()
+      .circle(BADGE_R, BADGE_R, BADGE_R)
+      .fill(color)
+      .stroke({ width: 1.5, color: T.FG.white, alpha: 0.9 });
+    c.addChild(g);
+    const t = new Text({
+      text: letter,
+      style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.sm, fill: T.FG.white },
+    });
+    t.anchor.set(0.5, 0.5);
+    t.x = BADGE_R; t.y = BADGE_R;
+    c.addChild(t);
+    return c;
+  }
+
+  // ─── Status + toolbar + go ───────────────────────────────────────────────
   private buildStatus(): void {
     this.statusText = new Text({
       text: '',
-      style: { fontFamily: 'monospace', fontSize: 18, fill: COLORS.text },
+      style: { fontFamily: T.FONT.num, fontSize: T.FONT_SIZE.lg, fill: T.FG.cream, letterSpacing: 2 },
     });
     this.statusText.anchor.set(0.5, 0);
     this.statusText.x = CANVAS_WIDTH / 2;
-    this.statusText.y = GRID_Y + GRID_H + 30;
+    this.statusText.y = GRID_Y + GRID_H + T.SPACING.s5;
     this.container.addChild(this.statusText);
+  }
+
+  private buildToolbar(): void {
+    const labels = ['CLEAR', 'MIRROR A→B', 'RANDOM 5+5'];
+    const handlers = [() => this.clearAll(), () => this.mirror(), () => this.randomize()];
+    const BTN_W2 = 150;
+    const BTN_H2 = 32;
+    const GAP    = T.SPACING.s3;
+    const totalW = labels.length * BTN_W2 + (labels.length - 1) * GAP;
+    const startX = Math.round((CANVAS_WIDTH - totalW) / 2);
+    const y      = GRID_Y + GRID_H + Math.round(T.SPACING.s10 * 1.4);
+
+    labels.forEach((label, i) => {
+      const btn = new Container();
+      btn.x = startX + i * (BTN_W2 + GAP);
+      btn.y = y;
+      this.container.addChild(btn);
+
+      const bg = new Graphics()
+        .roundRect(0, 0, BTN_W2, BTN_H2, T.RADIUS.md)
+        .fill({ color: T.SURF.panel.color, alpha: T.SURF.panel.alpha })
+        .stroke({ width: 1.5, color: T.GOLD.deep, alpha: 0.7 });
+      btn.addChild(bg);
+
+      const lbl = new Text({
+        text: label,
+        style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.sm, fill: T.GOLD.pale, letterSpacing: 1 },
+      });
+      lbl.anchor.set(0.5, 0.5);
+      lbl.x = BTN_W2 / 2; lbl.y = BTN_H2 / 2;
+      btn.addChild(lbl);
+
+      btn.eventMode = 'static';
+      btn.cursor = 'pointer';
+      btn.on('pointertap', handlers[i]);
+      btn.on('pointerover', () => {
+        bg.clear()
+          .roundRect(0, 0, BTN_W2, BTN_H2, T.RADIUS.md)
+          .fill({ color: T.GOLD.deep, alpha: 0.25 })
+          .stroke({ width: 2, color: T.GOLD.base, alpha: 1 });
+        lbl.style.fill = T.GOLD.light;
+      });
+      btn.on('pointerout', () => {
+        bg.clear()
+          .roundRect(0, 0, BTN_W2, BTN_H2, T.RADIUS.md)
+          .fill({ color: T.SURF.panel.color, alpha: T.SURF.panel.alpha })
+          .stroke({ width: 1.5, color: T.GOLD.deep, alpha: 0.7 });
+        lbl.style.fill = T.GOLD.pale;
+      });
+    });
   }
 
   private buildGoButton(): void {
     this.goButton = new Container();
     this.goButton.x = CANVAS_WIDTH / 2;
-    this.goButton.y = GRID_Y + GRID_H + 85;
+    this.goButton.y = GRID_Y + GRID_H + Math.round(T.SPACING.s12 * 1.9);
     this.container.addChild(this.goButton);
 
-    this.goBg = new Graphics();
-    this.goButton.addChild(this.goBg);
+    this.goBtnBg = new Graphics();
+    this.goButton.addChild(this.goBtnBg);
 
-    this.goLabel = new Text({
-      text: 'SELECT 5 EACH TO START',
-      style: { fontFamily: 'Arial Black, sans-serif', fontSize: 16, fill: 0xffffff },
+    this.goBtnLbl = new Text({
+      text: '',
+      style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.xl, fill: T.FG.white, letterSpacing: 3 },
     });
-    this.goLabel.anchor.set(0.5, 0.5);
-    this.goButton.addChild(this.goLabel);
+    this.goBtnLbl.anchor.set(0.5, 0.5);
+    this.goButton.addChild(this.goBtnLbl);
 
     this.goButton.eventMode = 'static';
     this.goButton.cursor = 'pointer';
     this.goButton.on('pointertap', () => this.launch());
-    this.drawGoBg(false);
+    this.goButton.on('pointerover', () => this.drawGoBg('hover'));
+    this.goButton.on('pointerout',  () => this.drawGoBg('normal'));
+    this.goButton.on('pointerdown', () => this.drawGoBg('pressed'));
+    this.goButton.on('pointerup',   () => this.drawGoBg('hover'));
   }
 
-  private drawGoBg(hover: boolean): void {
-    const active = this.canGo();
-    const fill = hover && active ? 0x2ecc71 : active ? COLORS.go : COLORS.goOff;
-    this.goBg.clear()
-      .roundRect(-140, -22, 280, 44, 8)
+  private drawGoBg(state: 'normal' | 'hover' | 'pressed'): void {
+    const ready = this.canGo();
+    let fill: number;
+    let border: number;
+    if (!ready) { fill = T.COLORS.btnDisabled; border = T.SEA.rim; }
+    else if (state === 'pressed') { fill = T.CTA.greenDeep;  border = T.GOLD.deep; }
+    else if (state === 'hover')   { fill = T.CTA.greenLight; border = T.GOLD.base; }
+    else                          { fill = T.CTA.green;      border = T.GOLD.deep; }
+
+    this.goBtnBg.clear()
+      .roundRect(-140, -25, 280, 50, T.RADIUS.md)
       .fill(fill)
-      .stroke({ width: 1.5, color: hover ? COLORS.gold : 0x336633, alpha: 0.8 });
+      .stroke({ width: 2, color: border, alpha: 1 });
   }
 
+  // ─── Selection logic ─────────────────────────────────────────────────────
   private toggle(side: 'A' | 'B', idx: number): void {
     const set = side === 'A' ? this.selectedA : this.selectedB;
     if (set.has(idx)) set.delete(idx);
@@ -220,20 +390,131 @@ export class DraftScreen implements Screen {
     this.refresh();
   }
 
+  private clearAll(): void {
+    this.selectedA.clear();
+    this.selectedB.clear();
+    this.refresh();
+  }
+
+  private mirror(): void {
+    this.selectedB = new Set(this.selectedA);
+    this.refresh();
+  }
+
+  private randomize(): void {
+    this.selectedA = this.pickRandomFive();
+    this.selectedB = this.pickRandomFive();
+    this.refresh();
+  }
+
+  private pickRandomFive(): Set<number> {
+    const ids = [0,1,2,3,4,5,6,7];
+    for (let i = ids.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+    }
+    return new Set(ids.slice(0, MAX_PICKS));
+  }
+
   private canGo(): boolean {
     return this.selectedA.size === MAX_PICKS && this.selectedB.size === MAX_PICKS;
   }
 
+  // ─── Redraw ──────────────────────────────────────────────────────────────
   private refresh(): void {
-    SYMBOLS.forEach((_, i) => {
-      this.checkLabelsA[i].text = this.selectedA.has(i) ? '[A]' : '[ ]';
-      this.checkLabelsB[i].text = this.selectedB.has(i) ? '[B]' : '[ ]';
-    });
-    this.statusText.text = `A: ${this.selectedA.size}/${MAX_PICKS}   B: ${this.selectedB.size}/${MAX_PICKS}`;
-    this.goLabel.text = this.canGo() ? 'START BATTLE!' : 'SELECT 5 EACH TO START';
-    this.drawGoBg(false);
+    for (let i = 0; i < SYMBOLS.length; i++) this.redrawTile(i);
+
+    const a = this.selectedA.size;
+    const b = this.selectedB.size;
+    const color = this.canGo() ? T.CTA.green : T.FG.cream;
+    this.statusText.style.fill = color;
+    this.statusText.text = `A ${a}/${MAX_PICKS}    B ${b}/${MAX_PICKS}`;
+
+    this.distAText.text = `A  team weight  ${this.teamWeightPct('A')}%`;
+    this.distBText.text = `B  team weight  ${this.teamWeightPct('B')}%`;
+
+    this.goBtnLbl.text = this.canGo() ? 'START BATTLE' : 'SELECT 5 EACH';
+    this.drawGoBg('normal');
   }
 
+  private redrawTile(i: number): void {
+    const t = this.tiles[i];
+    const pickedA = this.selectedA.has(i);
+    const pickedB = this.selectedB.has(i);
+    const bothFull = !pickedA && !pickedB && this.selectedA.size === MAX_PICKS && this.selectedB.size === MAX_PICKS;
+
+    // Border + fill
+    let borderColor: number;
+    let borderWidth: number;
+    if (pickedA && pickedB) { borderColor = T.GOLD.base;       borderWidth = 3.5; }
+    else if (pickedA)        { borderColor = T.TEAM.azure;      borderWidth = 3; }
+    else if (pickedB)        { borderColor = T.TEAM.vermilion;  borderWidth = 3; }
+    else                     { borderColor = T.SEA.rim;         borderWidth = 1.5; }
+
+    const fillAlpha = bothFull ? 0.55 : 1.0;
+    t.border.clear()
+      .roundRect(0, 0, TILE_W, TILE_H, T.RADIUS.md)
+      .fill({ color: T.SURF.panelSolid.color, alpha: fillAlpha })
+      .stroke({ width: borderWidth, color: borderColor, alpha: pickedA || pickedB ? 1 : 0.75 });
+
+    // Badges
+    t.badgeA.visible = pickedA;
+    t.badgeB.visible = pickedB;
+
+    // Pick buttons (three states: normal / hover / selected)
+    const aLocked = !pickedA && this.selectedA.size >= MAX_PICKS;
+    const bLocked = !pickedB && this.selectedB.size >= MAX_PICKS;
+    this.drawPickBtn(t.btnABg, t.btnALbl, 'A', pickedA ? 'selected' : (t.hoverA && !aLocked ? 'hover' : 'normal'), aLocked);
+    this.drawPickBtn(t.btnBBg, t.btnBLbl, 'B', pickedB ? 'selected' : (t.hoverB && !bLocked ? 'hover' : 'normal'), bLocked);
+  }
+
+  private drawPickBtn(
+    bg: Graphics, lbl: Text, side: 'A' | 'B',
+    state: 'normal' | 'hover' | 'selected', locked: boolean,
+  ): void {
+    const team = side === 'A' ? T.TEAM.azure : T.TEAM.vermilion;
+    const teamDeep = side === 'A' ? T.TEAM.azureDeep : T.TEAM.vermilionDeep;
+    const teamGlow = side === 'A' ? T.TEAM.azureGlow : T.TEAM.vermilionGlow;
+
+    let fillColor: number;
+    let fillAlpha: number;
+    let strokeColor: number;
+    let labelColor: number;
+
+    if (locked) { fillColor = T.COLORS.btnDisabled; fillAlpha = 0.5; strokeColor = T.FG.dim;  labelColor = T.FG.dim; }
+    else if (state === 'selected') { fillColor = team;      fillAlpha = 1;    strokeColor = teamGlow;      labelColor = T.FG.white; }
+    else if (state === 'hover')    { fillColor = teamDeep;  fillAlpha = 0.8;  strokeColor = T.GOLD.base;   labelColor = T.FG.white; }
+    else                           { fillColor = teamDeep;  fillAlpha = 0.45; strokeColor = team;          labelColor = teamGlow; }
+
+    bg.clear()
+      .roundRect(0, 0, BTN_W, BTN_ZONE_H, T.RADIUS.sm)
+      .fill({ color: fillColor, alpha: fillAlpha })
+      .stroke({ width: state === 'hover' ? 2 : 1.5, color: strokeColor, alpha: 0.9 });
+    lbl.style.fill = labelColor;
+  }
+
+  private teamWeightPct(side: 'A' | 'B'): string {
+    const set = side === 'A' ? this.selectedA : this.selectedB;
+    const total = SYMBOLS.reduce((s, x) => s + x.weight, 0);
+    const sum = Array.from(set).reduce((s, id) => s + SYMBOLS[id].weight, 0);
+    if (total === 0) return '0';
+    return ((sum / total) * 100).toFixed(1);
+  }
+
+  // ─── Pulsing START button ────────────────────────────────────────────────
+  private updatePulse(deltaMS: number): void {
+    if (!this.goButton) return;
+    if (!this.canGo()) {
+      this.goButton.scale.set(1);
+      return;
+    }
+    this.pulseElapsed += deltaMS;
+    const amp = 0.025;
+    const s = 1 + amp * Math.sin((this.pulseElapsed / 650) * Math.PI);
+    this.goButton.scale.set(s);
+  }
+
+  // ─── Launch ──────────────────────────────────────────────────────────────
   private launch(): void {
     if (!this.canGo()) return;
     const selectedA = Array.from(this.selectedA);
