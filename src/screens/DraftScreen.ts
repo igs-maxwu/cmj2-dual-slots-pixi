@@ -9,30 +9,31 @@ import {
 } from '@/config/SymbolsConfig';
 import { buildUnionPool } from '@/systems/SymbolPool';
 import { calculateScales } from '@/systems/ScaleCalculator';
+import { SpiritPortrait } from '@/components/SpiritPortrait';
 
 // ─── Layout (proportional to canvas) ───────────────────────────────────────
 const TILE_W  = 160;
-const TILE_H  = 140;
+const TILE_H  = 172;
 const TILE_GAP = T.SPACING.s4;
 const COLS = 4;
 const ROWS = 2;
 const GRID_W = COLS * TILE_W + (COLS - 1) * TILE_GAP;
 const GRID_H = ROWS * TILE_H + (ROWS - 1) * TILE_GAP;
 const GRID_X = Math.round((CANVAS_WIDTH - GRID_W) / 2);
-const GRID_Y = Math.round(CANVAS_HEIGHT * 0.22);
+const GRID_Y = Math.round(CANVAS_HEIGHT * 0.20);
 const MAX_PICKS = 5;
 
 // ─── Tile sub-zones (relative to each tile origin) ─────────────────────────
-const SWATCH_CY   = 30;
-const SWATCH_R    = 18;
-const NAME_Y      = 56;
-const META_Y      = 82;
-const BTN_ZONE_Y  = 100;
-const BTN_ZONE_H  = 32;
+const PORTRAIT_D  = 60;
+const PORTRAIT_CY = 42;
+const NAME_Y      = 80;
+const META_Y      = 104;
+const BTN_ZONE_Y  = 128;
+const BTN_ZONE_H  = 34;
 const BTN_INSET_X = 6;
 const BTN_GAP     = 4;
 const BTN_W       = (TILE_W - 2 * BTN_INSET_X - BTN_GAP) / 2;
-const BADGE_R     = 11;
+const BADGE_R     = 12;
 
 export interface DraftResult {
   selectedA: number[];
@@ -176,17 +177,16 @@ export class DraftScreen implements Screen {
       const border = new Graphics();
       tile.addChild(border);
 
-      // Symbol swatch
-      const swatch = new Graphics()
-        .circle(TILE_W / 2, SWATCH_CY, SWATCH_R)
-        .fill({ color: sym.color, alpha: 0.9 })
-        .stroke({ width: 1.5, color: T.GOLD.pale, alpha: 0.35 });
-      tile.addChild(swatch);
+      // Spirit portrait
+      const portrait = new SpiritPortrait(i, PORTRAIT_D);
+      portrait.x = TILE_W / 2;
+      portrait.y = PORTRAIT_CY;
+      tile.addChild(portrait);
 
-      // Name
+      // 中文 name
       const name = new Text({
-        text: sym.name,
-        style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.md, fill: T.FG.cream },
+        text: sym.spiritName,
+        style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.lg, fill: T.FG.cream, letterSpacing: 2 },
       });
       name.anchor.set(0.5, 0);
       name.x = TILE_W / 2; name.y = NAME_Y;

@@ -2,6 +2,7 @@ import { Container, Graphics, Text } from 'pixi.js';
 import * as T from '@/config/DesignTokens';
 import { SYMBOLS } from '@/config/SymbolsConfig';
 import { tween, delay, Easings } from '@/systems/tween';
+import { SpiritPortrait } from '@/components/SpiritPortrait';
 
 const COLS = 5;
 const ROWS = 4;
@@ -15,7 +16,7 @@ export const REEL_H = ROWS * CELL_H + (ROWS - 1) * CELL_GAP + FRAME_PAD * 2;
 
 interface Cell {
   container: Container;
-  swatch: Graphics;
+  portrait: SpiritPortrait;
   label: Text;
   overlay: Graphics;
   currentSymbol: number;
@@ -73,18 +74,19 @@ export class SlotReel extends Container {
           .stroke({ width: 1, color: T.SEA.rim, alpha: 0.7 });
         container.addChild(cellBg);
 
-        const swatch = new Graphics();
-        container.addChild(swatch);
+        const portrait = new SpiritPortrait(0, 32);
+        portrait.y = -6;
+        container.addChild(portrait);
 
         const label = new Text({
           text: '',
           style: {
             fontFamily: T.FONT.title, fontWeight: '700',
-            fontSize: T.FONT_SIZE.sm, fill: T.FG.cream,
+            fontSize: T.FONT_SIZE.xs, fill: T.FG.cream,
           },
         });
         label.anchor.set(0.5, 0.5);
-        label.y = 10;
+        label.y = 18;
         container.addChild(label);
 
         const overlay = new Graphics()
@@ -93,7 +95,7 @@ export class SlotReel extends Container {
         overlay.alpha = 0;
         container.addChild(overlay);
 
-        colCells.push({ container, swatch, label, overlay, currentSymbol: -1 });
+        colCells.push({ container, portrait, label, overlay, currentSymbol: -1 });
         this.setCellSymbol(colCells[r], r % SYMBOLS.length);
       }
       this.cells.push(colCells);
@@ -103,11 +105,8 @@ export class SlotReel extends Container {
   private setCellSymbol(cell: Cell, symId: number): void {
     if (cell.currentSymbol === symId) return;
     cell.currentSymbol = symId;
-    const sym = SYMBOLS[symId];
-    cell.swatch.clear()
-      .circle(0, -8, 10)
-      .fill({ color: sym.color, alpha: 0.95 });
-    cell.label.text = sym.name;
+    cell.portrait.setSymbol(symId);
+    cell.label.text = SYMBOLS[symId].spiritName;
   }
 
   // ─── Spin ────────────────────────────────────────────────────────────────

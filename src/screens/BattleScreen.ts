@@ -11,6 +11,7 @@ import {
 import { distributeDamage, type DmgEvent } from '@/systems/DamageDistributor';
 import { tween, tweenValue, delay, Easings } from '@/systems/tween';
 import { SlotReel, REEL_W, REEL_H } from './SlotReel';
+import { SpiritPortrait } from '@/components/SpiritPortrait';
 import type { DraftResult } from './DraftScreen';
 
 // ─── Layout constants (proportional to canvas) ──────────────────────────────
@@ -36,7 +37,12 @@ const BACK_BTN_Y     = CANVAS_HEIGHT - T.SPACING.s8;
 const ROUND_GAP_MS   = 500; // pause between rounds
 
 // ─── Components for formation display ────────────────────────────────────────
-interface FormationCellRefs { cell: Graphics; label: Text; container: Container; }
+interface FormationCellRefs {
+  cell: Graphics;
+  label: Text;
+  container: Container;
+  portrait: SpiritPortrait | null;
+}
 
 export class BattleScreen implements Screen {
   private container = new Container();
@@ -178,6 +184,7 @@ export class BattleScreen implements Screen {
 
   private drawFormation(side: 'A' | 'B'): void {
     const ox = side === 'A' ? FORMATION_A_X : FORMATION_B_X;
+    const grid = side === 'A' ? this.formationA : this.formationB;
     const cells = side === 'A' ? this.cellsA : this.cellsB;
 
     for (let r = 0; r < 3; r++) {
@@ -192,16 +199,26 @@ export class BattleScreen implements Screen {
         const cell = new Graphics();
         container.addChild(cell);
 
+        const slot = r * 3 + c;
+        const unit = grid[slot];
+        let portrait: SpiritPortrait | null = null;
+        if (unit) {
+          portrait = new SpiritPortrait(unit.symbolId, 46);
+          portrait.y = -8;
+          container.addChild(portrait);
+        }
+
         const label = new Text({
           text: '', style: {
-            fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.xs,
+            fontFamily: T.FONT.num, fontWeight: '700', fontSize: T.FONT_SIZE.xs,
             fill: T.FG.cream, align: 'center',
           },
         });
         label.anchor.set(0.5, 0.5);
+        label.y = 22;
         container.addChild(label);
 
-        cells.push({ cell, label, container });
+        cells.push({ cell, label, container, portrait });
       }
     }
   }
@@ -300,6 +317,7 @@ export class BattleScreen implements Screen {
   }
 
   private refreshFormation(side: 'A' | 'B', grid: FormationGrid, cells: FormationCellRefs[]): void {
+    const teamColor = side === 'A' ? T.TEAM.azure : T.TEAM.vermilion;
     for (let i = 0; i < 9; i++) {
       const ref = cells[i];
       const unit = grid[i];
@@ -311,16 +329,13 @@ export class BattleScreen implements Screen {
         ref.label.text = '';
         continue;
       }
-      const sym = SYMBOLS[unit.symbolId];
-      const alpha = unit.alive ? 1 : 0.22;
-      const teamColor = side === 'A' ? T.TEAM.azure : T.TEAM.vermilion;
       ref.cell.roundRect(-FORMATION_CELL / 2, -FORMATION_CELL / 2, FORMATION_CELL, FORMATION_CELL, T.RADIUS.sm)
-        .fill({ color: sym.color, alpha: 0.18 * alpha })
-        .stroke({ width: 2, color: unit.alive ? teamColor : T.FG.dim, alpha });
-      ref.label.text = unit.alive
-        ? `${sym.name}\n${unit.hp}/${unit.maxHp}`
-        : `${sym.name}\nDEAD`;
-      ref.label.alpha = alpha;
+        .fill({ color: T.SEA.deep, alpha: 0.45 })
+        .stroke({ width: 2, color: unit.alive ? teamColor : T.FG.dim, alpha: unit.alive ? 1 : 0.4 });
+      if (ref.portrait) ref.portrait.setAlive(unit.alive);
+      ref.label.text = unit.alive ? `${unit.hp}` : 'DEAD';
+      ref.label.style.fill = unit.alive ? T.FG.cream : T.FG.dim;
+      ref.label.alpha = unit.alive ? 1 : 0.6;
     }
   }
 
