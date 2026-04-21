@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Text } from 'pixi.js';
+import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import type { Screen } from './ScreenManager';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import * as T from '@/config/DesignTokens';
@@ -10,6 +10,8 @@ import {
 import { buildUnionPool } from '@/systems/SymbolPool';
 import { calculateScales } from '@/systems/ScaleCalculator';
 import { SpiritPortrait } from '@/components/SpiritPortrait';
+import { UiButton } from '@/components/UiButton';
+import { addCornerOrnaments } from '@/components/Decorations';
 
 // ─── Layout (proportional to canvas) ───────────────────────────────────────
 const TILE_W  = 160;
@@ -71,9 +73,7 @@ export class DraftScreen implements Screen {
   private statusText!: Text;
   private distAText!: Text;
   private distBText!: Text;
-  private goButton!: Container;
-  private goBtnBg!: Graphics;
-  private goBtnLbl!: Text;
+  private goButton!: UiButton;
   private pulseElapsed = 0;
   private app: Application | null = null;
   private pulseTickFn: ((ticker: { deltaMS: number }) => void) | null = null;
@@ -84,6 +84,7 @@ export class DraftScreen implements Screen {
     this.app = app;
     stage.addChild(this.container);
     this.drawBackground();
+    addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 200, 0.4);
     this.drawTitle();
     this.drawDistribution();
     this.buildTiles();
@@ -173,7 +174,17 @@ export class DraftScreen implements Screen {
       tile.x = tx; tile.y = ty;
       this.container.addChild(tile);
 
-      // Border / fill (drawn dynamically in refresh)
+      // Decorative frame (static art) — loaded PNG behind everything
+      const frameTex = Assets.get<Texture>('draft-tile-frame');
+      if (frameTex) {
+        const frame = new Sprite(frameTex);
+        frame.anchor.set(0, 0);
+        frame.width = TILE_W;
+        frame.height = TILE_H;
+        tile.addChild(frame);
+      }
+
+      // Selection state outline (drawn dynamically in refresh)
       const border = new Graphics();
       tile.addChild(border);
 
@@ -293,93 +304,33 @@ export class DraftScreen implements Screen {
   }
 
   private buildToolbar(): void {
-    const labels = ['CLEAR', 'MIRROR A→B', 'RANDOM 5+5'];
-    const handlers = [() => this.clearAll(), () => this.mirror(), () => this.randomize()];
-    const BTN_W2 = 150;
-    const BTN_H2 = 32;
-    const GAP    = T.SPACING.s3;
+    const labels  = ['CLEAR', 'MIRROR A→B', 'RANDOM 5+5'];
+    const handlers: (() => void)[] = [
+      () => this.clearAll(),
+      () => this.mirror(),
+      () => this.randomize(),
+    ];
+    const BTN_W2 = 170;
+    const BTN_H2 = 44;
+    const GAP    = T.SPACING.s4;
     const totalW = labels.length * BTN_W2 + (labels.length - 1) * GAP;
     const startX = Math.round((CANVAS_WIDTH - totalW) / 2);
     const y      = GRID_Y + GRID_H + Math.round(T.SPACING.s10 * 1.4);
 
     labels.forEach((label, i) => {
-      const btn = new Container();
-      btn.x = startX + i * (BTN_W2 + GAP);
-      btn.y = y;
+      const btn = new UiButton(label, BTN_W2, BTN_H2, handlers[i], { fontSize: T.FONT_SIZE.sm });
+      btn.x = startX + BTN_W2 / 2 + i * (BTN_W2 + GAP);
+      btn.y = y + BTN_H2 / 2;
       this.container.addChild(btn);
-
-      const bg = new Graphics()
-        .roundRect(0, 0, BTN_W2, BTN_H2, T.RADIUS.md)
-        .fill({ color: T.SURF.panel.color, alpha: T.SURF.panel.alpha })
-        .stroke({ width: 1.5, color: T.GOLD.deep, alpha: 0.7 });
-      btn.addChild(bg);
-
-      const lbl = new Text({
-        text: label,
-        style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.sm, fill: T.GOLD.pale, letterSpacing: 1 },
-      });
-      lbl.anchor.set(0.5, 0.5);
-      lbl.x = BTN_W2 / 2; lbl.y = BTN_H2 / 2;
-      btn.addChild(lbl);
-
-      btn.eventMode = 'static';
-      btn.cursor = 'pointer';
-      btn.on('pointertap', handlers[i]);
-      btn.on('pointerover', () => {
-        bg.clear()
-          .roundRect(0, 0, BTN_W2, BTN_H2, T.RADIUS.md)
-          .fill({ color: T.GOLD.deep, alpha: 0.25 })
-          .stroke({ width: 2, color: T.GOLD.base, alpha: 1 });
-        lbl.style.fill = T.GOLD.light;
-      });
-      btn.on('pointerout', () => {
-        bg.clear()
-          .roundRect(0, 0, BTN_W2, BTN_H2, T.RADIUS.md)
-          .fill({ color: T.SURF.panel.color, alpha: T.SURF.panel.alpha })
-          .stroke({ width: 1.5, color: T.GOLD.deep, alpha: 0.7 });
-        lbl.style.fill = T.GOLD.pale;
-      });
     });
   }
 
   private buildGoButton(): void {
-    this.goButton = new Container();
+    this.goButton = new UiButton('SELECT 5 EACH', 320, 60, () => this.launch(),
+      { fontSize: T.FONT_SIZE.xl });
     this.goButton.x = CANVAS_WIDTH / 2;
     this.goButton.y = GRID_Y + GRID_H + Math.round(T.SPACING.s12 * 1.9);
     this.container.addChild(this.goButton);
-
-    this.goBtnBg = new Graphics();
-    this.goButton.addChild(this.goBtnBg);
-
-    this.goBtnLbl = new Text({
-      text: '',
-      style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.xl, fill: T.FG.white, letterSpacing: 3 },
-    });
-    this.goBtnLbl.anchor.set(0.5, 0.5);
-    this.goButton.addChild(this.goBtnLbl);
-
-    this.goButton.eventMode = 'static';
-    this.goButton.cursor = 'pointer';
-    this.goButton.on('pointertap', () => this.launch());
-    this.goButton.on('pointerover', () => this.drawGoBg('hover'));
-    this.goButton.on('pointerout',  () => this.drawGoBg('normal'));
-    this.goButton.on('pointerdown', () => this.drawGoBg('pressed'));
-    this.goButton.on('pointerup',   () => this.drawGoBg('hover'));
-  }
-
-  private drawGoBg(state: 'normal' | 'hover' | 'pressed'): void {
-    const ready = this.canGo();
-    let fill: number;
-    let border: number;
-    if (!ready) { fill = T.COLORS.btnDisabled; border = T.SEA.rim; }
-    else if (state === 'pressed') { fill = T.CTA.greenDeep;  border = T.GOLD.deep; }
-    else if (state === 'hover')   { fill = T.CTA.greenLight; border = T.GOLD.base; }
-    else                          { fill = T.CTA.green;      border = T.GOLD.deep; }
-
-    this.goBtnBg.clear()
-      .roundRect(-140, -25, 280, 50, T.RADIUS.md)
-      .fill(fill)
-      .stroke({ width: 2, color: border, alpha: 1 });
   }
 
   // ─── Selection logic ─────────────────────────────────────────────────────
@@ -433,8 +384,9 @@ export class DraftScreen implements Screen {
     this.distAText.text = `A  team weight  ${this.teamWeightPct('A')}%`;
     this.distBText.text = `B  team weight  ${this.teamWeightPct('B')}%`;
 
-    this.goBtnLbl.text = this.canGo() ? 'START BATTLE' : 'SELECT 5 EACH';
-    this.drawGoBg('normal');
+    const canGo = this.canGo();
+    this.goButton.setText(canGo ? 'START BATTLE' : 'SELECT 5 EACH');
+    this.goButton.setEnabled(canGo);
   }
 
   private redrawTile(i: number): void {
@@ -443,19 +395,19 @@ export class DraftScreen implements Screen {
     const pickedB = this.selectedB.has(i);
     const bothFull = !pickedA && !pickedB && this.selectedA.size === MAX_PICKS && this.selectedB.size === MAX_PICKS;
 
-    // Border + fill
-    let borderColor: number;
-    let borderWidth: number;
-    if (pickedA && pickedB) { borderColor = T.GOLD.base;       borderWidth = 3.5; }
-    else if (pickedA)        { borderColor = T.TEAM.azure;      borderWidth = 3; }
-    else if (pickedB)        { borderColor = T.TEAM.vermilion;  borderWidth = 3; }
-    else                     { borderColor = T.SEA.rim;         borderWidth = 1.5; }
-
-    const fillAlpha = bothFull ? 0.55 : 1.0;
-    t.border.clear()
-      .roundRect(0, 0, TILE_W, TILE_H, T.RADIUS.md)
-      .fill({ color: T.SURF.panelSolid.color, alpha: fillAlpha })
-      .stroke({ width: borderWidth, color: borderColor, alpha: pickedA || pickedB ? 1 : 0.75 });
+    // Selection-state outline — sits ON TOP of the frame PNG
+    t.border.clear();
+    if (pickedA && pickedB) {
+      t.border.roundRect(-2, -2, TILE_W + 4, TILE_H + 4, T.RADIUS.md)
+        .stroke({ width: 4, color: T.GOLD.base, alpha: 1 });
+    } else if (pickedA) {
+      t.border.roundRect(-2, -2, TILE_W + 4, TILE_H + 4, T.RADIUS.md)
+        .stroke({ width: 3, color: T.TEAM.azure, alpha: 1 });
+    } else if (pickedB) {
+      t.border.roundRect(-2, -2, TILE_W + 4, TILE_H + 4, T.RADIUS.md)
+        .stroke({ width: 3, color: T.TEAM.vermilion, alpha: 1 });
+    }
+    void bothFull;
 
     // Badges
     t.badgeA.visible = pickedA;
