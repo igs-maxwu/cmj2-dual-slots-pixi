@@ -1,0 +1,238 @@
+import { Container, Graphics, Text } from 'pixi.js';
+import * as T from '@/config/DesignTokens';
+import { SYMBOLS } from '@/config/SymbolsConfig';
+import { tween, delay, Easings } from '@/systems/tween';
+
+const COLS = 5;
+const ROWS = 4;
+const CELL_W = 96;
+const CELL_H = 50;
+const CELL_GAP = 6;
+const FRAME_PAD = 14;
+
+export const REEL_W = COLS * CELL_W + (COLS - 1) * CELL_GAP + FRAME_PAD * 2;
+export const REEL_H = ROWS * CELL_H + (ROWS - 1) * CELL_GAP + FRAME_PAD * 2;
+
+interface Cell {
+  container: Container;
+  swatch: Graphics;
+  label: Text;
+  overlay: Graphics;
+  currentSymbol: number;
+}
+
+export interface HitLineLite { lineIndex: number; matchCount: number; symbolId: number; }
+
+/**
+ * 5×4 slot reel visual.
+ *
+ * Animation flow per spin:
+ *   spin(finalGrid)
+ *     → for each column: rapid symbol-swap during spin window, then
+ *       lock to final symbol + bounce + flash
+ *   highlightLines(hitA, hitB, paylines)
+ *     → per hit line, pulse matching cells in the team color
+ *   burstJackpot(col, row)
+ *     → one-shot gold particle burst (call on 5-match lines)
+ */
+export class SlotReel extends Container {
+  private cells: Cell[][] = [];
+
+  constructor() {
+    super();
+    this.buildFrame();
+    this.buildCells();
+  }
+
+  // ─── Build ──────────────────────────────────────────────────────────────
+  private buildFrame(): void {
+    const bg = new Graphics()
+      .roundRect(0, 0, REEL_W, REEL_H, T.RADIUS.md)
+      .fill({ color: T.SURF.darkInlay.color, alpha: 0.92 })
+      .stroke({ width: 2, color: T.GOLD.deep, alpha: 0.85 });
+    this.addChild(bg);
+  }
+
+  private buildCells(): void {
+    for (let c = 0; c < COLS; c++) {
+      const colCells: Cell[] = [];
+      for (let r = 0; r < ROWS; r++) {
+        const x = FRAME_PAD + c * (CELL_W + CELL_GAP);
+        const y = FRAME_PAD + r * (CELL_H + CELL_GAP);
+
+        const container = new Container();
+        container.x = x + CELL_W / 2;
+        container.y = y + CELL_H / 2;
+        // Pivot so scaling grows from center
+        container.pivot.set(0, 0);
+        this.addChild(container);
+
+        const cellBg = new Graphics()
+          .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
+          .fill({ color: T.SEA.deep, alpha: 0.55 })
+          .stroke({ width: 1, color: T.SEA.rim, alpha: 0.7 });
+        container.addChild(cellBg);
+
+        const swatch = new Graphics();
+        container.addChild(swatch);
+
+        const label = new Text({
+          text: '',
+          style: {
+            fontFamily: T.FONT.title, fontWeight: '700',
+            fontSize: T.FONT_SIZE.sm, fill: T.FG.cream,
+          },
+        });
+        label.anchor.set(0.5, 0.5);
+        label.y = 10;
+        container.addChild(label);
+
+        const overlay = new Graphics()
+          .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
+          .fill(0xffffff);
+        overlay.alpha = 0;
+        container.addChild(overlay);
+
+        colCells.push({ container, swatch, label, overlay, currentSymbol: -1 });
+        this.setCellSymbol(colCells[r], r % SYMBOLS.length);
+      }
+      this.cells.push(colCells);
+    }
+  }
+
+  private setCellSymbol(cell: Cell, symId: number): void {
+    if (cell.currentSymbol === symId) return;
+    cell.currentSymbol = symId;
+    const sym = SYMBOLS[symId];
+    cell.swatch.clear()
+      .circle(0, -8, 10)
+      .fill({ color: sym.color, alpha: 0.95 });
+    cell.label.text = sym.name;
+  }
+
+  // ─── Spin ────────────────────────────────────────────────────────────────
+  async spin(finalGrid: number[][]): Promise<void> {
+    const colPromises: Promise<void>[] = [];
+    for (let c = 0; c < COLS; c++) {
+      colPromises.push(this.spinColumn(c, finalGrid, 350 + c * 110));
+    }
+    await Promise.all(colPromises);
+  }
+
+  private async spinColumn(col: number, finalGrid: number[][], spinMs: number): Promise<void> {
+    const colCells = this.cells[col];
+
+    // Start — slight drop-in to indicate spin-up
+    await tween(90, p => {
+      for (const cell of colCells) {
+        cell.container.alpha = 1 - p * 0.35;
+      }
+    });
+
+    // Rapid symbol swap while spinning
+    const stopAt = performance.now() + spinMs;
+    while (performance.now() < stopAt) {
+      for (const cell of colCells) {
+        this.setCellSymbol(cell, Math.floor(Math.random() * SYMBOLS.length));
+      }
+      await delay(65);
+    }
+
+    // Lock to final
+    for (let r = 0; r < ROWS; r++) {
+      this.setCellSymbol(colCells[r], finalGrid[r][col]);
+    }
+    for (const cell of colCells) cell.container.alpha = 1;
+
+    // Bounce (scale in, overshoot, settle)
+    await tween(220, p => {
+      const s = p < 0.4 ? 1 + (p / 0.4) * 0.12 : 1.12 - ((p - 0.4) / 0.6) * 0.12;
+      for (const cell of colCells) cell.container.scale.set(s);
+    }, Easings.easeOut);
+    for (const cell of colCells) cell.container.scale.set(1);
+
+    // Flash overlay
+    await tween(160, p => {
+      const a = Easings.pulse(p) * 0.28;
+      for (const cell of colCells) cell.overlay.alpha = a;
+    });
+    for (const cell of colCells) cell.overlay.alpha = 0;
+  }
+
+  // ─── Win-line highlights ─────────────────────────────────────────────────
+  async highlightLines(
+    hitA: HitLineLite[],
+    hitB: HitLineLite[],
+    paylines: readonly number[][],
+  ): Promise<void> {
+    const pulses: Promise<void>[] = [];
+    for (const hl of hitA) pulses.push(this.pulseLine(paylines[hl.lineIndex], hl.matchCount, 'A'));
+    for (const hl of hitB) pulses.push(this.pulseLine(paylines[hl.lineIndex], hl.matchCount, 'B'));
+    await Promise.all(pulses);
+  }
+
+  private async pulseLine(line: number[], matchCount: number, side: 'A' | 'B'): Promise<void> {
+    const cols: number[] = side === 'A'
+      ? Array.from({ length: matchCount }, (_, i) => i)
+      : Array.from({ length: matchCount }, (_, i) => COLS - 1 - i);
+
+    const tint = side === 'A' ? T.TEAM.azureGlow : T.TEAM.vermilionGlow;
+    const targets: Cell[] = cols.map(c => this.cells[c][line[c]]);
+
+    for (const cell of targets) {
+      cell.overlay.clear()
+        .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
+        .fill(tint);
+    }
+
+    await tween(330, p => {
+      const a = Easings.pulse(p) * 0.7;
+      for (const cell of targets) cell.overlay.alpha = a;
+    });
+
+    for (const cell of targets) {
+      cell.overlay.alpha = 0;
+      cell.overlay.clear()
+        .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
+        .fill(0xffffff);
+    }
+  }
+
+  // ─── Jackpot particles ───────────────────────────────────────────────────
+  async burstJackpot(col: number, row: number): Promise<void> {
+    const target = this.cells[col][row];
+    const cx = target.container.x;
+    const cy = target.container.y;
+
+    interface Particle { g: Graphics; vx: number; vy: number; }
+    const parts: Particle[] = [];
+    for (let i = 0; i < 16; i++) {
+      const angle = (i / 16) * Math.PI * 2 + Math.random() * 0.4;
+      const speed = 2.5 + Math.random() * 2.5;
+      const g = new Graphics()
+        .circle(0, 0, 3 + Math.random() * 3)
+        .fill({ color: T.GOLD.light, alpha: 0.95 });
+      g.x = cx; g.y = cy;
+      this.addChild(g);
+      parts.push({ g, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed });
+    }
+
+    await tween(620, p => {
+      for (const pt of parts) {
+        pt.g.x += pt.vx;
+        pt.g.y += pt.vy;
+        pt.vy += 0.14;
+        pt.g.alpha = 1 - p;
+        pt.g.scale.set(1 - p * 0.7);
+      }
+    });
+    for (const pt of parts) pt.g.destroy();
+  }
+
+  // ─── Position helpers ────────────────────────────────────────────────────
+  /** Returns reel-local coordinates of a cell's center */
+  cellLocal(col: number, row: number): { x: number; y: number } {
+    const cell = this.cells[col][row];
+    return { x: cell.container.x, y: cell.container.y };
+  }
+}
