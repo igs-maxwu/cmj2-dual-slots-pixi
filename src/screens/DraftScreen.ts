@@ -84,7 +84,7 @@ export class DraftScreen implements Screen {
     this.app = app;
     stage.addChild(this.container);
     this.drawBackground();
-    addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 200, 0.4);
+    addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 130, 0.55);
     this.drawTitle();
     this.drawDistribution();
     this.buildTiles();
@@ -329,7 +329,8 @@ export class DraftScreen implements Screen {
     this.goButton = new UiButton('SELECT 5 EACH', 320, 60, () => this.launch(),
       { fontSize: T.FONT_SIZE.xl });
     this.goButton.x = CANVAS_WIDTH / 2;
-    this.goButton.y = GRID_Y + GRID_H + Math.round(T.SPACING.s12 * 1.9);
+    // Pushed further below the toolbar so the pulse doesn't collide with it
+    this.goButton.y = GRID_Y + GRID_H + Math.round(T.SPACING.s12 * 2.8);
     this.container.addChild(this.goButton);
   }
 

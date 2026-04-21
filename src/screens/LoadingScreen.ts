@@ -110,7 +110,7 @@ export class LoadingScreen implements Screen {
    *  divider and add decorative corners. */
   private upgradeToDecoratedLoadingScreen(): void {
     // Corner ornaments
-    addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 240, 0.5);
+    addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 150, 0.6);
 
     // Logo mark — replace the plain title if texture is available
     const logoTex = Assets.get<Texture>('logo-mark');

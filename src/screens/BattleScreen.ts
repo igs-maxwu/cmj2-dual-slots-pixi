@@ -78,7 +78,7 @@ export class BattleScreen implements Screen {
     this.displayedHpB = teamHpTotal(this.formationB);
 
     this.drawBackground();
-    addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 200, 0.4);
+    addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 130, 0.55);
     this.drawHeader();
     this.drawHpBars();
     this.drawFormation('A');
