@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Text } from 'pixi.js';
+import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import type { Screen } from './ScreenManager';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import * as T from '@/config/DesignTokens';
@@ -12,6 +12,8 @@ import { distributeDamage, type DmgEvent } from '@/systems/DamageDistributor';
 import { tween, tweenValue, delay, Easings } from '@/systems/tween';
 import { SlotReel, REEL_W, REEL_H } from './SlotReel';
 import { SpiritPortrait } from '@/components/SpiritPortrait';
+import { UiButton } from '@/components/UiButton';
+import { addCornerOrnaments } from '@/components/Decorations';
 import type { DraftResult } from './DraftScreen';
 
 // ─── Layout constants (proportional to canvas) ──────────────────────────────
@@ -76,16 +78,33 @@ export class BattleScreen implements Screen {
     this.displayedHpB = teamHpTotal(this.formationB);
 
     this.drawBackground();
+    addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 200, 0.4);
     this.drawHeader();
     this.drawHpBars();
     this.drawFormation('A');
     this.drawFormation('B');
     this.drawSlot();
+    this.drawVsBadge();
     this.drawLog();
     this.drawBackButton();
     this.container.addChild(this.fxLayer);  // fx on top
     this.refresh();
     void this.loop();
+  }
+
+  private drawVsBadge(): void {
+    const tex = Assets.get<Texture>('vs-badge');
+    if (!tex) return;
+    const size = 96;
+    const badge = new Sprite(tex);
+    badge.anchor.set(0.5, 0.5);
+    badge.width = size;
+    badge.height = size;
+    // Sits between the two HP bars in the header strip, connecting
+    // Player A ↔ Player B visually.
+    badge.x = CANVAS_WIDTH / 2;
+    badge.y = HP_Y + HP_BAR_H / 2;
+    this.container.addChild(badge);
   }
 
   onUnmount(): void {
@@ -136,13 +155,9 @@ export class BattleScreen implements Screen {
     this.makeHpLabel(ax + HP_BAR_W / 2, HP_Y - 20, 'PLAYER A', T.TEAM.azure);
     this.makeHpLabel(bx + HP_BAR_W / 2, HP_Y - 20, 'PLAYER B', T.TEAM.vermilion);
 
-    this.makeHpTrack(ax, HP_Y, HP_BAR_W, HP_BAR_H);
-    this.makeHpTrack(bx, HP_Y, HP_BAR_W, HP_BAR_H);
-
-    this.hpBarA = new Graphics(); this.hpBarA.x = ax; this.hpBarA.y = HP_Y;
-    this.container.addChild(this.hpBarA);
-    this.hpBarB = new Graphics(); this.hpBarB.x = bx; this.hpBarB.y = HP_Y;
-    this.container.addChild(this.hpBarB);
+    // Stack order per side: dark track → colored fill → ornate frame → text.
+    this.hpBarA = this.buildHpStack(ax, HP_Y, HP_BAR_W, HP_BAR_H);
+    this.hpBarB = this.buildHpStack(bx, HP_Y, HP_BAR_W, HP_BAR_H);
 
     this.hpTextA = new Text({
       text: '', style: {
@@ -174,12 +189,34 @@ export class BattleScreen implements Screen {
     this.container.addChild(label);
   }
 
-  private makeHpTrack(x: number, y: number, w: number, h: number): void {
+  private buildHpStack(x: number, y: number, w: number, h: number): Graphics {
+    // 1. Dark track (empty fill)
     const track = new Graphics()
       .roundRect(x, y, w, h, h / 2)
-      .fill(T.HP.track)
-      .stroke({ width: 1, color: T.SEA.rim, alpha: 0.8 });
+      .fill(T.HP.track);
     this.container.addChild(track);
+
+    // 2. Colored fill — returned so caller can redraw
+    const fill = new Graphics();
+    fill.x = x; fill.y = y;
+    this.container.addChild(fill);
+
+    // 3. Ornate frame overlay (dragon-head caps hide bar ends)
+    const tex = Assets.get<Texture>('hp-frame');
+    if (tex) {
+      const bleedY = 12;
+      const frame = new Sprite(tex);
+      frame.anchor.set(0, 0.5);
+      frame.x = x - 6;
+      frame.y = y + h / 2;
+      frame.width  = w + 12;
+      frame.height = h + bleedY * 2;
+      this.container.addChild(frame);
+    } else {
+      track.stroke({ width: 1, color: T.SEA.rim, alpha: 0.8 });
+    }
+
+    return fill;
   }
 
   private drawFormation(side: 'A' | 'B'): void {
@@ -231,6 +268,19 @@ export class BattleScreen implements Screen {
   }
 
   private drawLog(): void {
+    // Decorative divider above log
+    const divTex = Assets.get<Texture>('divider');
+    if (divTex) {
+      const div = new Sprite(divTex);
+      div.anchor.set(0.5, 0.5);
+      const w = CANVAS_WIDTH * 0.5;
+      div.scale.set(w / divTex.width);
+      div.x = CANVAS_WIDTH / 2;
+      div.y = LOG_Y - 10;
+      div.alpha = 0.75;
+      this.container.addChild(div);
+    }
+
     this.logText = new Text({
       text: '',
       style: {
@@ -239,46 +289,16 @@ export class BattleScreen implements Screen {
       },
     });
     this.logText.x = FORMATION_A_X;
-    this.logText.y = LOG_Y;
+    this.logText.y = LOG_Y + 10;
     this.container.addChild(this.logText);
   }
 
   private drawBackButton(): void {
-    const btn = new Container();
+    const btn = new UiButton('BACK TO DRAFT', 260, 46, () => this.onExit(),
+      { fontSize: T.FONT_SIZE.md });
     btn.x = CANVAS_WIDTH / 2;
     btn.y = BACK_BTN_Y;
     this.container.addChild(btn);
-
-    const bg = new Graphics()
-      .roundRect(-110, -20, 220, 40, T.RADIUS.md)
-      .fill({ color: T.SURF.panel.color, alpha: T.SURF.panel.alpha })
-      .stroke({ width: 1.5, color: T.GOLD.deep, alpha: 0.7 });
-    btn.addChild(bg);
-
-    const label = new Text({
-      text: 'BACK TO DRAFT',
-      style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.sm, fill: T.GOLD.pale, letterSpacing: 2 },
-    });
-    label.anchor.set(0.5, 0.5);
-    btn.addChild(label);
-
-    btn.eventMode = 'static';
-    btn.cursor = 'pointer';
-    btn.on('pointertap', () => this.onExit());
-    btn.on('pointerover', () => {
-      bg.clear()
-        .roundRect(-110, -20, 220, 40, T.RADIUS.md)
-        .fill({ color: T.GOLD.deep, alpha: 0.22 })
-        .stroke({ width: 2, color: T.GOLD.base, alpha: 1 });
-      label.style.fill = T.GOLD.light;
-    });
-    btn.on('pointerout', () => {
-      bg.clear()
-        .roundRect(-110, -20, 220, 40, T.RADIUS.md)
-        .fill({ color: T.SURF.panel.color, alpha: T.SURF.panel.alpha })
-        .stroke({ width: 1.5, color: T.GOLD.deep, alpha: 0.7 });
-      label.style.fill = T.GOLD.pale;
-    });
   }
 
   // ─── Frame refresh (non-animated parts) ──────────────────────────────────
@@ -416,15 +436,41 @@ export class BattleScreen implements Screen {
       if (hl.matchCount >= 5) {
         const line = paylines[hl.lineIndex];
         bursts.push(this.reel.burstJackpot(0, line[0]));
+        bursts.push(this.spawnWinBurst());
       }
     }
     for (const hl of hitB) {
       if (hl.matchCount >= 5) {
         const line = paylines[hl.lineIndex];
         bursts.push(this.reel.burstJackpot(4, line[4]));
+        bursts.push(this.spawnWinBurst());
       }
     }
     await Promise.all(bursts);
+  }
+
+  private async spawnWinBurst(): Promise<void> {
+    const tex = Assets.get<Texture>('win-burst');
+    if (!tex) return;
+    const burst = new Sprite(tex);
+    burst.anchor.set(0.5, 0.5);
+    const size = Math.max(REEL_W, REEL_H) * 1.2;
+    burst.width = size;
+    burst.height = size;
+    burst.x = SLOT_X + REEL_W / 2;
+    burst.y = SLOT_Y + REEL_H / 2;
+    burst.blendMode = 'add';
+    burst.alpha = 0;
+    this.fxLayer.addChild(burst);
+
+    await tween(700, p => {
+      // Flash up to full then fade + expand
+      if (p < 0.2) burst.alpha = p / 0.2 * 0.85;
+      else          burst.alpha = 0.85 * (1 - (p - 0.2) / 0.8);
+      burst.scale.set(size / tex.width * (1 + p * 0.3));
+      burst.rotation = p * 0.35;
+    });
+    burst.destroy();
   }
 
   // ─── Damage number popups ────────────────────────────────────────────────

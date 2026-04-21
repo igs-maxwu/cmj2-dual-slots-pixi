@@ -1,4 +1,4 @@
-import { Container, Graphics, Text } from 'pixi.js';
+import { Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import * as T from '@/config/DesignTokens';
 import { SYMBOLS } from '@/config/SymbolsConfig';
 import { tween, delay, Easings } from '@/systems/tween';
@@ -47,11 +47,32 @@ export class SlotReel extends Container {
 
   // ─── Build ──────────────────────────────────────────────────────────────
   private buildFrame(): void {
+    // Dark interior — cells show through between the frame ornaments
     const bg = new Graphics()
-      .roundRect(0, 0, REEL_W, REEL_H, T.RADIUS.md)
-      .fill({ color: T.SURF.darkInlay.color, alpha: 0.92 })
-      .stroke({ width: 2, color: T.GOLD.deep, alpha: 0.85 });
+      .roundRect(4, 4, REEL_W - 8, REEL_H - 8, T.RADIUS.md)
+      .fill({ color: T.SURF.darkInlay.color, alpha: 0.9 });
     this.addChild(bg);
+
+    // Ornate frame PNG overlaid on top
+    const frameTex = Assets.get<Texture>('slot-frame');
+    if (frameTex) {
+      // Draw frame slightly larger than reel area so its ornate border sits
+      // around the edges with a small outward bleed.
+      const bleed = 14;
+      const frame = new Sprite(frameTex);
+      frame.anchor.set(0, 0);
+      frame.x = -bleed;
+      frame.y = -bleed;
+      frame.width  = REEL_W + bleed * 2;
+      frame.height = REEL_H + bleed * 2;
+      this.addChild(frame);
+    } else {
+      // Fallback — keep programmatic border
+      const border = new Graphics()
+        .roundRect(0, 0, REEL_W, REEL_H, T.RADIUS.md)
+        .stroke({ width: 2, color: T.GOLD.deep, alpha: 0.85 });
+      this.addChild(border);
+    }
   }
 
   private buildCells(): void {
