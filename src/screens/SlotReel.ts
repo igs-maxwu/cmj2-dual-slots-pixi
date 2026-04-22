@@ -134,28 +134,32 @@ export class SlotReel extends Container {
 
   // ─── Spin ────────────────────────────────────────────────────────────────
   /**
-   * Staggered stop order:
-   *   t=0ms   → cols 0 and 4 start (outer reels)
-   *   t=200ms → cols 1 and 3 start
-   *   t=400ms → col 2 starts (slow-mo 0.7× + gold pre-flash anticipation)
+   * Spec-locked stop times (measured from spin() call, settle phase excluded):
+   *
+   *   R1+R5  lock at t = 0.6 s   (start t=0,    fade 90ms + swap 510ms)
+   *   R2+R4  lock at t = 1.1 s   (start t=500ms, fade 90ms + swap 510ms)
+   *   R3     lock at t = 1.6 s   (start t=1000ms, pre-flash 200ms + fade 90ms + swap 310ms)
+   *
+   * Each group is separated by 500 ms.
    */
   async spin(finalGrid: number[][]): Promise<void> {
-    // Outer pair — start immediately
+    // Outer pair — start immediately, lock at t ≈ 600ms
     const p04 = Promise.all([
-      this.spinColumn(0, finalGrid, 580),
-      this.spinColumn(4, finalGrid, 580),
+      this.spinColumn(0, finalGrid, 510),
+      this.spinColumn(4, finalGrid, 510),
     ]);
 
-    // Inner pair — start 200ms later
-    await delay(200);
+    // Inner pair — start 500ms later, lock at t ≈ 1100ms
+    await delay(500);
     const p13 = Promise.all([
-      this.spinColumn(1, finalGrid, 580),
-      this.spinColumn(3, finalGrid, 580),
+      this.spinColumn(1, finalGrid, 510),
+      this.spinColumn(3, finalGrid, 510),
     ]);
 
-    // Center — start 200ms after inner pair with anticipation + slow-mo
-    await delay(200);
-    const p2 = this.spinColumnCenter(2, finalGrid, 680);
+    // Center — start 500ms after inner, lock at t ≈ 1600ms
+    // (spinColumnCenter adds 200ms pre-flash + 90ms fade before swap)
+    await delay(500);
+    const p2 = this.spinColumnCenter(2, finalGrid, 310);
 
     await Promise.all([p04, p13, p2]);
   }
