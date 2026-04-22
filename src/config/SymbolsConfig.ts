@@ -31,13 +31,15 @@ export const SYMBOLS: SymbolDef[] = [
 ];
 
 export const PAYOUT_BASE: Record<number,number> = { 3:5, 4:20, 5:100 };
-export const LINES_COUNT = 100;
+/** @deprecated Paylines replaced by Ways engine in P0.2; kept for grep-safety only. */
+export const LINES_COUNT = 0;
 export const DEFAULT_TEAM_HP    = 10000;
 export const DEFAULT_BET        = 100;
 export const DEFAULT_TARGET_RTP = 97;
 export const DEFAULT_TARGET_DMG = 300;
 export const DEFAULT_FAIRNESS_EXP = 2.0;
-export const COIN_EXP = 1.0;
+/** Coin-rarity exponent — matches COIN_EXPONENT_FIXED=2.0 in reference demo. */
+export const COIN_EXP = 2.0;
 
 export const DEFAULT_SELECTED_A: number[] = [0,1,2,3,4];
 export const DEFAULT_SELECTED_B: number[] = [0,1,2,3,4];
