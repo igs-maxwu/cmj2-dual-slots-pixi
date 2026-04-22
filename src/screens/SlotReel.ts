@@ -133,22 +133,39 @@ export class SlotReel extends Container {
   }
 
   // ─── Spin ────────────────────────────────────────────────────────────────
+  /**
+   * Staggered stop order:
+   *   t=0ms   → cols 0 and 4 start (outer reels)
+   *   t=200ms → cols 1 and 3 start
+   *   t=400ms → col 2 starts (slow-mo 0.7× + gold pre-flash anticipation)
+   */
   async spin(finalGrid: number[][]): Promise<void> {
-    const colPromises: Promise<void>[] = [];
-    for (let c = 0; c < COLS; c++) {
-      colPromises.push(this.spinColumn(c, finalGrid, 350 + c * 110));
-    }
-    await Promise.all(colPromises);
+    // Outer pair — start immediately
+    const p04 = Promise.all([
+      this.spinColumn(0, finalGrid, 580),
+      this.spinColumn(4, finalGrid, 580),
+    ]);
+
+    // Inner pair — start 200ms later
+    await delay(200);
+    const p13 = Promise.all([
+      this.spinColumn(1, finalGrid, 580),
+      this.spinColumn(3, finalGrid, 580),
+    ]);
+
+    // Center — start 200ms after inner pair with anticipation + slow-mo
+    await delay(200);
+    const p2 = this.spinColumnCenter(2, finalGrid, 680);
+
+    await Promise.all([p04, p13, p2]);
   }
 
   private async spinColumn(col: number, finalGrid: number[][], spinMs: number): Promise<void> {
     const colCells = this.cells[col];
 
-    // Start — slight drop-in to indicate spin-up
+    // Spin-up fade
     await tween(90, p => {
-      for (const cell of colCells) {
-        cell.container.alpha = 1 - p * 0.35;
-      }
+      for (const cell of colCells) cell.container.alpha = 1 - p * 0.35;
     });
 
     // Rapid symbol swap while spinning
@@ -161,21 +178,75 @@ export class SlotReel extends Container {
     }
 
     // Lock to final
-    for (let r = 0; r < ROWS; r++) {
-      this.setCellSymbol(colCells[r], finalGrid[r][col]);
-    }
+    for (let r = 0; r < ROWS; r++) this.setCellSymbol(colCells[r], finalGrid[r][col]);
     for (const cell of colCells) cell.container.alpha = 1;
 
-    // Bounce (scale in, overshoot, settle)
+    // Bounce overshoot
     await tween(220, p => {
       const s = p < 0.4 ? 1 + (p / 0.4) * 0.12 : 1.12 - ((p - 0.4) / 0.6) * 0.12;
       for (const cell of colCells) cell.container.scale.set(s);
     }, Easings.easeOut);
     for (const cell of colCells) cell.container.scale.set(1);
 
-    // Flash overlay
+    // Stop-flash
     await tween(160, p => {
       const a = Easings.pulse(p) * 0.28;
+      for (const cell of colCells) cell.overlay.alpha = a;
+    });
+    for (const cell of colCells) cell.overlay.alpha = 0;
+  }
+
+  /**
+   * Center column: gold anticipation flash then slow-mo spin (0.7× speed).
+   */
+  private async spinColumnCenter(col: number, finalGrid: number[][], spinMs: number): Promise<void> {
+    const colCells = this.cells[col];
+
+    // Gold pre-flash anticipation
+    for (const cell of colCells) {
+      cell.overlay.clear()
+        .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
+        .fill(T.GOLD.base);
+    }
+    await tween(200, p => {
+      const a = Easings.pulse(p) * 0.55;
+      for (const cell of colCells) cell.overlay.alpha = a;
+    });
+    for (const cell of colCells) {
+      cell.overlay.alpha = 0;
+      cell.overlay.clear()
+        .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
+        .fill(0xffffff);
+    }
+
+    // Spin-up fade
+    await tween(90, p => {
+      for (const cell of colCells) cell.container.alpha = 1 - p * 0.35;
+    });
+
+    // Slow-mo symbol swap: 65ms → 93ms per frame (0.7× speed)
+    const stopAt = performance.now() + spinMs;
+    while (performance.now() < stopAt) {
+      for (const cell of colCells) {
+        this.setCellSymbol(cell, Math.floor(Math.random() * SYMBOLS.length));
+      }
+      await delay(93);
+    }
+
+    // Lock to final
+    for (let r = 0; r < ROWS; r++) this.setCellSymbol(colCells[r], finalGrid[r][col]);
+    for (const cell of colCells) cell.container.alpha = 1;
+
+    // Heavier bounce for center column (longer travel = more drama)
+    await tween(280, p => {
+      const s = p < 0.4 ? 1 + (p / 0.4) * 0.18 : 1.18 - ((p - 0.4) / 0.6) * 0.18;
+      for (const cell of colCells) cell.container.scale.set(s);
+    }, Easings.easeOut);
+    for (const cell of colCells) cell.container.scale.set(1);
+
+    // Brighter stop-flash for center
+    await tween(200, p => {
+      const a = Easings.pulse(p) * 0.42;
       for (const cell of colCells) cell.overlay.alpha = a;
     });
     for (const cell of colCells) cell.overlay.alpha = 0;
