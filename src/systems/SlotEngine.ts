@@ -1,27 +1,35 @@
 /**
- * Dual-direction slot engine matching Dual Slot 3.html reference demo.
- * A evaluates paylines left->right (anchor col 0).
- * B evaluates paylines right->left (anchor col 4).
+ * Dual-direction Ways-to-Win slot engine.
+ * A evaluates ways left→right (anchor col 0).
+ * B evaluates ways right→left (anchor col 4).
+ *
+ * Ways scoring: for each selected symbol, count consecutive columns from
+ * the anchor in which that symbol appears ≥1 time.  The win multiplier is
+ * the product of per-column symbol counts (numWays).  Max ways = ROWS^COLS.
  */
-import { generatePaylines } from './PaylinesGenerator';
 import { spinGrid, totalWeight, type PoolEntry } from './SymbolPool';
-import { SYMBOLS, PAYOUT_BASE, LINES_COUNT, COIN_EXP } from '@/config/SymbolsConfig';
+import { SYMBOLS, PAYOUT_BASE, COIN_EXP } from '@/config/SymbolsConfig';
 
 /** Side identifier — kept as a named export for backward compatibility. */
 export type Side = 'A' | 'B';
 
-export interface HitLine {
-  lineIndex:  number;
-  symbolId:   number;
-  matchCount: number;
-  rawCoin:    number;
-  rawDmg:     number;
+/** One ways-win hit for a single symbol on one side. */
+export interface WayHit {
+  symbolId:    number;
+  matchCount:  number;       // consecutive columns with ≥1 matching symbol (3–5)
+  numWays:     number;       // product of per-column match counts
+  /** hitCells[colOffset] = row indices in that column that matched */
+  hitCells:    number[][];
+  rawCoin:     number;
+  rawDmg:      number;
+  /** true = spirit was not drafted by this side; scores at 30% (mercenary mode) */
+  isMercenary: boolean;
 }
 
 export interface SideResult {
   coinWon:  number;
   dmgDealt: number;
-  hitLines: HitLine[];
+  wayHits:  WayHit[];
 }
 
 export interface SpinResult {
@@ -36,17 +44,13 @@ export interface ScaledMultipliers {
 }
 
 export class SlotEngine {
-  private paylines: number[][];
   private rows: number;
   private cols: number;
 
-  constructor(rows = 4, cols = 5) {
+  constructor(rows = 3, cols = 5) {
     this.rows = rows;
     this.cols = cols;
-    this.paylines = generatePaylines(this.rows, this.cols, LINES_COUNT);
   }
-
-  getPaylines(): Readonly<number[][]> { return this.paylines; }
 
   /**
    * Computes per-symbol scaled multipliers based on pool weights.
@@ -84,16 +88,13 @@ export class SlotEngine {
     const grid = spinGrid(this.rows, this.cols, pool, rng);
     const tw   = totalWeight(pool);
 
-    const sideA = this._evalSide(grid, this.paylines, 'A', selectedA, betA,
-                                  tw, coinScaleA, dmgScaleA, fairnessExp);
-    const sideB = this._evalSide(grid, this.paylines, 'B', selectedB, betB,
-                                  tw, coinScaleB, dmgScaleB, fairnessExp);
+    const sideA = this._evalSide(grid, 'A', selectedA, betA, tw, coinScaleA, dmgScaleA, fairnessExp);
+    const sideB = this._evalSide(grid, 'B', selectedB, betB, tw, coinScaleB, dmgScaleB, fairnessExp);
     return { grid, sideA, sideB };
   }
 
   private _evalSide(
     grid:        number[][],
-    paylines:    number[][],
     side:        'A' | 'B',
     selected:    number[],
     bet:         number,
@@ -102,39 +103,45 @@ export class SlotEngine {
     dmgScale:    number,
     fairnessExp: number,
   ): SideResult {
-    const COLS     = this.cols;
-    const hitLines: HitLine[] = [];
+    const COLS      = this.cols;
+    const ROWS      = this.rows;
+    const dir       = side === 'A' ? 1 : -1;
+    const anchorCol = side === 'A' ? 0 : COLS - 1;
+
+    const wayHits: WayHit[] = [];
     let totalCoin = 0;
     let totalDmg  = 0;
 
-    for (let li = 0; li < paylines.length; li++) {
-      const line = paylines[li];
+    // Spec rev2: scan all symbols; non-drafted score at 30% (mercenary mode).
+    const isDrafted = new Set(selected);
 
-      const anchorCol = side === 'A' ? 0 : COLS - 1;
-      const anchorSym = grid[line[anchorCol]][anchorCol];
-      if (!selected.includes(anchorSym)) continue;
+    for (let symId = 0; symId < SYMBOLS.length; symId++) {
+      let matchCount = 0;
+      let numWays    = 1;
+      const hitCells: number[][] = [];
 
-      let matchCount = 1;
-      if (side === 'A') {
-        for (let c = 1; c < COLS; c++) {
-          if (grid[line[c]][c] === anchorSym) matchCount++;
-          else break;
+      for (let offset = 0; offset < COLS; offset++) {
+        const actualCol = anchorCol + offset * dir;
+        const rowsWithSym: number[] = [];
+        for (let r = 0; r < ROWS; r++) {
+          if (grid[r][actualCol] === symId) rowsWithSym.push(r);
         }
-      } else {
-        for (let c = COLS - 2; c >= 0; c--) {
-          if (grid[line[c]][c] === anchorSym) matchCount++;
-          else break;
-        }
+        if (rowsWithSym.length === 0) break;
+        matchCount++;
+        numWays *= rowsWithSym.length;
+        hitCells.push(rowsWithSym);
       }
 
       if (matchCount < 3) continue;
 
-      const base    = PAYOUT_BASE[matchCount] ?? 0;
-      const mult    = SlotEngine.scaledMult(anchorSym, poolTotalW, coinScale, dmgScale, fairnessExp);
-      const rawCoin = base * mult.coinMult;
-      const rawDmg  = base * mult.dmgMult;
+      const base            = PAYOUT_BASE[matchCount] ?? 0;
+      const mult            = SlotEngine.scaledMult(symId, poolTotalW, coinScale, dmgScale, fairnessExp);
+      const isMercenary     = !isDrafted.has(symId);
+      const mercenaryMult   = isMercenary ? 0.30 : 1.0;
+      const rawCoin         = base * numWays * mult.coinMult * mercenaryMult;
+      const rawDmg          = base * numWays * mult.dmgMult  * mercenaryMult;
 
-      hitLines.push({ lineIndex: li, symbolId: anchorSym, matchCount, rawCoin, rawDmg });
+      wayHits.push({ symbolId: symId, matchCount, numWays, hitCells, rawCoin, rawDmg, isMercenary });
       totalCoin += rawCoin;
       totalDmg  += rawDmg;
     }
@@ -144,7 +151,6 @@ export class SlotEngine {
     if (totalDmg  > 0 && finalDmg  === 0) finalDmg  = 1;
     if (totalCoin > 0 && finalCoin === 0) finalCoin = 1;
 
-    return { coinWon: finalCoin, dmgDealt: finalDmg, hitLines };
+    return { coinWon: finalCoin, dmgDealt: finalDmg, wayHits };
   }
 }
-

@@ -3,13 +3,14 @@ import * as T from '@/config/DesignTokens';
 import { SYMBOLS } from '@/config/SymbolsConfig';
 import { tween, delay, Easings } from '@/systems/tween';
 import { SpiritPortrait } from '@/components/SpiritPortrait';
+import type { WayHit } from '@/systems/SlotEngine';
 
 const COLS = 5;
-const ROWS = 4;
-const CELL_W = 96;
-const CELL_H = 50;
-const CELL_GAP = 6;
-const FRAME_PAD = 14;
+const ROWS = 3;
+const CELL_W = 128;
+const CELL_H = 150;
+const CELL_GAP = 8;
+const FRAME_PAD = 16;
 
 export const REEL_W = COLS * CELL_W + (COLS - 1) * CELL_GAP + FRAME_PAD * 2;
 export const REEL_H = ROWS * CELL_H + (ROWS - 1) * CELL_GAP + FRAME_PAD * 2;
@@ -22,7 +23,8 @@ interface Cell {
   currentSymbol: number;
 }
 
-export interface HitLineLite { lineIndex: number; matchCount: number; symbolId: number; }
+/** Re-exported for callers that previously imported HitLineLite from here. */
+export type { WayHit } from '@/systems/SlotEngine';
 
 /**
  * 5×4 slot reel visual.
@@ -95,7 +97,7 @@ export class SlotReel extends Container {
           .stroke({ width: 1, color: T.SEA.rim, alpha: 0.7 });
         container.addChild(cellBg);
 
-        const portrait = new SpiritPortrait(0, 32);
+        const portrait = new SpiritPortrait(0, 64);
         portrait.y = -6;
         container.addChild(portrait);
 
@@ -107,7 +109,7 @@ export class SlotReel extends Container {
           },
         });
         label.anchor.set(0.5, 0.5);
-        label.y = 18;
+        label.y = 48;
         container.addChild(label);
 
         const overlay = new Graphics()
@@ -131,22 +133,43 @@ export class SlotReel extends Container {
   }
 
   // ─── Spin ────────────────────────────────────────────────────────────────
+  /**
+   * Spec-locked stop times (measured from spin() call, settle phase excluded):
+   *
+   *   R1+R5  lock at t = 0.6 s   (start t=0,    fade 90ms + swap 510ms)
+   *   R2+R4  lock at t = 1.1 s   (start t=500ms, fade 90ms + swap 510ms)
+   *   R3     lock at t = 1.6 s   (start t=1000ms, pre-flash 200ms + fade 90ms + swap 310ms)
+   *
+   * Each group is separated by 500 ms.
+   */
   async spin(finalGrid: number[][]): Promise<void> {
-    const colPromises: Promise<void>[] = [];
-    for (let c = 0; c < COLS; c++) {
-      colPromises.push(this.spinColumn(c, finalGrid, 350 + c * 110));
-    }
-    await Promise.all(colPromises);
+    // Outer pair — start immediately, lock at t ≈ 600ms
+    const p04 = Promise.all([
+      this.spinColumn(0, finalGrid, 510),
+      this.spinColumn(4, finalGrid, 510),
+    ]);
+
+    // Inner pair — start 500ms later, lock at t ≈ 1100ms
+    await delay(500);
+    const p13 = Promise.all([
+      this.spinColumn(1, finalGrid, 510),
+      this.spinColumn(3, finalGrid, 510),
+    ]);
+
+    // Center — start 500ms after inner, lock at t ≈ 1600ms
+    // (spinColumnCenter adds 200ms pre-flash + 90ms fade before swap)
+    await delay(500);
+    const p2 = this.spinColumnCenter(2, finalGrid, 310);
+
+    await Promise.all([p04, p13, p2]);
   }
 
   private async spinColumn(col: number, finalGrid: number[][], spinMs: number): Promise<void> {
     const colCells = this.cells[col];
 
-    // Start — slight drop-in to indicate spin-up
+    // Spin-up fade
     await tween(90, p => {
-      for (const cell of colCells) {
-        cell.container.alpha = 1 - p * 0.35;
-      }
+      for (const cell of colCells) cell.container.alpha = 1 - p * 0.35;
     });
 
     // Rapid symbol swap while spinning
@@ -159,45 +182,106 @@ export class SlotReel extends Container {
     }
 
     // Lock to final
-    for (let r = 0; r < ROWS; r++) {
-      this.setCellSymbol(colCells[r], finalGrid[r][col]);
-    }
+    for (let r = 0; r < ROWS; r++) this.setCellSymbol(colCells[r], finalGrid[r][col]);
     for (const cell of colCells) cell.container.alpha = 1;
 
-    // Bounce (scale in, overshoot, settle)
-    await tween(220, p => {
-      const s = p < 0.4 ? 1 + (p / 0.4) * 0.12 : 1.12 - ((p - 0.4) / 0.6) * 0.12;
-      for (const cell of colCells) cell.container.scale.set(s);
-    }, Easings.easeOut);
+    // Anticipation compress (cells squish down slightly before snap)
+    await tween(70, p => {
+      for (const cell of colCells) cell.container.scale.set(1 - p * 0.10);
+    });
+    // BackOut settle — overshoots 1.0 then snaps back (classic landing feel)
+    await tween(240, p => {
+      for (const cell of colCells) cell.container.scale.set(0.90 + Easings.backOut(p) * 0.10);
+    });
     for (const cell of colCells) cell.container.scale.set(1);
 
-    // Flash overlay
+    // Stop-flash
     await tween(160, p => {
-      const a = Easings.pulse(p) * 0.28;
+      const a = Easings.pulse(p) * 0.30;
       for (const cell of colCells) cell.overlay.alpha = a;
     });
     for (const cell of colCells) cell.overlay.alpha = 0;
   }
 
-  // ─── Win-line highlights ─────────────────────────────────────────────────
-  async highlightLines(
-    hitA: HitLineLite[],
-    hitB: HitLineLite[],
-    paylines: readonly number[][],
-  ): Promise<void> {
+  /**
+   * Center column: gold anticipation flash then slow-mo spin (0.7× speed).
+   */
+  private async spinColumnCenter(col: number, finalGrid: number[][], spinMs: number): Promise<void> {
+    const colCells = this.cells[col];
+
+    // Gold pre-flash anticipation
+    for (const cell of colCells) {
+      cell.overlay.clear()
+        .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
+        .fill(T.GOLD.base);
+    }
+    await tween(200, p => {
+      const a = Easings.pulse(p) * 0.55;
+      for (const cell of colCells) cell.overlay.alpha = a;
+    });
+    for (const cell of colCells) {
+      cell.overlay.alpha = 0;
+      cell.overlay.clear()
+        .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
+        .fill(0xffffff);
+    }
+
+    // Spin-up fade
+    await tween(90, p => {
+      for (const cell of colCells) cell.container.alpha = 1 - p * 0.35;
+    });
+
+    // Slow-mo symbol swap: 65ms → 93ms per frame (0.7× speed)
+    const stopAt = performance.now() + spinMs;
+    while (performance.now() < stopAt) {
+      for (const cell of colCells) {
+        this.setCellSymbol(cell, Math.floor(Math.random() * SYMBOLS.length));
+      }
+      await delay(93);
+    }
+
+    // Lock to final
+    for (let r = 0; r < ROWS; r++) this.setCellSymbol(colCells[r], finalGrid[r][col]);
+    for (const cell of colCells) cell.container.alpha = 1;
+
+    // Anticipation compress — center column squishes more than outer cols
+    await tween(90, p => {
+      for (const cell of colCells) cell.container.scale.set(1 - p * 0.15);
+    });
+    // BackOut settle — stronger overshoot for center drama
+    await tween(300, p => {
+      for (const cell of colCells) cell.container.scale.set(0.85 + Easings.backOut(p) * 0.15);
+    });
+    for (const cell of colCells) cell.container.scale.set(1);
+
+    // Brighter stop-flash for center
+    await tween(200, p => {
+      const a = Easings.pulse(p) * 0.42;
+      for (const cell of colCells) cell.overlay.alpha = a;
+    });
+    for (const cell of colCells) cell.overlay.alpha = 0;
+  }
+
+  // ─── Ways win highlights ─────────────────────────────────────────────────
+  async highlightWays(hitA: WayHit[], hitB: WayHit[]): Promise<void> {
     const pulses: Promise<void>[] = [];
-    for (const hl of hitA) pulses.push(this.pulseLine(paylines[hl.lineIndex], hl.matchCount, 'A'));
-    for (const hl of hitB) pulses.push(this.pulseLine(paylines[hl.lineIndex], hl.matchCount, 'B'));
+    for (const wh of hitA) pulses.push(this.pulseWay(wh, 'A'));
+    for (const wh of hitB) pulses.push(this.pulseWay(wh, 'B'));
     await Promise.all(pulses);
   }
 
-  private async pulseLine(line: number[], matchCount: number, side: 'A' | 'B'): Promise<void> {
-    const cols: number[] = side === 'A'
-      ? Array.from({ length: matchCount }, (_, i) => i)
-      : Array.from({ length: matchCount }, (_, i) => COLS - 1 - i);
+  private async pulseWay(hit: WayHit, side: 'A' | 'B'): Promise<void> {
+    const dir       = side === 'A' ? 1 : -1;
+    const anchorCol = side === 'A' ? 0 : COLS - 1;
+    const tint      = side === 'A' ? T.TEAM.azureGlow : T.TEAM.vermilionGlow;
 
-    const tint = side === 'A' ? T.TEAM.azureGlow : T.TEAM.vermilionGlow;
-    const targets: Cell[] = cols.map(c => this.cells[c][line[c]]);
+    const targets: Cell[] = [];
+    for (let offset = 0; offset < hit.hitCells.length; offset++) {
+      const actualCol = anchorCol + offset * dir;
+      for (const row of hit.hitCells[offset]) {
+        targets.push(this.cells[actualCol][row]);
+      }
+    }
 
     for (const cell of targets) {
       cell.overlay.clear()

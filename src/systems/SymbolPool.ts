@@ -3,9 +3,20 @@ import type { SymbolDef } from '@/config/SymbolsConfig';
 export interface PoolEntry { id: number; weight: number; }
 
 /**
+ * Builds a pool containing ALL symbols, regardless of selection.
+ * Non-selected symbols fill the grid but are never iterated by the
+ * Ways evaluator, so they reduce win frequency without affecting
+ * the scoring logic.  poolTotalW must be computed from this pool
+ * whenever it is passed to SlotEngine or ScaleCalculator so that
+ * probability math is consistent.
+ */
+export function buildFullPool(allSymbols: SymbolDef[]): PoolEntry[] {
+  return allSymbols.map((sym, id) => ({ id, weight: sym.weight }));
+}
+
+/**
  * Builds the active symbol pool as the UNION of A and B selections.
- * Each symbol appears once; weight is its base weight (not accumulated).
- * This matches Dual Slot 3.html behaviour exactly.
+ * Kept for reference / testing; production code should use buildFullPool.
  */
 export function buildUnionPool(
   selectedA: number[],

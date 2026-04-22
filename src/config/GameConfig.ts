@@ -1,6 +1,6 @@
-/** Pixi canvas dimensions */
-export const CANVAS_WIDTH  = 1280;
-export const CANVAS_HEIGHT = 720;
+/** Pixi canvas dimensions — portrait 9:16 */
+export const CANVAS_WIDTH  = 720;
+export const CANVAS_HEIGHT = 1280;
 
 /** Default player economy */
 export const DEFAULT_BALANCE = 1000;
@@ -10,7 +10,7 @@ export const MAX_BET         = 500;
 
 /** Reel geometry */
 export const REEL_COLS         = 5;
-export const REEL_ROWS         = 4;
+export const REEL_ROWS         = 3;
 export const SPIN_DURATION_MS  = 2000;
 
 /** Formation constraints */

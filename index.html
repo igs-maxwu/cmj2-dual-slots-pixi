@@ -2,12 +2,26 @@
 <html lang="zh-Hant">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=1280, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>雀靈戰記 · Dual Slots (Pixi)</title>
     <style>
-      html, body { margin: 0; padding: 0; background: #0a0e1a; color: #e0e8ff; font-family: Arial, sans-serif; }
-      #app { display: flex; justify-content: center; padding-top: 12px; }
-      canvas { display: block; border: 1px solid #1a2a40; }
+      html, body { margin: 0; padding: 0; background: #0a0e1a; color: #e0e8ff; font-family: Arial, sans-serif; height: 100%; }
+      /* Portrait canvas: scale to fit viewport height, centre horizontally */
+      #app {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        min-height: 100vh;
+        padding: 8px 0;
+        box-sizing: border-box;
+      }
+      canvas {
+        display: block;
+        max-height: calc(100vh - 16px);
+        width: auto !important;
+        height: auto !important;
+        border: 1px solid #1a2a40;
+      }
     </style>
   </head>
   <body>

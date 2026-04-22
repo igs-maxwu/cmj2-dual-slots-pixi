@@ -2,8 +2,8 @@ import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 
 import type { Screen } from './ScreenManager';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import * as T from '@/config/DesignTokens';
-import { SYMBOLS } from '@/config/SymbolsConfig';
-import { buildUnionPool } from '@/systems/SymbolPool';
+import { SYMBOLS, PAYOUT_BASE } from '@/config/SymbolsConfig';
+import { buildFullPool, totalWeight } from '@/systems/SymbolPool';
 import { SlotEngine } from '@/systems/SlotEngine';
 import {
   createFormation, isTeamAlive, teamHpTotal, type FormationGrid,
@@ -15,26 +15,37 @@ import { SpiritPortrait } from '@/components/SpiritPortrait';
 import { UiButton } from '@/components/UiButton';
 import { addCornerOrnaments } from '@/components/Decorations';
 import type { DraftResult } from './DraftScreen';
+import { attackTimeline } from './SpiritAttackChoreographer';
 
-// ─── Layout constants (proportional to canvas) ──────────────────────────────
-const HEADER_Y   = Math.round(CANVAS_HEIGHT * 0.04);
-const HP_Y       = Math.round(CANVAS_HEIGHT * 0.17);
-const HP_BAR_W   = Math.round(CANVAS_WIDTH  * 0.19);
-const HP_BAR_H   = 16;
+// ─── Portrait layout 720×1280 ───────────────────────────────────────────────
+const HEADER_Y   = 14;
+const HP_Y       = 90;
+const HP_BAR_W   = 270;
+const HP_BAR_H   = 18;
 
-const MID_Y_TOP  = Math.round(CANVAS_HEIGHT * 0.24);
+// Jackpot area placeholder (y=138…338)
+const JP_AREA_Y = 138;
+const JP_AREA_H = 200;
 
-const FORMATION_CELL = 64;
+// Formations enlarged (cell 68px) — placed below JP area
+const FORMATION_CELL = 68;
 const FORMATION_GAP  = 6;
-const FORMATION_GRID = FORMATION_CELL * 3 + FORMATION_GAP * 2;
-const FORMATION_A_X  = Math.round(CANVAS_WIDTH * 0.05);
-const FORMATION_B_X  = CANVAS_WIDTH - FORMATION_GRID - Math.round(CANVAS_WIDTH * 0.05);
-const SLOT_X         = Math.round((CANVAS_WIDTH - REEL_W) / 2);
-const SLOT_Y         = MID_Y_TOP + Math.round((FORMATION_GRID - REEL_H) / 2);
-const FORMATION_Y    = MID_Y_TOP;
+const FORMATION_GRID = FORMATION_CELL * 3 + FORMATION_GAP * 2;               // 216
+const FORMATION_A_X  = Math.round(CANVAS_WIDTH * 0.25 - FORMATION_GRID / 2); // ~72 left column
+const FORMATION_B_X  = Math.round(CANVAS_WIDTH * 0.75 - FORMATION_GRID / 2); // ~432 right column
+const FORMATION_Y    = 360;
 
-const LOG_Y          = MID_Y_TOP + Math.max(REEL_H, FORMATION_GRID) + T.SPACING.s6;
-const BACK_BTN_Y     = CANVAS_HEIGHT - T.SPACING.s8;
+// HP bars: A on left half, B on right half (16px side margin each)
+const HP_A_X = 16;
+const HP_B_X = CANVAS_WIDTH - 16 - HP_BAR_W;                                 // 434
+
+// Slot reel — centred, pushed below formations
+const SLOT_X     = Math.round((CANVAS_WIDTH - REEL_W) / 2);
+const SLOT_Y     = 610;
+
+// Log and back button pinned to bottom
+const LOG_Y      = 1150;
+const BACK_BTN_Y = CANVAS_HEIGHT - 50;
 
 const ROUND_GAP_MS   = 500; // pause between rounds
 
@@ -62,10 +73,13 @@ export class BattleScreen implements Screen {
   private reel!: SlotReel;
   private formationA: FormationGrid = [];
   private formationB: FormationGrid = [];
-  private engine = new SlotEngine(4, 5);
+  private engine = new SlotEngine(3, 5);
   private running = false;
   private round = 0;
   private logLines: string[] = [];
+  /** Consecutive rounds with zero wayHits per side — triggers guaranteed way at 3 */
+  private consecutiveMissA = 0;
+  private consecutiveMissB = 0;
 
   constructor(private cfg: DraftResult, private onExit: () => void) {}
 
@@ -81,6 +95,7 @@ export class BattleScreen implements Screen {
     addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 130, 0.55);
     this.drawHeader();
     this.drawHpBars();
+    this.drawJackpotPlaceholder();
     this.drawFormation('A');
     this.drawFormation('B');
     this.drawSlot();
@@ -100,8 +115,7 @@ export class BattleScreen implements Screen {
     badge.anchor.set(0.5, 0.5);
     badge.width = size;
     badge.height = size;
-    // Sits between the two HP bars in the header strip, connecting
-    // Player A ↔ Player B visually.
+    // Sits between the two HP bars, visually connecting Player A ↔ Player B.
     badge.x = CANVAS_WIDTH / 2;
     badge.y = HP_Y + HP_BAR_H / 2;
     this.container.addChild(badge);
@@ -149,8 +163,8 @@ export class BattleScreen implements Screen {
   }
 
   private drawHpBars(): void {
-    const ax = FORMATION_A_X;
-    const bx = CANVAS_WIDTH - FORMATION_A_X - HP_BAR_W;
+    const ax = HP_A_X;
+    const bx = HP_B_X;
 
     this.makeHpLabel(ax + HP_BAR_W / 2, HP_Y - 20, 'PLAYER A', T.TEAM.azure);
     this.makeHpLabel(bx + HP_BAR_W / 2, HP_Y - 20, 'PLAYER B', T.TEAM.vermilion);
@@ -217,6 +231,48 @@ export class BattleScreen implements Screen {
     }
 
     return fill;
+  }
+
+  // ─── Jackpot area ────────────────────────────────────────────────────────
+  private drawJackpotPlaceholder(): void {
+    const pad = 16;
+    const x = pad;
+    const y = JP_AREA_Y;
+    const w = CANVAS_WIDTH - pad * 2;
+    const h = JP_AREA_H;
+
+    // Semi-transparent gold bg + gold border
+    const bg = new Graphics()
+      .roundRect(x, y, w, h, T.RADIUS.md)
+      .fill({ color: T.GOLD.deep, alpha: 0.12 })
+      .stroke({ width: 2, color: T.GOLD.base, alpha: 0.65 });
+    this.container.addChild(bg);
+
+    // Placeholder label — will be replaced by real JP counters later
+    const label = new Text({
+      text: 'JACKPOT · GRAND · MAJOR',
+      style: {
+        fontFamily: T.FONT.title, fontWeight: '700',
+        fontSize: T.FONT_SIZE.lg,
+        fill: T.GOLD.base, letterSpacing: 4,
+      },
+    });
+    label.anchor.set(0.5, 0.5);
+    label.x = CANVAS_WIDTH / 2;
+    label.y = y + h / 2 - 12;
+    this.container.addChild(label);
+
+    const hint = new Text({
+      text: '✦ design pending ✦',
+      style: {
+        fontFamily: T.FONT.num, fontSize: T.FONT_SIZE.xs,
+        fill: T.FG.muted, letterSpacing: 2,
+      },
+    });
+    hint.anchor.set(0.5, 0.5);
+    hint.x = CANVAS_WIDTH / 2;
+    hint.y = y + h / 2 + 18;
+    this.container.addChild(hint);
   }
 
   private drawFormation(side: 'A' | 'B'): void {
@@ -318,7 +374,7 @@ export class BattleScreen implements Screen {
     this.refreshFormation('A', this.formationA, this.cellsA);
     this.refreshFormation('B', this.formationB, this.cellsB);
 
-    this.logText.text = this.logLines.slice(-8).join('\n');
+    this.logText.text = this.logLines.slice(-3).join('\n');
 
     void hpA; void hpB;
   }
@@ -362,8 +418,12 @@ export class BattleScreen implements Screen {
   // ─── Auto-battle loop ────────────────────────────────────────────────────
   private async loop(): Promise<void> {
     this.running = true;
-    const pool = buildUnionPool(this.cfg.selectedA, this.cfg.selectedB, SYMBOLS);
-    const paylines = this.engine.getPaylines();
+    // Full pool: all 8 symbols always spin; non-selected ones fill cells without scoring
+    const pool = buildFullPool(SYMBOLS);
+
+    // Overkill tiebreaker state (used if both teams die in the same round)
+    let lastDmgA = 0, lastDmgB = 0;
+    let lastPreHpA = 0, lastPreHpB = 0;
 
     while (this.running && isTeamAlive(this.formationA) && isTeamAlive(this.formationB)) {
       this.round++;
@@ -382,18 +442,47 @@ export class BattleScreen implements Screen {
       await this.reel.spin(spin.grid);
       if (!this.running) return;
 
-      const lineFx = this.reel.highlightLines(spin.sideA.hitLines, spin.sideB.hitLines, paylines);
-      const jackpotFx = this.fireJackpots(spin.sideA.hitLines, spin.sideB.hitLines, paylines);
+      const lineFx = this.reel.highlightWays(spin.sideA.wayHits, spin.sideB.wayHits);
+      const jackpotFx = this.fireJackpots(spin.sideA.wayHits, spin.sideB.wayHits);
+      // Spirit attack choreography (concurrent with way highlights)
+      const attackFx = this.playAttackAnimations(spin.sideA.wayHits, spin.sideB.wayHits);
 
-      const dmgA = spin.sideA.dmgDealt;
-      const dmgB = spin.sideB.dmgDealt;
+      let dmgA = spin.sideA.dmgDealt;
+      let dmgB = spin.sideB.dmgDealt;
+
+      // ── Underdog boost: 1.3× damage when own HP ratio < 0.30 ──────────────
+      const ratioA = teamHpTotal(this.formationA) / this.cfg.teamHpA;
+      const ratioB = teamHpTotal(this.formationB) / this.cfg.teamHpB;
+      if (ratioA < 0.30 && dmgA > 0) dmgA = Math.ceil(dmgA * 1.3);
+      if (ratioB < 0.30 && dmgB > 0) dmgB = Math.ceil(dmgB * 1.3);
+
+      // ── Consecutive-miss tracking + guaranteed way ─────────────────────────
+      if (spin.sideA.wayHits.length === 0) this.consecutiveMissA++;
+      else                                  this.consecutiveMissA = 0;
+      if (spin.sideB.wayHits.length === 0) this.consecutiveMissB++;
+      else                                  this.consecutiveMissB = 0;
+
+      if (this.consecutiveMissA >= 3 && dmgA === 0) {
+        dmgA = this.minGuaranteedDmg('A');
+        this.consecutiveMissA = 0;
+      }
+      if (this.consecutiveMissB >= 3 && dmgB === 0) {
+        dmgB = this.minGuaranteedDmg('B');
+        this.consecutiveMissB = 0;
+      }
+
+      // Capture pre-damage HP for overkill tiebreaker
+      lastPreHpA = teamHpTotal(this.formationA);
+      lastPreHpB = teamHpTotal(this.formationB);
+      lastDmgA = dmgA; lastDmgB = dmgB;
+
       const eventsOnB = dmgA > 0 ? distributeDamage(this.formationB, dmgA, 'A') : [];
       const eventsOnA = dmgB > 0 ? distributeDamage(this.formationA, dmgB, 'B') : [];
 
       const newHpA = teamHpTotal(this.formationA);
       const newHpB = teamHpTotal(this.formationB);
 
-      const fx: Promise<void>[] = [lineFx, jackpotFx];
+      const fx: Promise<void>[] = [lineFx, jackpotFx, attackFx];
       if (eventsOnB.length) fx.push(this.playDamageEvents(eventsOnB, 'B'));
       if (eventsOnA.length) fx.push(this.playDamageEvents(eventsOnA, 'A'));
       fx.push(tweenValue(this.displayedHpA, newHpA, 500, v => {
@@ -408,10 +497,12 @@ export class BattleScreen implements Screen {
       }));
       await Promise.all(fx);
 
+      const tagA = ratioA < 0.30 ? '↑' : '';
+      const tagB = ratioB < 0.30 ? '↑' : '';
       this.logLines.push(
         `R${this.round.toString().padStart(2, '0')}  ` +
-        `A→B dmg ${dmgA} (${spin.sideA.hitLines.length} lines)   ` +
-        `B→A dmg ${dmgB} (${spin.sideB.hitLines.length} lines)`,
+        `A→B dmg ${dmgA}${tagA} (${spin.sideA.wayHits.length} ways)   ` +
+        `B→A dmg ${dmgB}${tagB} (${spin.sideB.wayHits.length} ways)`,
       );
       this.refresh();
 
@@ -420,29 +511,125 @@ export class BattleScreen implements Screen {
     }
 
     if (!this.running) return;
-    const winner = isTeamAlive(this.formationA) ? 'Player A' : 'Player B';
+
+    // ── Determine winner (overkill tiebreaker on double-death) ────────────────
+    const aAlive = isTeamAlive(this.formationA);
+    const bAlive = isTeamAlive(this.formationB);
+    let winner: string;
+    if (aAlive && !bAlive) {
+      winner = 'Player A';
+    } else if (!aAlive && bAlive) {
+      winner = 'Player B';
+    } else if (!aAlive && !bAlive) {
+      // Both died same round — higher overkill damage wins
+      const overkillA = Math.max(0, lastDmgA - lastPreHpB);
+      const overkillB = Math.max(0, lastDmgB - lastPreHpA);
+      if      (overkillA > overkillB) winner = 'Player A (OVERKILL)';
+      else if (overkillB > overkillA) winner = 'Player B (OVERKILL)';
+      else                             winner = 'DRAW';
+    } else {
+      winner = 'DRAW';
+    }
+
     this.logLines.push('');
     this.logLines.push(`>>> ${winner} WINS  <<<`);
     this.refresh();
   }
 
+  /**
+   * Minimum damage injected for the guaranteed way mechanic.
+   * Equivalent to a 3-way hit with numWays=1 using the most common selected symbol.
+   */
+  private minGuaranteedDmg(side: 'A' | 'B'): number {
+    const selected  = side === 'A' ? this.cfg.selectedA : this.cfg.selectedB;
+    const dmgScale  = side === 'A' ? this.cfg.dmgScaleA : this.cfg.dmgScaleB;
+    const bet       = side === 'A' ? this.cfg.betA       : this.cfg.betB;
+    const pool      = buildFullPool(SYMBOLS);
+    const tw        = totalWeight(pool);
+    // Use highest-weight symbol (most common) → smallest ratio → conservative minimum
+    const anchorId  = selected.reduce(
+      (best, id) => SYMBOLS[id].weight > SYMBOLS[best].weight ? id : best,
+      selected[0],
+    );
+    const mult    = SlotEngine.scaledMult(anchorId, tw, 1, dmgScale, this.cfg.fairnessExp);
+    const rawDmg  = (PAYOUT_BASE[3] ?? 5) * 1 * mult.dmgMult;
+    return Math.max(1, Math.floor(rawDmg * (bet / 100)));
+  }
+
+  /**
+   * For each side, picks the best wayHit (most matchCount × numWays) and
+   * plays the spirit attack choreography against the opposing formation.
+   */
+  private async playAttackAnimations(
+    hitA: { symbolId: number; matchCount: number; numWays: number }[],
+    hitB: { symbolId: number; matchCount: number; numWays: number }[],
+  ): Promise<void> {
+    const animations: Promise<void>[] = [];
+
+    const bestA = hitA.reduce<typeof hitA[0] | null>((b, h) =>
+      !b || h.matchCount * h.numWays > b.matchCount * b.numWays ? h : b, null);
+    const bestB = hitB.reduce<typeof hitB[0] | null>((b, h) =>
+      !b || h.matchCount * h.numWays > b.matchCount * b.numWays ? h : b, null);
+
+    if (bestA) {
+      const slot = this.formationA.findIndex(u => u && u.alive && u.symbolId === bestA.symbolId);
+      if (slot >= 0) {
+        const origin  = this.cellsA[slot].container;
+        const targets = this.cellsB
+          .filter((_, i) => this.formationB[i]?.alive)
+          .slice(0, 3)  // cap at 3 targets to avoid visual clutter
+          .map(c => ({ x: c.container.x, y: c.container.y }));
+        if (targets.length > 0) {
+          animations.push(attackTimeline({
+            stage: this.container,
+            symbolId: bestA.symbolId,
+            spiritKey: SYMBOLS[bestA.symbolId].spiritKey,
+            originX: origin.x, originY: origin.y,
+            targetPositions: targets,
+          }));
+        }
+      }
+    }
+
+    if (bestB) {
+      const slot = this.formationB.findIndex(u => u && u.alive && u.symbolId === bestB.symbolId);
+      if (slot >= 0) {
+        const origin  = this.cellsB[slot].container;
+        const targets = this.cellsA
+          .filter((_, i) => this.formationA[i]?.alive)
+          .slice(0, 3)
+          .map(c => ({ x: c.container.x, y: c.container.y }));
+        if (targets.length > 0) {
+          animations.push(attackTimeline({
+            stage: this.container,
+            symbolId: bestB.symbolId,
+            spiritKey: SYMBOLS[bestB.symbolId].spiritKey,
+            originX: origin.x, originY: origin.y,
+            targetPositions: targets,
+          }));
+        }
+      }
+    }
+
+    await Promise.all(animations);
+  }
+
   private async fireJackpots(
-    hitA: { lineIndex: number; matchCount: number; symbolId: number }[],
-    hitB: { lineIndex: number; matchCount: number; symbolId: number }[],
-    paylines: readonly number[][],
+    hitA: { matchCount: number; hitCells: number[][] }[],
+    hitB: { matchCount: number; hitCells: number[][] }[],
   ): Promise<void> {
     const bursts: Promise<void>[] = [];
-    for (const hl of hitA) {
-      if (hl.matchCount >= 5) {
-        const line = paylines[hl.lineIndex];
-        bursts.push(this.reel.burstJackpot(0, line[0]));
+    for (const wh of hitA) {
+      if (wh.matchCount >= 5) {
+        // burst at anchor col 0, first matching row
+        bursts.push(this.reel.burstJackpot(0, wh.hitCells[0][0]));
         bursts.push(this.spawnWinBurst());
       }
     }
-    for (const hl of hitB) {
-      if (hl.matchCount >= 5) {
-        const line = paylines[hl.lineIndex];
-        bursts.push(this.reel.burstJackpot(4, line[4]));
+    for (const wh of hitB) {
+      if (wh.matchCount >= 5) {
+        // burst at anchor col 4, first matching row
+        bursts.push(this.reel.burstJackpot(4, wh.hitCells[0][0]));
         bursts.push(this.spawnWinBurst());
       }
     }

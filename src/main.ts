@@ -15,6 +15,7 @@ async function main(): Promise<void> {
     antialias:   true,
     autoDensity: true,
     resolution:  window.devicePixelRatio || 1,
+    // Portrait 720×1280 — CSS keeps aspect ratio and centers in viewport
   });
 
   // Wire tween time-axis to Pixi ticker (prevents split RAF + Ticker time-axes)
