@@ -1,4 +1,5 @@
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from './GameConfig';
+import { Easings } from '@/systems/tween';
 
 /* ════════════════════════════════════════════════════════════════════════════
    Design Tokens — mirrors `dual-slots-battle-design-system/colors_and_type.css`
@@ -181,13 +182,15 @@ export const MOTION = {
   durFast: 120,
   durMed:  220,
   durSlow: 380,
-  easeOut:  'Cubic.easeOut',
-  easeIn:   'Cubic.easeIn',
-  easeBack: 'Back.easeOut',
-  bezierEaseOut:  [0.22, 1, 0.36, 1] as const,
-  bezierEaseIn:   [0.55, 0, 0.75, 0] as const,
-  bezierEaseBack: [0.34, 1.56, 0.64, 1] as const,
-} as const;
+  // Easing functions — pass directly to tween() / tweenValue()
+  easeOut:  Easings.easeOut,
+  easeIn:   Easings.easeIn,
+  easeBack: Easings.backOut,
+  // CSS cubic-bezier reference values (design handoff only, not runtime)
+  bezierEaseOut:  [0.22, 1, 0.36, 1]       as const,
+  bezierEaseIn:   [0.55, 0, 0.75, 0]       as const,
+  bezierEaseBack: [0.34, 1.56, 0.64, 1]    as const,
+};
 
 // ════════════════════════════════════════════════════════════════════════
 // Legacy `COLORS` map — existing UI components consume this; values remap

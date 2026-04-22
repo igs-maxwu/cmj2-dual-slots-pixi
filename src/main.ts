@@ -4,6 +4,7 @@ import { ScreenManager } from '@/screens/ScreenManager';
 import { LoadingScreen } from '@/screens/LoadingScreen';
 import { DraftScreen, type DraftResult } from '@/screens/DraftScreen';
 import { BattleScreen } from '@/screens/BattleScreen';
+import { initTweenTicker } from '@/systems/tween';
 
 async function main(): Promise<void> {
   const app = new Application();
@@ -15,6 +16,9 @@ async function main(): Promise<void> {
     autoDensity: true,
     resolution:  window.devicePixelRatio || 1,
   });
+
+  // Wire tween time-axis to Pixi ticker (prevents split RAF + Ticker time-axes)
+  initTweenTicker(app.ticker);
 
   document.getElementById('app')!.appendChild(app.canvas);
 
