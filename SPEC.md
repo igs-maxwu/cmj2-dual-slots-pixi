@@ -219,7 +219,10 @@ in both dimensions, preventing an "all-function-no-art" prototype cliff.
 | **Sprint 1.5** | *(interleave week, no new gameplay)* | **A2** reel symbols → spirit portrait art (replace text labels) · symbol-spirit 1:1 visible on reel | ⏸ pending |
 | **Sprint 2** | T6 Big/Mega/Jackpot ceremony + T10 ink-brush transitions | **A1** 3-layer ink-wash parallax bg · **A5** ambient petal/qi particle layer · **A6** BACK button ornate redesign · **B1** bitmap gold numeric font (HP / round / win) · **B2** VS badge live (rotate + particle shed) · **B3** reel frame ornate (dragon-head corners + water ripple edge) · **B5** wallet cascade count-up · **B6** JP area real design (3-tier marquee + particle halo) · **C1** BGM (battle / big-win / victory, 3 tracks) · **C2** SFX pack (~30 cues: stop / win / skill / impact / UI) | ⏸ pending |
 | **Sprint 3** | T7 4-beast theme depth + 4 male spirit signatures + trailer | **C4** 4 male spirit signature animations (Meng/Yin/Xuanmo/Lingyu) · theme-consistency audit across all art · cinematic trailer (30 s) | ⏸ pending |
-| **Sprint 4** | Actuarial calibration (10 k simulations, RTP ≈ 95 %, fairnessExp binary search) | **Post-launch polish pass**: texture/lighting QA, chromatic aberration on Mega Win, performance profiling on mobile devices | ⏸ pending |
+| **Sprint 4** | Meta math foundation: Wild + Scatter + Streak Multiplier + Actuarial calibration (10 k sims, RTP ≈ 100 %, hit freq ≈ 60 %) | Texture/lighting QA, chromatic aberration on Mega Win, mobile performance profiling | ⏸ pending |
+| **Sprint 5** | PvP differentiation: Spirit Resonance (4-beast ×2.0 open) + Curse stacking (500 HP proc) | PvP-specific HUD indicators (resonance config + curse-stack visuals) | ⏸ pending |
+| **Sprint 6** | Climax + F2P: Free Spin "靈氣爆發" (~1/5 match target) + 3-tier Progressive Jackpot | JP marquee replaces placeholder; Free Spin mode gold overlay + BGM swap | ⏸ pending |
+| **Sprint 7** | Launch prep: PvE AI tuning (60 % player winrate) + PvP matchmaking + seasonal system | Cosmetic seasonal spirit skins, rating badges | ⏸ pending |
 
 ### V-Tier Definitions
 
@@ -279,6 +282,7 @@ All new art must pass consistency check against this combined direction.
 | 2026-04-22 | UI layout rebalanced: JP placeholder + enlarged reel (128×150 cells) | Owner |
 | 2026-04-22 | Sprint 1 T0 scope limited to 4 female spirits (Canlan/Luoluo/Zhuluan/Zhaoyu) | Owner |
 | 2026-04-22 | V-tier visual polish plan added; roadmap restructured to interleave gameplay + visual each sprint. Direction locked: (a) 水墨仙俠 world + (b) 華麗 3D-chibi characters | Owner |
+| 2026-04-22 | Math Model v1.0 locked: 7 meta mechanics (M1/M2/M3/M5/M6/M10/M12), Base Ways RTP 60 %, Sprints 5–7 added. See §15. | Owner |
 
 ---
 
@@ -290,6 +294,9 @@ Canonical source-of-truth drawers (Wing: GameEconomy, Room: DualSlot-engine):
 - `drawer_GameEconomy_DualSlot-engine_32bb76dc95c002db` — OPEN ISSUES rev1
 - `drawer_GameEconomy_DualSlot-engine_7b5e30361209c686` — OPEN ISSUES rev2 (mercenary reversal)
 - `drawer_GameEconomy_DualSlot-engine_6d3dd53b1b3534be` — Sprint 1 T0 storyboard + UI rebalance
+- `drawer_GameEconomy_DualSlot-engine_e211526164c50a94` — CONFIRMED-SPRINT0 post-merge status
+- `drawer_GameEconomy_DualSlot-engine_ce84e19b8c6d53f1` — V-Tier visual polish plan
+- `drawer_GameEconomy_DualSlot-engine_fb9e15b3a631c968` — **Math Model v1.0 meta mechanics (§15 source)**
 - "DualSlot-Pixi CORE DESIGN LOCK (2026-04-22)" — 5 pillars + blind spots
 
 Related knowledge-graph facts:
@@ -297,3 +304,114 @@ Related knowledge-graph facts:
 - DualSlot-Pixi → reel_stop_timing → 0.6 / 1.1 / 1.6 s
 - DualSlot-Pixi-non-drafted-spirit → pays_mercenary_rate → 30 %
 - DualSlot-Pixi-Sprint-1 → T0_scope → Canlan + Luoluo + Zhuluan + Zhaoyu
+- DualSlot-Pixi-base-ways → rtp_allocation → 60 percent (meta absorbs 40)
+- DualSlot-Pixi-meta-mechanics → locked_count → 7 (Wild / Scatter / Streak / Resonance / Curse / Free Spin / JP)
+- DualSlot-Pixi-resonance → 4_of_a_kind_multiplier → 2.0x
+- DualSlot-Pixi-curse → 3_stack_effect → flat 500 HP damage next round
+
+---
+
+## 15. Meta Mechanics (Math Model v1.0)
+
+Locked 2026-04-22. Full numeric specification and Actuary provisions in MemPalace drawer `drawer_GameEconomy_DualSlot-engine_fb9e15b3a631c968`.
+
+### 15.1 Design pillars
+
+| Pillar | Choice | Implication |
+|---|---|---|
+| Volatility | Medium | Hit frequency ≈ 60 %, balanced small-frequent + occasional big |
+| Strategy weight | 40 % skill / 60 % luck | Draft decisions carry real math weight (Resonance §15.5) |
+| Match length | ~2 minutes (≈ 10 rounds) | 400 HP damage/round average target |
+| Payment | Pay-in-App + dual win/loss | Coin RTP ≈ 100 % + battle RTP independent |
+| Modes | PvE AI + PvP | Same math core, AI tuned for 60 % player winrate |
+
+### 15.2 Symbol pool expansion (8 → 12)
+
+| Type | Symbol | Weight | Rate | Effect |
+|---|---|---|---|---|
+| Core | 8 spirits | 8–12 each | ~75 % | Ways-to-Win main body |
+| Wild | 神獸化身 | 3 | ~3.4 % | Substitutes any spirit + way × 2 |
+| Scatter | 靈脈晶 | 2 | ~2.3 % | Does not score; 3+ triggers Free Spin |
+| Curse | 咒符 | 3 | ~3.4 % | Landing on your side → opponent +1 stack |
+| Jackpot | 天地人獎 | 1 | ~1.1 % | 5-of-a-kind triggers JP draw |
+
+Reel grid unchanged (5 × 3 = 15 cells).
+
+### 15.3 Coin RTP allocation (owner-locked)
+
+```
+Base Ways                60 %   ← lowered from 85 % per owner directive
+Wild × 2 contribution    10 %
+Streak Multiplier         8 %
+Resonance Bonus           8 %
+Free Spin mode           14 %
+─────────────────────
+Total Coin RTP         ~100 %   (mild positive EV, F2P friendly)
+```
+
+JP pool is **separate** (not in base RTP): 1 % of every bet accumulates to the 3-tier pool (5 % Grand / 12 % Major / 83 % Minor contribution split).
+
+### 15.4 Streak Multiplier (M3 · "氣勢連擊")
+
+| Consecutive wins | Multiplier |
+|---|---|
+| 0 (miss) | resets to × 1.0 |
+| 1 | × 1.0 |
+| 2 | × 1.2 |
+| 3 | × 1.5 |
+| 4+ | **× 2.0 (cap)** |
+
+Applies to both coin and damage. HUD shows "氣勢 LV.N".
+
+### 15.5 Spirit Resonance (M5 · core strategy layer)
+
+| Draft pattern | Effect |
+|---|---|
+| 4 different beasts (1-1-1-1) | baseline × 1.0 |
+| 1 pair + 2 singles (2-1-1) | paired spirit wins × 1.5 |
+| 2 pairs (2-2) | each pair's wins × 1.5 |
+| 4 same beast (4-of-a-kind) | **× 2.0 (owner opened)** |
+
+4-of-a-kind deliberately narrow (currently unlockable by full-female draft once male portraits land Sprint 3). Rewards deep draft planning — this is the 40 % strategy weight.
+
+### 15.6 Curse stacking (M6 · PvP differentiator)
+
+- Each curse symbol landing on **your** grid → opponent gains **+1 stack**
+- Stacks 1–2: visual warning only (purple skull icon on opponent HP bar)
+- At **3 stacks**: opponent takes **flat 500 HP** at start of next round, stacks reset to 0
+- Curse does not pay coin (weapon, not prize)
+
+### 15.7 Free Spin "靈氣爆發" (M10)
+
+- Trigger: 3+ scatters same spin
+- Duration: **5 free spins**
+- Bet: **0** (free)
+- Win multiplier: **× 2**
+- Opponent: continues normal spins, **can still damage you**
+- Target frequency: **~1 per 5 matches** (expectation, Sprint 4 Actuary tunes — not hard-locked)
+
+### 15.8 3-tier Progressive Jackpot (M12)
+
+| Tier | Payout (at bet = 100) | Draw prob on trigger |
+|---|---|---|
+| Minor 人獎 | ~500 × bet = 50,000 NTD | 85 % |
+| Major 地獎 | ~5,000 × bet = 500,000 NTD | 12 % |
+| Grand 天獎 | ~50,000 × bet = 5,000,000 NTD | 3 % |
+
+Trigger: JP symbol 5-of-a-kind (Wild assists). Pool persists cross-match and cross-session.
+
+### 15.9 Calibration provisions
+
+**Actuary (Sprint 4) tunes**:
+- Symbol weights
+- `fairnessExp` (damage RTP curve)
+- Streak multiplier cap (if × 2.0 proves OP)
+- Free Spin trigger rate (target ~20 % per match)
+- JP draw probabilities
+
+**LOCKED** (no change without owner re-approval):
+- 7-mechanic list (no adds, no drops)
+- Base Ways RTP 60 %
+- Curse flat 500 HP (not percentage)
+- Resonance 4-of-a-kind × 2.0 (open, not capped)
+- Dual-scale coin/damage independence
