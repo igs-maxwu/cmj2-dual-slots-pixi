@@ -15,13 +15,15 @@ export type Side = 'A' | 'B';
 
 /** One ways-win hit for a single symbol on one side. */
 export interface WayHit {
-  symbolId:   number;
-  matchCount: number;       // consecutive columns with ≥1 matching symbol (3–5)
-  numWays:    number;       // product of per-column match counts
+  symbolId:    number;
+  matchCount:  number;       // consecutive columns with ≥1 matching symbol (3–5)
+  numWays:     number;       // product of per-column match counts
   /** hitCells[colOffset] = row indices in that column that matched */
-  hitCells:   number[][];
-  rawCoin:    number;
-  rawDmg:     number;
+  hitCells:    number[][];
+  rawCoin:     number;
+  rawDmg:      number;
+  /** true = spirit was not drafted by this side; scores at 30% (mercenary mode) */
+  isMercenary: boolean;
 }
 
 export interface SideResult {
@@ -110,7 +112,10 @@ export class SlotEngine {
     let totalCoin = 0;
     let totalDmg  = 0;
 
-    for (const symId of selected) {
+    // Spec rev2: scan all symbols; non-drafted score at 30% (mercenary mode).
+    const isDrafted = new Set(selected);
+
+    for (let symId = 0; symId < SYMBOLS.length; symId++) {
       let matchCount = 0;
       let numWays    = 1;
       const hitCells: number[][] = [];
@@ -129,12 +134,14 @@ export class SlotEngine {
 
       if (matchCount < 3) continue;
 
-      const base    = PAYOUT_BASE[matchCount] ?? 0;
-      const mult    = SlotEngine.scaledMult(symId, poolTotalW, coinScale, dmgScale, fairnessExp);
-      const rawCoin = base * numWays * mult.coinMult;
-      const rawDmg  = base * numWays * mult.dmgMult;
+      const base            = PAYOUT_BASE[matchCount] ?? 0;
+      const mult            = SlotEngine.scaledMult(symId, poolTotalW, coinScale, dmgScale, fairnessExp);
+      const isMercenary     = !isDrafted.has(symId);
+      const mercenaryMult   = isMercenary ? 0.30 : 1.0;
+      const rawCoin         = base * numWays * mult.coinMult * mercenaryMult;
+      const rawDmg          = base * numWays * mult.dmgMult  * mercenaryMult;
 
-      wayHits.push({ symbolId: symId, matchCount, numWays, hitCells, rawCoin, rawDmg });
+      wayHits.push({ symbolId: symId, matchCount, numWays, hitCells, rawCoin, rawDmg, isMercenary });
       totalCoin += rawCoin;
       totalDmg  += rawDmg;
     }
