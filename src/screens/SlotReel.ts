@@ -5,9 +5,9 @@ import { tween, delay, Easings } from '@/systems/tween';
 import { SpiritPortrait } from '@/components/SpiritPortrait';
 
 const COLS = 5;
-const ROWS = 4;
+const ROWS = 3;
 const CELL_W = 96;
-const CELL_H = 50;
+const CELL_H = 70;
 const CELL_GAP = 6;
 const FRAME_PAD = 14;
 

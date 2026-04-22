@@ -40,7 +40,7 @@ export class SlotEngine {
   private rows: number;
   private cols: number;
 
-  constructor(rows = 4, cols = 5) {
+  constructor(rows = 3, cols = 5) {
     this.rows = rows;
     this.cols = cols;
     this.paylines = generatePaylines(this.rows, this.cols, LINES_COUNT);

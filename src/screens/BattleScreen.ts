@@ -62,7 +62,7 @@ export class BattleScreen implements Screen {
   private reel!: SlotReel;
   private formationA: FormationGrid = [];
   private formationB: FormationGrid = [];
-  private engine = new SlotEngine(4, 5);
+  private engine = new SlotEngine(3, 5);
   private running = false;
   private round = 0;
   private logLines: string[] = [];

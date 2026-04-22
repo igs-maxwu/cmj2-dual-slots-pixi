@@ -77,7 +77,7 @@ export function simulateWinRate(
   matches:     number = 600,
 ): number {
   const pool    = buildUnionPool(selectedA, selectedB, SYMBOLS);
-  const engine  = new SlotEngine(4, 5);
+  const engine  = new SlotEngine(3, 5);
   let winsA     = 0;
   const ROUND_LIMIT = 2000;
 

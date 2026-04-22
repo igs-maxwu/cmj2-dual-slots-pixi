@@ -10,7 +10,7 @@ export const MAX_BET         = 500;
 
 /** Reel geometry */
 export const REEL_COLS         = 5;
-export const REEL_ROWS         = 4;
+export const REEL_ROWS         = 3;
 export const SPIN_DURATION_MS  = 2000;
 
 /** Formation constraints */
