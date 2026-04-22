@@ -513,3 +513,413 @@ Trigger: JP symbol 5-of-a-kind (Wild assists). Pool persists cross-match and cro
 - Curse flat 500 HP (not percentage)
 - Resonance 4-of-a-kind × 2.0 (open, not capped)
 - Dual-scale coin/damage independence
+
+---
+
+## 17. Demo Scope Pivot (Proposal Mode)
+
+Locked 2026-04-22. Drawer `drawer_GameEconomy_DualSlot-engine_c67bab9ae8f8ed9d`.
+
+**Project purpose**: This project is a **proposal demo**, not a production launch candidate. Front-end reaches commercial polish (to impress stakeholders during pitch); back-end only needs **design documentation** (no code).
+
+### 17.1 Scope matrix
+
+| Capability | REAL (implemented) | MOCK (UI/fake data) | PLAN (paper only) |
+|---|---|---|---|
+| Core loop (§2-9) | ✅ | — | — |
+| 7 meta mechanics (§15) | ✅ | — | — |
+| T0 attack choreography (§7) | ✅ | — | — |
+| Visual polish V-tier A/B (§11) | ✅ | — | — |
+| Lightweight PWA (§16) | ✅ | — | — |
+| PvP opponent | — | ✅ scripted demo-AI | Matchmaking algorithm |
+| PvE AI | — | ✅ scripted behaviours | Difficulty-tier system |
+| JP pool persistence | — | ✅ localStorage ticker | Server pool + cross-user accumulation |
+| Leaderboard | — | ✅ hardcoded fake entries | Backend persistence + ranking |
+| Shop / IAP | — | ✅ UI + "coming soon" toast | Payment integration |
+| Account / cloud save | — | ✅ localStorage only | Auth + cloud sync |
+| Analytics | — | ✅ console.log events | Real Firebase / GA pipeline |
+| Anti-cheat | — | — | Server-side validation plan |
+
+### 17.2 Sprint roadmap impact
+
+| Sprint | Original | Demo-mode |
+|---|---|---|
+| 0-3 | unchanged | unchanged (all REAL) |
+| 4 | Meta math + 10 k sim + L1-L10 | Meta math + **1 k sim** + L1-L10 |
+| 5 | Resonance + Curse (client + server) | Resonance + Curse (**client only**) |
+| 6 | Free Spin + JP (real pool + IAP) | Free Spin + JP **animation** + IAP **mock** |
+| 7 | PvE tuning + matchmaking + seasonal | **Demo Polish + Pitch Prep** (see §21) |
+
+### 17.3 Timeline advantage
+
+- Original plan: ~6 months / 2 devs
+- Demo-mode plan: **~3 months / 1.5 devs**
+- Saves: backend implementation, real IAP, real matchmaking
+
+---
+
+## 18. Backend Architecture Plan (Paper Spec)
+
+Locked 2026-04-22. Pitch-deck use only — **not implemented**.
+
+### 18.1 Topology
+
+```
+H5 Client (Pixi PWA)
+  │ HTTPS + WSS
+  ├── CDN + Static Hosts (WebP atlases, BGM)
+  └── API Gateway (REST)
+        ├── Auth Service (OAuth)
+        ├── Match Service (WS)
+        ├── Wallet / IAP Service
+        ├── JP Pool Service
+        ├── Leaderboard Service
+        └── Analytics Ingest
+              │
+              └── Postgres (primary) + Redis (realtime) + S3 (replays)
+```
+
+### 18.2 Recommended stack
+
+| Layer | BaaS path | Self-hosted |
+|---|---|---|
+| Backend | **Supabase** | Node.js + Fastify + Postgres |
+| Realtime | **Nakama** | Colyseus / Socket.io |
+| Payments | Google Play / Apple IAP | Stripe (web) |
+| Analytics | Firebase Analytics | GA4 / Mixpanel |
+| CDN | Cloudflare | CloudFront |
+
+### 18.3 API surface (~18 endpoints)
+
+| Category | Endpoint | Method | Purpose |
+|---|---|---|---|
+| Auth | `/auth/{google,apple,guest}` | POST | OAuth / anonymous login |
+| Profile | `/me` | GET / PATCH | Player info |
+| Match | `/match/find`, `/match/{id}/ws` | POST / WSS | Matchmaking + realtime |
+| Spin | `/match/{id}/spin` | POST | Server-authoritative spin |
+| Wallet | `/wallet` | GET | Balance + history |
+| IAP | `/iap/catalog`, `/iap/verify` | GET / POST | Catalog + receipt validation |
+| JP | `/jp/pool`, `/jp/winners` | GET | Pool + winner feed |
+| Leaderboard | `/leaderboard/{global,friends}` | GET | Rankings |
+| Season | `/season/current`, `/season/claim` | GET / POST | Season state + rewards |
+| Analytics | `/analytics/event` | POST | Batched event ingest |
+
+### 18.4 Data models
+
+```
+players(id, name, avatar, created_at, coin, gem, vip_tier, rating)
+matches(id, player_a, player_b, winner, coin_delta, duration, replay_key)
+spins(id, match_id, round, grid, eval_a, eval_b, dmg_a, dmg_b)
+jp_pool(tier, amount, updated_at)
+jp_wins(id, player_id, tier, amount, won_at)
+iap_receipts(id, player_id, sku, receipt, verified, granted_at)
+leaderboard(season_id, player_id, rating, wins)
+events(id, player_id, type, payload, ts)
+```
+
+### 18.5 PvP flow (server-authoritative)
+
+1. `/match/find` → server pairs via MMR
+2. Both clients open WSS `/match/{id}/ws`
+3. Every spin: server generates grid, evaluates both sides, returns `SpinResult`
+4. Client renders from server result (no client RNG)
+5. Match end: server records + updates wallet + leaderboard
+
+### 18.6 Cost projection
+
+| MAU | Supabase + Cloudflare | Self-hosted AWS |
+|---|---|---|
+| 1 000 | ~USD 25 / mo | ~USD 120 / mo |
+| 10 000 | ~USD 150 / mo | ~USD 350 / mo |
+| 100 000 | ~USD 900 / mo | ~USD 1 800 / mo |
+| 1 000 000 | ~USD 4 500 / mo | ~USD 9 000 / mo |
+
+### 18.7 Phasing (post-pitch, if approved)
+
+- M+1: Auth + profile + wallet (BaaS bootstrap)
+- M+2: IAP + JP pool
+- M+3: PvP realtime match
+- M+4: Seasonal + leaderboard
+- M+5: Analytics + anti-cheat + soft launch
+
+---
+
+## 19. IAP Catalog Mock (Shop UI Spec)
+
+Locked 2026-04-22. UI-only in demo.
+
+### 19.1 Currency model
+
+- **Coin 金幣**: slot winnings, IAP top-up, consumed in bets
+- **Gem 靈玉**: premium, IAP only, cosmetics + Free Spin tickets
+- **Free Spin Ticket 靈氣券**: triggers M10 on demand
+
+### 19.2 Price catalog (NT$)
+
+| SKU | Price | Content | Target |
+|---|---|---|---|
+| Gem Pack 1 | 30 | 60 gems | Low spender |
+| Gem Pack 2 | 150 | 350 gems + 10 % | Casual |
+| Gem Pack 3 | 990 | 2 600 gems + 30 % | Regular |
+| Gem Pack 4 | 3 000 | 8 500 gems + 50 % + 5× tickets | Whale |
+| Starter Pack (7 d) | 90 | 200 gems + 50 000 coin + skin | New player |
+| VIP Monthly | 330 | 1 500 gems + 30 daily tickets | Mid |
+| VIP Annual | 3 600 | 18 000 gems + 2× daily tickets | Whale |
+| Battle Pass (60 d) | 270 | 50 tier rewards + skin | Engaged |
+| Gacha single | 60 | 1 random skin | Collector |
+| Gacha 10-pull | 540 | 10 pulls + 1 guaranteed rare | Collector |
+
+### 19.3 Shop UI sections
+
+- **推薦 Featured** (carousel, 3 hardcoded items)
+- **寶石 Gems** (4 SKUs)
+- **通行證 Pass** (VIP + Battle Pass)
+- **造型 Cosmetics** (gacha + direct)
+- **限時 Limited** (fake countdown for urgency)
+
+### 19.4 Revenue assumptions
+
+| Metric | Assumption | Source |
+|---|---|---|
+| ARPDAU | NT$ 9.5 | CMJ2 monthly KPI trend |
+| Conversion | 4 % payer | F2P mobile industry |
+| Whale ratio | 2 % of payers | industry standard |
+| Expected MAU launch | 5 000 (internal test) | conservative |
+
+---
+
+## 20. Operations Plan (Live-Ops Readiness)
+
+Locked 2026-04-22. 8 pillars.
+
+### 20.1 Analytics
+
+| Metric | Target | Event |
+|---|---|---|
+| DAU | tracked | `session_start` |
+| ARPDAU | > NT$ 6 | `iap_purchase` |
+| D1 retention | > 40 % | `retention_day_1` |
+| D7 retention | > 18 % | `retention_day_7` |
+| D30 retention | > 10 % | `retention_day_30` |
+| Tutorial completion | > 80 % | `tutorial_complete` |
+| First-purchase rate | > 3 % | `first_purchase` |
+| JP trigger rate | observe | `jp_trigger` |
+
+### 20.2 QA strategy
+
+| Layer | Tool | Coverage |
+|---|---|---|
+| Unit | Vitest | SlotEngine / Formation / Distributor ≥ 95 % |
+| Simulation | Node script | 10 k spins RTP ± 1 % |
+| E2E | Playwright | Draft→Battle→Shop, 3 browsers |
+| Performance | Lighthouse | FCP<2s, TTI<3.5s, CLS<0.1 |
+| Load | k6 | 500 concurrent match API |
+
+### 20.3 Legal & compliance
+
+- Game rating: **ISG Taiwan PG-12**
+- Virtual currency, no cash-out → no gambling disclaimer required
+- ToS + Privacy Policy: draft Sprint 7, legal review pre-launch
+- GDPR / CCPA: data minimization + delete-account flow
+- Apple / Google store: IAP compliance (no external routing)
+
+### 20.4 Localization roadmap
+
+| Priority | Language | Market | Sprint |
+|---|---|---|---|
+| P0 | **繁中 zh-TW** | Taiwan primary | from Sprint 1 |
+| P1 | 簡中 zh-CN | China / SEA | Sprint 6 |
+| P2 | English en-US | Global fallback | Sprint 7 |
+| P3 | 日文 ja-JP | Japan | Sprint 8+ |
+| P3 | 韓文 ko-KR | Korea | Sprint 8+ |
+
+Tool: i18next + JSON, lazy-load per language.
+
+### 20.5 Accessibility
+
+- Colorblind mode: alt palettes
+- Reduced motion toggle: disables shake + hitstop + big flashes
+- BGM subtitles
+- Text scaling up to 200 %
+- Screen reader: ARIA labels on menus
+
+### 20.6 Anti-cheat (plan only)
+
+- Server-authoritative spin results (§18.5)
+- Rate limiting: max 30 spins / min / player
+- Wallet delta validation against ledger
+- IAP receipt double-verify (server-side)
+- Replay flagging: outlier RTP → shadow-ban review
+
+### 20.7 Seasonal content
+
+| Element | Cadence | Example |
+|---|---|---|
+| Season | 60 days | 春龍賽季 |
+| Battle Pass | 50 tiers | gems + coin + skin + emotes |
+| Skin drop | 1 / season | Meng spring armour |
+| Leaderboard | seasonal reset | top 10 unique badge |
+| Limited events | bi-weekly | double-XP weekend, lunar new year |
+
+### 20.8 Social features (viral potential)
+
+| Feature | Priority | Viral |
+|---|---|---|
+| Friend list (invite code) | P0 | ⭐⭐ |
+| Match replay + share | P0 | ⭐⭐⭐⭐ |
+| Leaderboards | P0 | ⭐⭐⭐ |
+| Chat (emotes only) | P1 | ⭐⭐ |
+| Big-win / JP share to FB / IG / LINE | P0 | ⭐⭐⭐⭐⭐ (primary hook) |
+
+---
+
+## 21. Demo Mode Features (Force-Trigger Orchestrator)
+
+Locked 2026-04-22. Gated by `DEMO_MODE=true` flag.
+
+### 21.1 Purpose
+
+Presenter reliably showcases hero moments during live pitch — don't rely on RNG.
+
+### 21.2 Hidden dev panel (`Ctrl+Shift+D`)
+
+| Button | Effect |
+|---|---|
+| Trigger Small Win | next spin = 3-way Canlan |
+| Trigger Big Win | next spin = 15-way Zhuluan |
+| Trigger Mega Win | next spin = 40-way grand ceremony |
+| Trigger Free Spin | next spin = 3 scatters |
+| Trigger JP | 5-of-a-kind + tier select (Minor / Major / Grand) |
+| Trigger Curse Proc | opponent stack→2, next Curse procs 500 HP |
+| Trigger Comeback | self HP→10 %, underdog ×1.3 |
+| Set Opponent Name | custom string for fake opponent |
+| Jump to Shop | instant scene transition |
+| Reset Demo | full state restore |
+
+### 21.3 Scripted sequences (1-click, 30-60 s)
+
+- **"Elegant Demo" (5 min)**: Draft → 3 rounds → Free Spin → Big Win → Curse proc → Mega Win → JP Minor → end
+- **"Comeback Story" (4 min)**: Draft → opponent leads → underdog activates → comeback → Grand JP → victory
+- **"Tech Showcase" (3 min)**: skip gameplay, showcase T0 choreography × 4 + Mega Win + bundle loader
+
+### 21.4 Faux opponent library
+
+8 hardcoded: 朱雀之影 / 白虎山神 / 青龍少女 / 玄武老叟 + 4 more (name, avatar, fake MMR, behaviour).
+
+### 21.5 Production exclusion
+
+`DEMO_MODE` false in prod → tree-shake removes panel + scripts.
+
+---
+
+## 22. Pitch Demonstration Script (5-10 min)
+
+Locked 2026-04-22. Audience: **IGS internal execs** (Q1a), length **5-10 min** (Q2b), **triple wow** (Q3abc), **繁中** (Q4a).
+
+### 22.1 8-minute beat sheet
+
+| Time | Beat | Presenter line | Demo action |
+|---|---|---|---|
+| 0:00-0:30 | **Hook** | 「今天給各位看一款我們用 AI 加速、3 個月可上線的 slot PvP 遊戲」 | Logo + VS badge anim |
+| 0:30-1:30 | **Concept** | 「兩玩家共用一台老虎機，符號中獎 = 雀靈出擊」 | Draft screen, pick 4 females |
+| 1:30-3:00 | **Fun 1** | 「5×3 Ways 同時算 243 路，雙方互扁」 | 2 normal rounds → Free Spin trigger |
+| 3:00-4:30 | **Fun 2** | 「Big Win，再看 Mega Win 的儀式感」 | Force Big Win → Mega Win |
+| 4:30-5:30 | **Monetization** | 「IAP 商店、三層 JP 跨場累積，ARPDAU 預估 NT$ 9.5」 | Shop UI + JP marquee tick |
+| 5:30-6:30 | **Comeback** | 「下風加成 + 咒符堆疊 = 戲劇逆轉」 | Comeback scripted demo |
+| 6:30-7:30 | **AI Acceleration** | 「這是今天一天做出來的 spec + commit history」 | Terminal: git log, SPEC.md, MemPalace |
+| 7:30-8:00 | **Close** | 「資源：3 個月 / 1.5 人 / 後端架構已規劃完」 | §18 slide |
+
+### 22.2 Key talking points
+
+| Dimension | Line | Evidence |
+|---|---|---|
+| Differentiation | 全球第一款 PvP slot 結合咒符 + 共鳴 | §15.5 + §15.6 |
+| Monetization | Base RTP 60 %，meta 吃 40 %，ARPDAU ~NT$ 9.5 | §15.3 + §20.1 |
+| Tech maturity | 16 commits, SPEC 23 章 | GitHub + SPEC |
+| Lightweight | H5 PWA, < 5 MB, 秒開 | §16 |
+| AI velocity | 一天 0 → 16 章規格 + 16 commits | §23 |
+
+### 22.3 Q&A anticipation
+
+| Q | A |
+|---|---|
+| 為什麼 slot 不是 card？ | Slot 玩家基數大 + PvP 為市場空缺 + 麻將 2 DNA |
+| Pay-in-App 違反博奕法？ | 虛擬幣不可兌現，ISG PG-12，無需賭博免責 |
+| 3 個月做得完？ | Sprint 1-6 規劃完成 + Sprint 7 pitch polish；後端 Sprint 8+ |
+| 競品 Mahjong Ways 2？ | 他們沒 PvP + 咒符 + 共鳴；我們差異化 3 樣 |
+| 何時看真機？ | 現在可切 live build |
+
+### 22.4 Fallback plans
+
+- PWA 不載入：90 s 預錄影片
+- Demo Mode 失靈：截圖 deck + 口述
+- 網路斷：localStorage 全離線可跑
+
+---
+
+## 23. AI-Assisted Development (Key Differentiator)
+
+Locked 2026-04-22. **核心 pitch 賣點**，per Q2 強調。
+
+### 23.1 Thesis
+
+以 **Claude Code + Claude Agent SDK + MemPalace** 為基建，此 project 作為 AI 加速遊戲開發案例。傳統團隊 6-12 個月才能產出等量 spec + prototype；目標 **3 個月 pitch-ready / 5 個月可上線**。
+
+### 23.2 Real velocity data (2026-04-22 單日)
+
+| 產出 | 數量 | 傳統估時 |
+|---|---|---|
+| Master git commits | 16 | 1-2 週 |
+| SPEC.md 章節 | 23 | 2-3 週 |
+| MemPalace drawers | 10+ | N/A（新流程） |
+| KG facts | 15+ | N/A |
+| 鎖定設計決策 | 13+ | 多次會議 |
+| Sprint 0 refactor (P0.1-P0.8) | 1 天 | 1-2 週 |
+| Round 1-4 code reviews | 4 輪 | 各 1 天 |
+| 跨機 MemPalace sync 建置 | 1 session | 2-3 天 |
+
+### 23.3 Division of labor
+
+| 角色 | 傳統 | 本 project |
+|---|---|---|
+| Executor | 1-2 devs | **Claude Code Sonnet 4.6** |
+| Reporter / reviewer | 1 senior dev | **Claude Code Opus 4.7 1M** |
+| Design architect | 1 designer | **Owner + AI dialog** |
+| Art | 2-4 artists × 月 | **Gemini AI**（8 雀靈分鐘級） |
+| QA | 1-2 QA | Claude 生成 Vitest + Playwright 計畫 |
+
+### 23.4 Tool stack
+
+- **Claude Code CLI** — executor + reporter agents
+- **MemPalace MCP** — cross-session persistent memory
+- **Gemini AI** — character art + UI asset generation
+- **GitHub + Vite + Pixi.js 8** — frontend stack
+- **PWA + Service Worker** — delivery layer
+
+### 23.5 Process highlights
+
+- **SPEC-first discipline**: 所有決策文件化先於 code
+- **Dual-session pattern**: executor 寫碼，reporter 審稿決策
+- **Stacked PR chain merged in one commit**: Sprint 0 八 commit 一次 mega-merge
+- **Code review as conversation**: 4 輪 reviews 抓出 rev-2 drift + mercenary-30% miss
+- **Owner-in-the-loop**: 13 鎖定決策皆 owner 親自點頭
+
+### 23.6 Replicability claim
+
+此 **SPEC + MemPalace + dual-session + Claude Code** 工作流可複製。pitch 通過後：
+
+- 新遊戲 project 小時級啟動（複製 workflow、seed MemPalace）
+- Owner 全權控制（AI 建議，人類鎖定）
+- 所有決策跨 session 保留
+- 新成員透過 SPEC.md 接手（零 tribal knowledge）
+
+### 23.7 Demo moment (pitch 6:30-7:30 slot)
+
+Presenter 切到 terminal / browser 展示：
+
+1. `git log --oneline` on master — 「16 個 commit，全部今天做的」
+2. 打開 `SPEC.md` 閱讀器 — 「23 章規格書，AI 輔助起草、owner 拍板」
+3. `mempalace_search("Resonance")` — 「決策跨 session 可查」
+4. `mempalace_kg_query("DualSlot-Pixi")` — 「知識圖譜追鎖定事實」
+
+**Key line**: 「這套工作流已實戰過，後續新遊戲能複製、非實驗性質。」
