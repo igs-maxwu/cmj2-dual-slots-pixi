@@ -1,6 +1,6 @@
-/** Pixi canvas dimensions */
-export const CANVAS_WIDTH  = 1280;
-export const CANVAS_HEIGHT = 720;
+/** Pixi canvas dimensions — portrait 9:16 */
+export const CANVAS_WIDTH  = 720;
+export const CANVAS_HEIGHT = 1280;
 
 /** Default player economy */
 export const DEFAULT_BALANCE = 1000;

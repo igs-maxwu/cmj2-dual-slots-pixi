@@ -16,25 +16,28 @@ import { UiButton } from '@/components/UiButton';
 import { addCornerOrnaments } from '@/components/Decorations';
 import type { DraftResult } from './DraftScreen';
 
-// ─── Layout constants (proportional to canvas) ──────────────────────────────
-const HEADER_Y   = Math.round(CANVAS_HEIGHT * 0.04);
-const HP_Y       = Math.round(CANVAS_HEIGHT * 0.17);
-const HP_BAR_W   = Math.round(CANVAS_WIDTH  * 0.19);
-const HP_BAR_H   = 16;
+// ─── Portrait layout 720×1280 ───────────────────────────────────────────────
+const HEADER_Y   = 14;
+const HP_Y       = 96;
+const HP_BAR_W   = 280;
+const HP_BAR_H   = 18;
 
-const MID_Y_TOP  = Math.round(CANVAS_HEIGHT * 0.24);
-
-const FORMATION_CELL = 64;
+const FORMATION_CELL = 58;
 const FORMATION_GAP  = 6;
-const FORMATION_GRID = FORMATION_CELL * 3 + FORMATION_GAP * 2;
-const FORMATION_A_X  = Math.round(CANVAS_WIDTH * 0.05);
-const FORMATION_B_X  = CANVAS_WIDTH - FORMATION_GRID - Math.round(CANVAS_WIDTH * 0.05);
-const SLOT_X         = Math.round((CANVAS_WIDTH - REEL_W) / 2);
-const SLOT_Y         = MID_Y_TOP + Math.round((FORMATION_GRID - REEL_H) / 2);
-const FORMATION_Y    = MID_Y_TOP;
+const FORMATION_GRID = FORMATION_CELL * 3 + FORMATION_GAP * 2;               // 186
+const FORMATION_A_X  = Math.round(CANVAS_WIDTH * 0.25 - FORMATION_GRID / 2); // ~87  left column
+const FORMATION_B_X  = Math.round(CANVAS_WIDTH * 0.75 - FORMATION_GRID / 2); // ~447 right column
+const FORMATION_Y    = 120;
 
-const LOG_Y          = MID_Y_TOP + Math.max(REEL_H, FORMATION_GRID) + T.SPACING.s6;
-const BACK_BTN_Y     = CANVAS_HEIGHT - T.SPACING.s8;
+// HP bars: A on left half, B on right half (no overlap, 16px side margin each)
+const HP_A_X = 16;
+const HP_B_X = CANVAS_WIDTH - 16 - HP_BAR_W;                                 // 424
+
+const SLOT_X         = Math.round((CANVAS_WIDTH - REEL_W) / 2);              // 94
+const SLOT_Y         = 520;                                                    // below formations
+
+const LOG_Y          = SLOT_Y + REEL_H + 20;
+const BACK_BTN_Y     = CANVAS_HEIGHT - 50;
 
 const ROUND_GAP_MS   = 500; // pause between rounds
 
@@ -103,7 +106,7 @@ export class BattleScreen implements Screen {
     // Sits between the two HP bars in the header strip, connecting
     // Player A ↔ Player B visually.
     badge.x = CANVAS_WIDTH / 2;
-    badge.y = HP_Y + HP_BAR_H / 2;
+    badge.y = FORMATION_Y + FORMATION_GRID / 2; // vertically centred in formation zone
     this.container.addChild(badge);
   }
 
@@ -149,8 +152,8 @@ export class BattleScreen implements Screen {
   }
 
   private drawHpBars(): void {
-    const ax = FORMATION_A_X;
-    const bx = CANVAS_WIDTH - FORMATION_A_X - HP_BAR_W;
+    const ax = HP_A_X;
+    const bx = HP_B_X;
 
     this.makeHpLabel(ax + HP_BAR_W / 2, HP_Y - 20, 'PLAYER A', T.TEAM.azure);
     this.makeHpLabel(bx + HP_BAR_W / 2, HP_Y - 20, 'PLAYER B', T.TEAM.vermilion);
