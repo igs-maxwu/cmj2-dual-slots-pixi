@@ -219,7 +219,7 @@ in both dimensions, preventing an "all-function-no-art" prototype cliff.
 | **Sprint 1.5** | *(interleave week, no new gameplay)* | **A2** reel symbols → spirit portrait art (replace text labels) · symbol-spirit 1:1 visible on reel | ⏸ pending |
 | **Sprint 2** | T6 Big/Mega/Jackpot ceremony + T10 ink-brush transitions | **A1** 3-layer ink-wash parallax bg · **A5** ambient petal/qi particle layer · **A6** BACK button ornate redesign · **B1** bitmap gold numeric font (HP / round / win) · **B2** VS badge live (rotate + particle shed) · **B3** reel frame ornate (dragon-head corners + water ripple edge) · **B5** wallet cascade count-up · **B6** JP area real design (3-tier marquee + particle halo) · **C1** BGM (battle / big-win / victory, 3 tracks) · **C2** SFX pack (~30 cues: stop / win / skill / impact / UI) | ⏸ pending |
 | **Sprint 3** | T7 4-beast theme depth + 4 male spirit signatures + trailer | **C4** 4 male spirit signature animations (Meng/Yin/Xuanmo/Lingyu) · theme-consistency audit across all art · cinematic trailer (30 s) | ⏸ pending |
-| **Sprint 4** | Meta math foundation: Wild + Scatter + Streak Multiplier + Actuarial calibration (10 k sims, RTP ≈ 100 %, hit freq ≈ 60 %) | Texture/lighting QA, chromatic aberration on Mega Win, mobile performance profiling | ⏸ pending |
+| **Sprint 4** | Meta math foundation: Wild + Scatter + Streak Multiplier + Actuarial calibration (10 k sims, RTP ≈ 100 %, hit freq ≈ 60 %) **+ Lightweight optimization pass (L1–L10, target ≤ 5 MB bundle, PWA scaffolding)** | Texture/lighting QA, chromatic aberration on Mega Win, mobile performance profiling | ⏸ pending |
 | **Sprint 5** | PvP differentiation: Spirit Resonance (4-beast ×2.0 open) + Curse stacking (500 HP proc) | PvP-specific HUD indicators (resonance config + curse-stack visuals) | ⏸ pending |
 | **Sprint 6** | Climax + F2P: Free Spin "靈氣爆發" (~1/5 match target) + 3-tier Progressive Jackpot | JP marquee replaces placeholder; Free Spin mode gold overlay + BGM swap | ⏸ pending |
 | **Sprint 7** | Launch prep: PvE AI tuning (60 % player winrate) + PvP matchmaking + seasonal system | Cosmetic seasonal spirit skins, rating badges | ⏸ pending |
@@ -283,6 +283,7 @@ All new art must pass consistency check against this combined direction.
 | 2026-04-22 | Sprint 1 T0 scope limited to 4 female spirits (Canlan/Luoluo/Zhuluan/Zhaoyu) | Owner |
 | 2026-04-22 | V-tier visual polish plan added; roadmap restructured to interleave gameplay + visual each sprint. Direction locked: (a) 水墨仙俠 world + (b) 華麗 3D-chibi characters | Owner |
 | 2026-04-22 | Math Model v1.0 locked: 7 meta mechanics (M1/M2/M3/M5/M6/M10/M12), Base Ways RTP 60 %, Sprints 5–7 added. See §15. | Owner |
+| 2026-04-22 | Lightweight Strategy v1.0 locked: PWA delivery, ≤ 5 MB total session bundle, Sprint 4 concentrated optimization (L1–L10). See §16. | Owner |
 
 ---
 
@@ -297,6 +298,7 @@ Canonical source-of-truth drawers (Wing: GameEconomy, Room: DualSlot-engine):
 - `drawer_GameEconomy_DualSlot-engine_e211526164c50a94` — CONFIRMED-SPRINT0 post-merge status
 - `drawer_GameEconomy_DualSlot-engine_ce84e19b8c6d53f1` — V-Tier visual polish plan
 - `drawer_GameEconomy_DualSlot-engine_fb9e15b3a631c968` — **Math Model v1.0 meta mechanics (§15 source)**
+- `drawer_GameEconomy_DualSlot-engine_355b7ce2bccf855f` — **Lightweight Strategy v1.0 (§16 source)**
 - "DualSlot-Pixi CORE DESIGN LOCK (2026-04-22)" — 5 pillars + blind spots
 
 Related knowledge-graph facts:
@@ -308,6 +310,102 @@ Related knowledge-graph facts:
 - DualSlot-Pixi-meta-mechanics → locked_count → 7 (Wild / Scatter / Streak / Resonance / Curse / Free Spin / JP)
 - DualSlot-Pixi-resonance → 4_of_a_kind_multiplier → 2.0x
 - DualSlot-Pixi-curse → 3_stack_effect → flat 500 HP damage next round
+- DualSlot-Pixi-delivery → form → H5 PWA (Pixi.js 8, Service Worker, installable)
+- DualSlot-Pixi-bundle → target_ceiling → 5 MB total session load
+
+---
+
+## 16. Lightweight Delivery Constraints (Strategy v1.0)
+
+Locked 2026-04-22. Full operational checklist in MemPalace drawer `drawer_GameEconomy_DualSlot-engine_355b7ce2bccf855f`.
+
+### 16.1 Delivery form
+
+**Form**: HTML5 Progressive Web App (PWA)
+**Engine**: Pixi.js 8 + Vite + TypeScript (already chosen, unchanged)
+**No native wrapper** (no Capacitor / Cordova / Electron).
+
+Rationale: instant-play via URL share, zero app-store friction, PWA provides second-visit offline cache, fits F2P retention model locked in §15.1.
+
+### 16.2 Bundle budget (owner-locked ≤ 5 MB)
+
+Target ceiling **5.0 MB total session load**, hard fail at 5.5 MB.
+
+| Milestone | Budget | Cumulative |
+|---|---|---|
+| HTML + critical JS + CSS | 400 KB | 400 KB |
+| Logo + UI frames + draft tiles (first paint) | 1.1 MB | 1.5 MB |
+| Battle assets (spirits atlas + reel frame) | 2.0 MB | 3.5 MB |
+| Free Spin overlay + first BGM track | 0.8 MB | 4.3 MB |
+| Mega Win ceremony art | 0.5 MB | 4.8 MB |
+| JP marquee | 0.3 MB | 5.1 MB |
+
+### 16.3 L-tier optimization toolkit (Sprint 4 execution)
+
+**High-impact (must do)**:
+
+| ID | Tactic | Expected saving | Effort |
+|---|---|---|---|
+| L1 | PNG → WebP pass for all assets | −7 MB (60–70 %) | 0.5 day |
+| L2 | Sprite atlas for 8 spirits (1 sheet) | −1 MB + 8→1 HTTP req | 0.5 day |
+| L3 | Lazy loading per scene | first-load 11 MB → 1.5 MB | 1 day |
+| L4 | BGM streaming (not bundled) | −3–6 MB | 1 day |
+
+**Medium impact**:
+
+| ID | Tactic | Expected saving |
+|---|---|---|
+| L5 | pixi-filters tree-shaking | −0.1 MB |
+| L6 | Chinese font subsetting | −3 MB (if custom font) |
+| L7 | Brotli server compression | network −30–40 % |
+| L8 | Service Worker cache (PWA core) | 2nd-visit 0 network |
+
+**Low-effort polish**:
+
+| ID | Tactic | Purpose |
+|---|---|---|
+| L9 | Vite code-splitting per route | parallel download |
+| L10 | Object pools (particles, damage numbers) | runtime memory |
+
+### 16.4 PWA architecture
+
+**manifest.json**: name `雀靈戰記 Dual Slots Battle`, short_name `雀靈戰記`, display `standalone`, theme_color `#D4AF37`, 9-size icon set + maskable variants.
+
+**Service Worker (`sw.js`)**:
+- Cache-first for assets, network-first for API
+- Critical precache: HTML + JS bundles + critical CSS + logo + UI frames + first-spirit atlas
+- Background precache: remaining spirits, BGM, ceremony art
+- Update detection: prompt user refresh on new deploy
+
+**Install prompt**: appear after 2nd visit (respects user autonomy); iOS uses manual instruction (no beforeinstallprompt API).
+
+### 16.5 Browser compatibility target
+
+- iOS Safari 14+
+- Android Chrome 90+
+- Desktop Chrome / Edge / Firefox / Safari current-1
+
+WebP support universal in target set — no PNG fallback needed.
+
+### 16.6 Sprint 4 lightweight checklist (embedded in Sprint 4 execution)
+
+Week 1 — Asset optimization: L1 + L2 + L5 + L6
+Week 2 — Architecture: L3 + L9 + L10
+Week 3 — PWA integration: manifest + Service Worker + install UX + icons
+Week 4 — Audit: Vite bundle analyzer + L7 Brotli + L4 BGM streaming verify + final ≤ 5 MB audit
+
+### 16.7 Locked vs adjustable
+
+**LOCKED** (no change without owner re-approval):
+- Delivery form = H5 PWA (no native wrapper)
+- Ceiling = ≤ 5 MB total session
+- Sprint 4 = concentrated optimization phase
+- Pixi.js 8 engine (no replacement)
+
+**Adjustable during Sprint 4 audit**:
+- Individual asset budgets
+- Extension to 6 MB if one critical asset (e.g. high-quality BGM) conflicts
+- Specific L-tactic prioritization per measured bottleneck
 
 ---
 
