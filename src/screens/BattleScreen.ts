@@ -19,26 +19,33 @@ import { attackTimeline } from './SpiritAttackChoreographer';
 
 // ─── Portrait layout 720×1280 ───────────────────────────────────────────────
 const HEADER_Y   = 14;
-const HP_Y       = 96;
-const HP_BAR_W   = 280;
+const HP_Y       = 90;
+const HP_BAR_W   = 270;
 const HP_BAR_H   = 18;
 
-const FORMATION_CELL = 58;
+// Jackpot area placeholder (y=138…338)
+const JP_AREA_Y = 138;
+const JP_AREA_H = 200;
+
+// Formations enlarged (cell 68px) — placed below JP area
+const FORMATION_CELL = 68;
 const FORMATION_GAP  = 6;
-const FORMATION_GRID = FORMATION_CELL * 3 + FORMATION_GAP * 2;               // 186
-const FORMATION_A_X  = Math.round(CANVAS_WIDTH * 0.25 - FORMATION_GRID / 2); // ~87  left column
-const FORMATION_B_X  = Math.round(CANVAS_WIDTH * 0.75 - FORMATION_GRID / 2); // ~447 right column
-const FORMATION_Y    = 120;
+const FORMATION_GRID = FORMATION_CELL * 3 + FORMATION_GAP * 2;               // 216
+const FORMATION_A_X  = Math.round(CANVAS_WIDTH * 0.25 - FORMATION_GRID / 2); // ~72 left column
+const FORMATION_B_X  = Math.round(CANVAS_WIDTH * 0.75 - FORMATION_GRID / 2); // ~432 right column
+const FORMATION_Y    = 360;
 
-// HP bars: A on left half, B on right half (no overlap, 16px side margin each)
+// HP bars: A on left half, B on right half (16px side margin each)
 const HP_A_X = 16;
-const HP_B_X = CANVAS_WIDTH - 16 - HP_BAR_W;                                 // 424
+const HP_B_X = CANVAS_WIDTH - 16 - HP_BAR_W;                                 // 434
 
-const SLOT_X         = Math.round((CANVAS_WIDTH - REEL_W) / 2);              // 94
-const SLOT_Y         = 520;                                                    // below formations
+// Slot reel — centred, pushed below formations
+const SLOT_X     = Math.round((CANVAS_WIDTH - REEL_W) / 2);
+const SLOT_Y     = 610;
 
-const LOG_Y          = SLOT_Y + REEL_H + 20;
-const BACK_BTN_Y     = CANVAS_HEIGHT - 50;
+// Log and back button pinned to bottom
+const LOG_Y      = 1150;
+const BACK_BTN_Y = CANVAS_HEIGHT - 50;
 
 const ROUND_GAP_MS   = 500; // pause between rounds
 
@@ -88,6 +95,7 @@ export class BattleScreen implements Screen {
     addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 130, 0.55);
     this.drawHeader();
     this.drawHpBars();
+    this.drawJackpotPlaceholder();
     this.drawFormation('A');
     this.drawFormation('B');
     this.drawSlot();
@@ -107,10 +115,9 @@ export class BattleScreen implements Screen {
     badge.anchor.set(0.5, 0.5);
     badge.width = size;
     badge.height = size;
-    // Sits between the two HP bars in the header strip, connecting
-    // Player A ↔ Player B visually.
+    // Sits between the two HP bars, visually connecting Player A ↔ Player B.
     badge.x = CANVAS_WIDTH / 2;
-    badge.y = FORMATION_Y + FORMATION_GRID / 2; // vertically centred in formation zone
+    badge.y = HP_Y + HP_BAR_H / 2;
     this.container.addChild(badge);
   }
 
@@ -226,6 +233,48 @@ export class BattleScreen implements Screen {
     return fill;
   }
 
+  // ─── Jackpot area ────────────────────────────────────────────────────────
+  private drawJackpotPlaceholder(): void {
+    const pad = 16;
+    const x = pad;
+    const y = JP_AREA_Y;
+    const w = CANVAS_WIDTH - pad * 2;
+    const h = JP_AREA_H;
+
+    // Semi-transparent gold bg + gold border
+    const bg = new Graphics()
+      .roundRect(x, y, w, h, T.RADIUS.md)
+      .fill({ color: T.GOLD.deep, alpha: 0.12 })
+      .stroke({ width: 2, color: T.GOLD.base, alpha: 0.65 });
+    this.container.addChild(bg);
+
+    // Placeholder label — will be replaced by real JP counters later
+    const label = new Text({
+      text: 'JACKPOT · GRAND · MAJOR',
+      style: {
+        fontFamily: T.FONT.title, fontWeight: '700',
+        fontSize: T.FONT_SIZE.lg,
+        fill: T.GOLD.base, letterSpacing: 4,
+      },
+    });
+    label.anchor.set(0.5, 0.5);
+    label.x = CANVAS_WIDTH / 2;
+    label.y = y + h / 2 - 12;
+    this.container.addChild(label);
+
+    const hint = new Text({
+      text: '✦ design pending ✦',
+      style: {
+        fontFamily: T.FONT.num, fontSize: T.FONT_SIZE.xs,
+        fill: T.FG.muted, letterSpacing: 2,
+      },
+    });
+    hint.anchor.set(0.5, 0.5);
+    hint.x = CANVAS_WIDTH / 2;
+    hint.y = y + h / 2 + 18;
+    this.container.addChild(hint);
+  }
+
   private drawFormation(side: 'A' | 'B'): void {
     const ox = side === 'A' ? FORMATION_A_X : FORMATION_B_X;
     const grid = side === 'A' ? this.formationA : this.formationB;
@@ -325,7 +374,7 @@ export class BattleScreen implements Screen {
     this.refreshFormation('A', this.formationA, this.cellsA);
     this.refreshFormation('B', this.formationB, this.cellsB);
 
-    this.logText.text = this.logLines.slice(-8).join('\n');
+    this.logText.text = this.logLines.slice(-3).join('\n');
 
     void hpA; void hpB;
   }

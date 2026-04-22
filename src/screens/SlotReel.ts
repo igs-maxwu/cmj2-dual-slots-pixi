@@ -7,10 +7,10 @@ import type { WayHit } from '@/systems/SlotEngine';
 
 const COLS = 5;
 const ROWS = 3;
-const CELL_W = 96;
-const CELL_H = 70;
-const CELL_GAP = 6;
-const FRAME_PAD = 14;
+const CELL_W = 128;
+const CELL_H = 150;
+const CELL_GAP = 8;
+const FRAME_PAD = 16;
 
 export const REEL_W = COLS * CELL_W + (COLS - 1) * CELL_GAP + FRAME_PAD * 2;
 export const REEL_H = ROWS * CELL_H + (ROWS - 1) * CELL_GAP + FRAME_PAD * 2;
@@ -97,7 +97,7 @@ export class SlotReel extends Container {
           .stroke({ width: 1, color: T.SEA.rim, alpha: 0.7 });
         container.addChild(cellBg);
 
-        const portrait = new SpiritPortrait(0, 32);
+        const portrait = new SpiritPortrait(0, 64);
         portrait.y = -6;
         container.addChild(portrait);
 
@@ -109,7 +109,7 @@ export class SlotReel extends Container {
           },
         });
         label.anchor.set(0.5, 0.5);
-        label.y = 18;
+        label.y = 48;
         container.addChild(label);
 
         const overlay = new Graphics()
