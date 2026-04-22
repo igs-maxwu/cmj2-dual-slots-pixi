@@ -3,6 +3,7 @@ import * as T from '@/config/DesignTokens';
 import { SYMBOLS } from '@/config/SymbolsConfig';
 import { tween, delay, Easings } from '@/systems/tween';
 import { SpiritPortrait } from '@/components/SpiritPortrait';
+import type { WayHit } from '@/systems/SlotEngine';
 
 const COLS = 5;
 const ROWS = 3;
@@ -22,7 +23,8 @@ interface Cell {
   currentSymbol: number;
 }
 
-export interface HitLineLite { lineIndex: number; matchCount: number; symbolId: number; }
+/** Re-exported for callers that previously imported HitLineLite from here. */
+export type { WayHit } from '@/systems/SlotEngine';
 
 /**
  * 5×4 slot reel visual.
@@ -179,25 +181,26 @@ export class SlotReel extends Container {
     for (const cell of colCells) cell.overlay.alpha = 0;
   }
 
-  // ─── Win-line highlights ─────────────────────────────────────────────────
-  async highlightLines(
-    hitA: HitLineLite[],
-    hitB: HitLineLite[],
-    paylines: readonly number[][],
-  ): Promise<void> {
+  // ─── Ways win highlights ─────────────────────────────────────────────────
+  async highlightWays(hitA: WayHit[], hitB: WayHit[]): Promise<void> {
     const pulses: Promise<void>[] = [];
-    for (const hl of hitA) pulses.push(this.pulseLine(paylines[hl.lineIndex], hl.matchCount, 'A'));
-    for (const hl of hitB) pulses.push(this.pulseLine(paylines[hl.lineIndex], hl.matchCount, 'B'));
+    for (const wh of hitA) pulses.push(this.pulseWay(wh, 'A'));
+    for (const wh of hitB) pulses.push(this.pulseWay(wh, 'B'));
     await Promise.all(pulses);
   }
 
-  private async pulseLine(line: number[], matchCount: number, side: 'A' | 'B'): Promise<void> {
-    const cols: number[] = side === 'A'
-      ? Array.from({ length: matchCount }, (_, i) => i)
-      : Array.from({ length: matchCount }, (_, i) => COLS - 1 - i);
+  private async pulseWay(hit: WayHit, side: 'A' | 'B'): Promise<void> {
+    const dir       = side === 'A' ? 1 : -1;
+    const anchorCol = side === 'A' ? 0 : COLS - 1;
+    const tint      = side === 'A' ? T.TEAM.azureGlow : T.TEAM.vermilionGlow;
 
-    const tint = side === 'A' ? T.TEAM.azureGlow : T.TEAM.vermilionGlow;
-    const targets: Cell[] = cols.map(c => this.cells[c][line[c]]);
+    const targets: Cell[] = [];
+    for (let offset = 0; offset < hit.hitCells.length; offset++) {
+      const actualCol = anchorCol + offset * dir;
+      for (const row of hit.hitCells[offset]) {
+        targets.push(this.cells[actualCol][row]);
+      }
+    }
 
     for (const cell of targets) {
       cell.overlay.clear()

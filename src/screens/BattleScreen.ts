@@ -363,7 +363,6 @@ export class BattleScreen implements Screen {
   private async loop(): Promise<void> {
     this.running = true;
     const pool = buildUnionPool(this.cfg.selectedA, this.cfg.selectedB, SYMBOLS);
-    const paylines = this.engine.getPaylines();
 
     while (this.running && isTeamAlive(this.formationA) && isTeamAlive(this.formationB)) {
       this.round++;
@@ -382,8 +381,8 @@ export class BattleScreen implements Screen {
       await this.reel.spin(spin.grid);
       if (!this.running) return;
 
-      const lineFx = this.reel.highlightLines(spin.sideA.hitLines, spin.sideB.hitLines, paylines);
-      const jackpotFx = this.fireJackpots(spin.sideA.hitLines, spin.sideB.hitLines, paylines);
+      const lineFx = this.reel.highlightWays(spin.sideA.wayHits, spin.sideB.wayHits);
+      const jackpotFx = this.fireJackpots(spin.sideA.wayHits, spin.sideB.wayHits);
 
       const dmgA = spin.sideA.dmgDealt;
       const dmgB = spin.sideB.dmgDealt;
@@ -410,8 +409,8 @@ export class BattleScreen implements Screen {
 
       this.logLines.push(
         `R${this.round.toString().padStart(2, '0')}  ` +
-        `A→B dmg ${dmgA} (${spin.sideA.hitLines.length} lines)   ` +
-        `B→A dmg ${dmgB} (${spin.sideB.hitLines.length} lines)`,
+        `A→B dmg ${dmgA} (${spin.sideA.wayHits.length} ways)   ` +
+        `B→A dmg ${dmgB} (${spin.sideB.wayHits.length} ways)`,
       );
       this.refresh();
 
@@ -427,22 +426,21 @@ export class BattleScreen implements Screen {
   }
 
   private async fireJackpots(
-    hitA: { lineIndex: number; matchCount: number; symbolId: number }[],
-    hitB: { lineIndex: number; matchCount: number; symbolId: number }[],
-    paylines: readonly number[][],
+    hitA: { matchCount: number; hitCells: number[][] }[],
+    hitB: { matchCount: number; hitCells: number[][] }[],
   ): Promise<void> {
     const bursts: Promise<void>[] = [];
-    for (const hl of hitA) {
-      if (hl.matchCount >= 5) {
-        const line = paylines[hl.lineIndex];
-        bursts.push(this.reel.burstJackpot(0, line[0]));
+    for (const wh of hitA) {
+      if (wh.matchCount >= 5) {
+        // burst at anchor col 0, first matching row
+        bursts.push(this.reel.burstJackpot(0, wh.hitCells[0][0]));
         bursts.push(this.spawnWinBurst());
       }
     }
-    for (const hl of hitB) {
-      if (hl.matchCount >= 5) {
-        const line = paylines[hl.lineIndex];
-        bursts.push(this.reel.burstJackpot(4, line[4]));
+    for (const wh of hitB) {
+      if (wh.matchCount >= 5) {
+        // burst at anchor col 4, first matching row
+        bursts.push(this.reel.burstJackpot(4, wh.hitCells[0][0]));
         bursts.push(this.spawnWinBurst());
       }
     }

@@ -1,4 +1,5 @@
-import { SYMBOLS, PAYOUT_BASE, LINES_COUNT } from '@/config/SymbolsConfig';
+import { SYMBOLS, PAYOUT_BASE } from '@/config/SymbolsConfig';
+import { REEL_ROWS } from '@/config/GameConfig';
 import { buildUnionPool, totalWeight } from './SymbolPool';
 import { SlotEngine } from './SlotEngine';
 
@@ -15,8 +16,16 @@ export interface ScaleResult {
  *  - poolTotalW: total weight of the union pool (A union B)
  *  - fairnessExp: exponent for damage scaling (default 2.0)
  *
- * Uses analytical expected-value formula (not Monte Carlo).
- * Formula from Dual Slot 3.html calculateOptimalScales().
+ * Uses analytical Ways-to-Win expected-value formula (not Monte Carlo).
+ *
+ * Ways EV per round per symbol:
+ *   p        = symbol weight / poolTotalW  (per-cell probability)
+ *   p_any    = 1 - (1 - p)^ROWS            (prob ≥1 in a column)
+ *   E[ways]_k ≈ (ROWS × p)^k              (expected product over k cols)
+ *   EV_3 = p_any^3 × (1 - p_any) × (ROWS×p)^3 × BASE[3]
+ *   EV_4 = p_any^4 × (1 - p_any) × (ROWS×p)^4 × BASE[4]
+ *   EV_5 = p_any^5              × (ROWS×p)^5 × BASE[5]
+ *   No LINES_COUNT factor — Ways EV is absolute per round.
  */
 export function calculateScales(
   targetRtpPct:   number,
@@ -24,8 +33,9 @@ export function calculateScales(
   selectedSymIds: number[],
   poolTotalW:     number,
   fairnessExp:    number = 2.0,
-  coinExp:        number = 1.0,
+  coinExp:        number = 2.0,
 ): ScaleResult {
+  const ROWS = REEL_ROWS;
   let rawEVCoin = 0;
   let rawEVDmg  = 0;
 
@@ -37,20 +47,21 @@ export function calculateScales(
     const dynCoin = Math.pow(ratio, coinExp);
     const dynDmg  = Math.pow(ratio, fairnessExp);
 
-    // Expected payout contribution per payline per spin
-    const p3 = Math.pow(prob, 3) * (1 - prob);
-    const p4 = Math.pow(prob, 4) * (1 - prob);
-    const p5 = Math.pow(prob, 5);
-    const ev  = p3 * (PAYOUT_BASE[3] ?? 0)
-              + p4 * (PAYOUT_BASE[4] ?? 0)
-              + p5 * (PAYOUT_BASE[5] ?? 0);
+    const p_any = 1 - Math.pow(1 - prob, ROWS);
+    const eWays3 = Math.pow(ROWS * prob, 3);
+    const eWays4 = Math.pow(ROWS * prob, 4);
+    const eWays5 = Math.pow(ROWS * prob, 5);
+
+    const ev = p_any ** 3 * (1 - p_any) * eWays3 * (PAYOUT_BASE[3] ?? 0)
+             + p_any ** 4 * (1 - p_any) * eWays4 * (PAYOUT_BASE[4] ?? 0)
+             + p_any ** 5               * eWays5 * (PAYOUT_BASE[5] ?? 0);
 
     rawEVCoin += ev * dynCoin;
     rawEVDmg  += ev * dynDmg;
   }
 
-  const rawCoin = rawEVCoin * LINES_COUNT || 1;
-  const rawDmg  = rawEVDmg  * LINES_COUNT || 1;
+  const rawCoin = rawEVCoin || 1;
+  const rawDmg  = rawEVDmg  || 1;
 
   return {
     coinScale: targetRtpPct / rawCoin,
