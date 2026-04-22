@@ -15,6 +15,7 @@ import { SpiritPortrait } from '@/components/SpiritPortrait';
 import { UiButton } from '@/components/UiButton';
 import { addCornerOrnaments } from '@/components/Decorations';
 import type { DraftResult } from './DraftScreen';
+import { attackTimeline } from './SpiritAttackChoreographer';
 
 // ─── Portrait layout 720×1280 ───────────────────────────────────────────────
 const HEADER_Y   = 14;
@@ -394,6 +395,8 @@ export class BattleScreen implements Screen {
 
       const lineFx = this.reel.highlightWays(spin.sideA.wayHits, spin.sideB.wayHits);
       const jackpotFx = this.fireJackpots(spin.sideA.wayHits, spin.sideB.wayHits);
+      // Spirit attack choreography (concurrent with way highlights)
+      const attackFx = this.playAttackAnimations(spin.sideA.wayHits, spin.sideB.wayHits);
 
       let dmgA = spin.sideA.dmgDealt;
       let dmgB = spin.sideB.dmgDealt;
@@ -430,7 +433,7 @@ export class BattleScreen implements Screen {
       const newHpA = teamHpTotal(this.formationA);
       const newHpB = teamHpTotal(this.formationB);
 
-      const fx: Promise<void>[] = [lineFx, jackpotFx];
+      const fx: Promise<void>[] = [lineFx, jackpotFx, attackFx];
       if (eventsOnB.length) fx.push(this.playDamageEvents(eventsOnB, 'B'));
       if (eventsOnA.length) fx.push(this.playDamageEvents(eventsOnA, 'A'));
       fx.push(tweenValue(this.displayedHpA, newHpA, 500, v => {
@@ -502,6 +505,64 @@ export class BattleScreen implements Screen {
     const mult    = SlotEngine.scaledMult(anchorId, tw, 1, dmgScale, this.cfg.fairnessExp);
     const rawDmg  = (PAYOUT_BASE[3] ?? 5) * 1 * mult.dmgMult;
     return Math.max(1, Math.floor(rawDmg * (bet / 100)));
+  }
+
+  /**
+   * For each side, picks the best wayHit (most matchCount × numWays) and
+   * plays the spirit attack choreography against the opposing formation.
+   */
+  private async playAttackAnimations(
+    hitA: { symbolId: number; matchCount: number; numWays: number }[],
+    hitB: { symbolId: number; matchCount: number; numWays: number }[],
+  ): Promise<void> {
+    const animations: Promise<void>[] = [];
+
+    const bestA = hitA.reduce<typeof hitA[0] | null>((b, h) =>
+      !b || h.matchCount * h.numWays > b.matchCount * b.numWays ? h : b, null);
+    const bestB = hitB.reduce<typeof hitB[0] | null>((b, h) =>
+      !b || h.matchCount * h.numWays > b.matchCount * b.numWays ? h : b, null);
+
+    if (bestA) {
+      const slot = this.formationA.findIndex(u => u && u.alive && u.symbolId === bestA.symbolId);
+      if (slot >= 0) {
+        const origin  = this.cellsA[slot].container;
+        const targets = this.cellsB
+          .filter((_, i) => this.formationB[i]?.alive)
+          .slice(0, 3)  // cap at 3 targets to avoid visual clutter
+          .map(c => ({ x: c.container.x, y: c.container.y }));
+        if (targets.length > 0) {
+          animations.push(attackTimeline({
+            stage: this.container,
+            symbolId: bestA.symbolId,
+            spiritKey: SYMBOLS[bestA.symbolId].spiritKey,
+            originX: origin.x, originY: origin.y,
+            targetPositions: targets,
+          }));
+        }
+      }
+    }
+
+    if (bestB) {
+      const slot = this.formationB.findIndex(u => u && u.alive && u.symbolId === bestB.symbolId);
+      if (slot >= 0) {
+        const origin  = this.cellsB[slot].container;
+        const targets = this.cellsA
+          .filter((_, i) => this.formationA[i]?.alive)
+          .slice(0, 3)
+          .map(c => ({ x: c.container.x, y: c.container.y }));
+        if (targets.length > 0) {
+          animations.push(attackTimeline({
+            stage: this.container,
+            symbolId: bestB.symbolId,
+            spiritKey: SYMBOLS[bestB.symbolId].spiritKey,
+            originX: origin.x, originY: origin.y,
+            targetPositions: targets,
+          }));
+        }
+      }
+    }
+
+    await Promise.all(animations);
   }
 
   private async fireJackpots(
