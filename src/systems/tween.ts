@@ -1,7 +1,12 @@
 /**
- * Promise-based tween helpers — RAF-driven, no library.
+ * Promise-based tween helpers — Pixi Ticker-driven with RAF fallback.
+ *
+ * Call `initTweenTicker(app.ticker)` once in main.ts so all tweens share the
+ * same time-axis as Pixi. If not initialised, falls back to requestAnimationFrame.
+ *
  * Animations `await` cleanly; composition via Promise.all / sequence.
  */
+import type { Ticker } from 'pixi.js';
 
 export type Easing = (t: number) => number;
 
@@ -20,6 +25,29 @@ export const Easings = {
   pulse: (t: number): number => 1 - Math.abs(t - 0.5) * 2,
 };
 
+// ── Ticker integration ────────────────────────────────────────────────────────
+
+let _ticker: Ticker | null = null;
+
+/**
+ * Wire up the Pixi application ticker so tweens run on the same time-axis
+ * as all other Pixi animations. Call once in `main.ts` after `app.init()`.
+ */
+export function initTweenTicker(ticker: Ticker): void {
+  _ticker = ticker;
+}
+
+/** Schedule `fn` on the next available frame (Ticker or RAF). */
+function scheduleNextFrame(fn: () => void): void {
+  if (_ticker) {
+    _ticker.addOnce(() => fn());
+  } else {
+    requestAnimationFrame(fn);
+  }
+}
+
+// ── Core helpers ──────────────────────────────────────────────────────────────
+
 export function tween(
   durationMs: number,
   update: (progress: number) => void,
@@ -27,14 +55,14 @@ export function tween(
 ): Promise<void> {
   return new Promise(resolve => {
     const start = performance.now();
-    const step = (now: number): void => {
-      const elapsed = now - start;
+    const step = (): void => {
+      const elapsed = performance.now() - start;
       const p = Math.min(1, elapsed / durationMs);
       update(ease(p));
       if (p >= 1) resolve();
-      else requestAnimationFrame(step);
+      else scheduleNextFrame(step);
     };
-    requestAnimationFrame(step);
+    scheduleNextFrame(step);
   });
 }
 

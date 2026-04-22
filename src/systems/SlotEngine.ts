@@ -35,28 +35,14 @@ export interface ScaledMultipliers {
   dmgMult:  number;
 }
 
-/** @deprecated EngineConfig is from the old API; use (rows, cols) directly. */
-export interface EngineConfig {
-  rows:        number;
-  cols:        number;
-  linesCount?: number;
-  payoutBase?: Record<string, number>;
-  allSymbols?: unknown[];
-}
-
 export class SlotEngine {
   private paylines: number[][];
   private rows: number;
   private cols: number;
 
-  constructor(rowsOrCfg: number | EngineConfig = 4, cols = 5) {
-    if (typeof rowsOrCfg === 'object') {
-      this.rows = rowsOrCfg.rows;
-      this.cols = rowsOrCfg.cols;
-    } else {
-      this.rows = rowsOrCfg;
-      this.cols = cols;
-    }
+  constructor(rows = 4, cols = 5) {
+    this.rows = rows;
+    this.cols = cols;
     this.paylines = generatePaylines(this.rows, this.cols, LINES_COUNT);
   }
 
@@ -84,8 +70,8 @@ export class SlotEngine {
 
   spin(
     pool:        PoolEntry[],
-    selectedA:   number[] | SpiritDef[],
-    selectedB:   number[] | SpiritDef[],
+    selectedA:   number[],
+    selectedB:   number[],
     betA:        number,
     betB:        number,
     coinScaleA:  number = 1,
@@ -95,20 +81,12 @@ export class SlotEngine {
     fairnessExp: number = 2.0,
     rng:         () => number = Math.random,
   ): SpinResult {
-    // Normalize legacy spirit-array calls to unique symbol-id arrays
-    const normA = (selectedA as (number | SpiritDef)[]).map(x =>
-      typeof x === 'number' ? x : (x as SpiritDef).injectsSymbols[0] ?? 0);
-    const normB = (selectedB as (number | SpiritDef)[]).map(x =>
-      typeof x === 'number' ? x : (x as SpiritDef).injectsSymbols[0] ?? 0);
-    const resolvedA: number[] = [...new Set(normA)];
-    const resolvedB: number[] = [...new Set(normB)];
-
     const grid = spinGrid(this.rows, this.cols, pool, rng);
     const tw   = totalWeight(pool);
 
-    const sideA = this._evalSide(grid, this.paylines, 'A', resolvedA, betA,
+    const sideA = this._evalSide(grid, this.paylines, 'A', selectedA, betA,
                                   tw, coinScaleA, dmgScaleA, fairnessExp);
-    const sideB = this._evalSide(grid, this.paylines, 'B', resolvedB, betB,
+    const sideB = this._evalSide(grid, this.paylines, 'B', selectedB, betB,
                                   tw, coinScaleB, dmgScaleB, fairnessExp);
     return { grid, sideA, sideB };
   }
@@ -170,100 +148,3 @@ export class SlotEngine {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Legacy stubs — kept for files not yet migrated to R5
-// These will be removed when GameScene, SkillResolver, SpiritRegistry are
-// rewritten in R5.
-// ---------------------------------------------------------------------------
-
-export type Element = 'man' | 'pin' | 'sou' | 'honor' | 'wild';
-export type Rarity  = 'N' | 'R' | 'SR' | 'SSR';
-
-/** @deprecated Use SymbolDef from SymbolsConfig.ts after R5 */
-export interface SymbolDef {
-  id:        number;
-  name:      string;
-  element:   Element;
-  tier:      1 | 2 | 3;
-  weight:    number;
-  coinMult:  number;
-  dmgMult:   number;
-  traitKey:  string;
-}
-
-export interface SkillTrigger {
-  type:      'own_line'|'ally_same_element'|'symbol_match'|'hp_threshold'|'on_death';
-  minMatch?: number;
-  count?:    number;
-  symbolId?: number;
-  hpPct?:    number;
-  once?:     boolean;
-}
-
-export interface SkillEffect {
-  type:      'dmg_bonus'|'coin_bonus'|'double_eval'|'pierce_formation'|
-             'refund_bet'|'dmg_immunity'|'skill_resonance'|'halve_strongest_enemy'|'revive_hp';
-  value?:    number;
-  duration?: number;
-}
-
-export interface SpiritSkill {
-  id:          string;
-  name:        string;
-  trigger:     SkillTrigger;
-  effect:      SkillEffect;
-  description: string;
-}
-
-/** @deprecated Will be removed in R5 */
-export interface SpiritDef {
-  id:             string;
-  name:           string;
-  rarity:         Rarity;
-  element:        Element;
-  tier:           1 | 2 | 3;
-  baseHp:         number;
-  atkBonus:       number;
-  coinBonus:      number;
-  injectsSymbols: number[];
-  skill:          SpiritSkill;
-}
-
-/** @deprecated Use PoolEntry from SymbolPool.ts after R5 */
-export type PoolSymbol = { id: number; weight: number };
-
-/** @deprecated */
-export interface EvaluationResult {
-  grid:  number[][];
-  sideA: SideResult;
-  sideB: SideResult;
-}
-
-export interface RoundState {
-  usedRevive:         Set<string>;
-  immunityRoundsLeft: number;
-  hp:    number[];
-  maxHp: number[];
-}
-
-export function createRoundState(): RoundState {
-  return { usedRevive: new Set<string>(), immunityRoundsLeft: 0, hp: [], maxHp: [] };
-}
-
-/** @deprecated Use buildUnionPool from SymbolPool.ts after R5 */
-export function buildSymbolPool(
-  _spiritsA: SpiritDef[],
-  _spiritsB: SpiritDef[],
-  _allSymbols: SymbolDef[],
-): PoolSymbol[] {
-  return [];
-}
-
-export interface SimStats {
-  iterations: number;
-  rtpA:       number;
-  rtpB:       number;
-  avgDmgA:    number;
-  avgDmgB:    number;
-  winRateA:   number;
-}
