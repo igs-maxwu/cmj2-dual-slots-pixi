@@ -181,16 +181,19 @@ export class SlotReel extends Container {
     for (let r = 0; r < ROWS; r++) this.setCellSymbol(colCells[r], finalGrid[r][col]);
     for (const cell of colCells) cell.container.alpha = 1;
 
-    // Bounce overshoot
-    await tween(220, p => {
-      const s = p < 0.4 ? 1 + (p / 0.4) * 0.12 : 1.12 - ((p - 0.4) / 0.6) * 0.12;
-      for (const cell of colCells) cell.container.scale.set(s);
-    }, Easings.easeOut);
+    // Anticipation compress (cells squish down slightly before snap)
+    await tween(70, p => {
+      for (const cell of colCells) cell.container.scale.set(1 - p * 0.10);
+    });
+    // BackOut settle — overshoots 1.0 then snaps back (classic landing feel)
+    await tween(240, p => {
+      for (const cell of colCells) cell.container.scale.set(0.90 + Easings.backOut(p) * 0.10);
+    });
     for (const cell of colCells) cell.container.scale.set(1);
 
     // Stop-flash
     await tween(160, p => {
-      const a = Easings.pulse(p) * 0.28;
+      const a = Easings.pulse(p) * 0.30;
       for (const cell of colCells) cell.overlay.alpha = a;
     });
     for (const cell of colCells) cell.overlay.alpha = 0;
@@ -237,11 +240,14 @@ export class SlotReel extends Container {
     for (let r = 0; r < ROWS; r++) this.setCellSymbol(colCells[r], finalGrid[r][col]);
     for (const cell of colCells) cell.container.alpha = 1;
 
-    // Heavier bounce for center column (longer travel = more drama)
-    await tween(280, p => {
-      const s = p < 0.4 ? 1 + (p / 0.4) * 0.18 : 1.18 - ((p - 0.4) / 0.6) * 0.18;
-      for (const cell of colCells) cell.container.scale.set(s);
-    }, Easings.easeOut);
+    // Anticipation compress — center column squishes more than outer cols
+    await tween(90, p => {
+      for (const cell of colCells) cell.container.scale.set(1 - p * 0.15);
+    });
+    // BackOut settle — stronger overshoot for center drama
+    await tween(300, p => {
+      for (const cell of colCells) cell.container.scale.set(0.85 + Easings.backOut(p) * 0.15);
+    });
     for (const cell of colCells) cell.container.scale.set(1);
 
     // Brighter stop-flash for center
