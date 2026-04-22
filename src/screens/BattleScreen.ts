@@ -16,6 +16,8 @@ import { UiButton } from '@/components/UiButton';
 import { addCornerOrnaments } from '@/components/Decorations';
 import type { DraftResult } from './DraftScreen';
 import { attackTimeline } from './SpiritAttackChoreographer';
+import type { WayHit } from '@/systems/SlotEngine';
+import { mercenaryWeakFx } from '@/fx/MercenaryFx';
 
 // ─── Portrait layout 720×1280 ───────────────────────────────────────────────
 const HEADER_Y   = 14;
@@ -557,59 +559,69 @@ export class BattleScreen implements Screen {
   }
 
   /**
-   * For each side, picks the best wayHit (most matchCount × numWays) and
-   * plays the spirit attack choreography against the opposing formation.
+   * For each side:
+   *   - Best DRAFTED hit  → full T0 attackTimeline (one per side, prevents visual clutter)
+   *   - All MERCENARY hits → lightweight mercenaryWeakFx (all concurrent, cheap)
+   *
+   * All animations run in parallel via Promise.all.
    */
-  private async playAttackAnimations(
-    hitA: { symbolId: number; matchCount: number; numWays: number }[],
-    hitB: { symbolId: number; matchCount: number; numWays: number }[],
-  ): Promise<void> {
+  private async playAttackAnimations(hitA: WayHit[], hitB: WayHit[]): Promise<void> {
     const animations: Promise<void>[] = [];
 
-    const bestA = hitA.reduce<typeof hitA[0] | null>((b, h) =>
-      !b || h.matchCount * h.numWays > b.matchCount * b.numWays ? h : b, null);
-    const bestB = hitB.reduce<typeof hitB[0] | null>((b, h) =>
-      !b || h.matchCount * h.numWays > b.matchCount * b.numWays ? h : b, null);
+    const addSide = (
+      hits:       WayHit[],
+      attackerCells: typeof this.cellsA,
+      defenderCells: typeof this.cellsB,
+      attackerFormation: typeof this.formationA,
+      defenderFormation: typeof this.formationB,
+    ): void => {
+      const draftedHits    = hits.filter(h => !h.isMercenary);
+      const mercenaryHits  = hits.filter(h =>  h.isMercenary);
 
-    if (bestA) {
-      const slot = this.formationA.findIndex(u => u && u.alive && u.symbolId === bestA.symbolId);
-      if (slot >= 0) {
-        const origin  = this.cellsA[slot].container;
-        const targets = this.cellsB
-          .filter((_, i) => this.formationB[i]?.alive)
-          .slice(0, 3)  // cap at 3 targets to avoid visual clutter
-          .map(c => ({ x: c.container.x, y: c.container.y }));
-        if (targets.length > 0) {
-          animations.push(attackTimeline({
-            stage: this.container,
-            symbolId: bestA.symbolId,
-            spiritKey: SYMBOLS[bestA.symbolId].spiritKey,
-            originX: origin.x, originY: origin.y,
-            targetPositions: targets,
-          }));
+      // Best drafted → full T0 (one per side)
+      const bestDrafted = draftedHits.reduce<WayHit | null>((b, h) =>
+        !b || h.matchCount * h.numWays > b.matchCount * b.numWays ? h : b, null);
+
+      if (bestDrafted) {
+        const slot = attackerFormation.findIndex(
+          u => u && u.alive && u.symbolId === bestDrafted.symbolId);
+        if (slot >= 0) {
+          const origin  = attackerCells[slot].container;
+          const targets = defenderCells
+            .filter((_, i) => defenderFormation[i]?.alive)
+            .slice(0, 3)
+            .map(c => ({ x: c.container.x, y: c.container.y }));
+          if (targets.length > 0) {
+            animations.push(attackTimeline({
+              stage:    this.container,
+              symbolId: bestDrafted.symbolId,
+              spiritKey: SYMBOLS[bestDrafted.symbolId].spiritKey,
+              originX: origin.x, originY: origin.y,
+              targetPositions: targets,
+            }));
+          }
         }
       }
-    }
 
-    if (bestB) {
-      const slot = this.formationB.findIndex(u => u && u.alive && u.symbolId === bestB.symbolId);
-      if (slot >= 0) {
-        const origin  = this.cellsB[slot].container;
-        const targets = this.cellsA
-          .filter((_, i) => this.formationA[i]?.alive)
+      // Each mercenary hit → lightweight flash (all run concurrently)
+      for (const mh of mercenaryHits) {
+        const targets = defenderCells
+          .filter((_, i) => defenderFormation[i]?.alive)
           .slice(0, 3)
           .map(c => ({ x: c.container.x, y: c.container.y }));
         if (targets.length > 0) {
-          animations.push(attackTimeline({
-            stage: this.container,
-            symbolId: bestB.symbolId,
-            spiritKey: SYMBOLS[bestB.symbolId].spiritKey,
-            originX: origin.x, originY: origin.y,
-            targetPositions: targets,
-          }));
+          animations.push(mercenaryWeakFx(
+            this.container,
+            targets,
+            Math.max(1, Math.floor(mh.rawDmg)),
+            SYMBOLS[mh.symbolId].color,
+          ));
         }
       }
-    }
+    };
+
+    addSide(hitA, this.cellsA, this.cellsB, this.formationA, this.formationB);
+    addSide(hitB, this.cellsB, this.cellsA, this.formationB, this.formationA);
 
     await Promise.all(animations);
   }
