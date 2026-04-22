@@ -1,6 +1,6 @@
 import { SYMBOLS, PAYOUT_BASE } from '@/config/SymbolsConfig';
 import { REEL_ROWS } from '@/config/GameConfig';
-import { buildUnionPool, totalWeight } from './SymbolPool';
+import { buildFullPool, totalWeight } from './SymbolPool';
 import { SlotEngine } from './SlotEngine';
 
 export interface ScaleResult {
@@ -87,7 +87,7 @@ export function simulateWinRate(
   betB:        number,
   matches:     number = 600,
 ): number {
-  const pool    = buildUnionPool(selectedA, selectedB, SYMBOLS);
+  const pool    = buildFullPool(SYMBOLS);
   const engine  = new SlotEngine(3, 5);
   let winsA     = 0;
   const ROUND_LIMIT = 2000;
@@ -128,7 +128,7 @@ export function autoBalance(
   const TOL    = 1.0;
 
   for (let iter = 0; iter < maxIterations; iter++) {
-    const pool = buildUnionPool(selectedA, selectedB, SYMBOLS);
+    const pool = buildFullPool(SYMBOLS);
     const tw   = totalWeight(pool);
     const scalesA = calculateScales(97, 300, selectedA, tw, exp);
     const scalesB = calculateScales(97, 300, selectedB, tw, exp);

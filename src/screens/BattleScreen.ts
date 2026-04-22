@@ -3,7 +3,7 @@ import type { Screen } from './ScreenManager';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import * as T from '@/config/DesignTokens';
 import { SYMBOLS } from '@/config/SymbolsConfig';
-import { buildUnionPool } from '@/systems/SymbolPool';
+import { buildFullPool } from '@/systems/SymbolPool';
 import { SlotEngine } from '@/systems/SlotEngine';
 import {
   createFormation, isTeamAlive, teamHpTotal, type FormationGrid,
@@ -365,7 +365,8 @@ export class BattleScreen implements Screen {
   // ─── Auto-battle loop ────────────────────────────────────────────────────
   private async loop(): Promise<void> {
     this.running = true;
-    const pool = buildUnionPool(this.cfg.selectedA, this.cfg.selectedB, SYMBOLS);
+    // Full pool: all 8 symbols always spin; non-selected ones fill cells without scoring
+    const pool = buildFullPool(SYMBOLS);
 
     while (this.running && isTeamAlive(this.formationA) && isTeamAlive(this.formationB)) {
       this.round++;

@@ -7,7 +7,7 @@ import {
   DEFAULT_TEAM_HP, DEFAULT_BET, DEFAULT_FAIRNESS_EXP,
   DEFAULT_SELECTED_A, DEFAULT_SELECTED_B,
 } from '@/config/SymbolsConfig';
-import { buildUnionPool } from '@/systems/SymbolPool';
+import { buildFullPool } from '@/systems/SymbolPool';
 import { calculateScales } from '@/systems/ScaleCalculator';
 import { SpiritPortrait } from '@/components/SpiritPortrait';
 import { UiButton } from '@/components/UiButton';
@@ -472,7 +472,8 @@ export class DraftScreen implements Screen {
     if (!this.canGo()) return;
     const selectedA = Array.from(this.selectedA);
     const selectedB = Array.from(this.selectedB);
-    const pool = buildUnionPool(selectedA, selectedB, SYMBOLS);
+    // Full pool: poolTotalW must match what the engine uses at runtime
+    const pool = buildFullPool(SYMBOLS);
     const tw = pool.reduce((s, p) => s + p.weight, 0);
     const sa = calculateScales(DEFAULT_TARGET_RTP, DEFAULT_TARGET_DMG, selectedA, tw, DEFAULT_FAIRNESS_EXP);
     const sb = calculateScales(DEFAULT_TARGET_RTP, DEFAULT_TARGET_DMG, selectedB, tw, DEFAULT_FAIRNESS_EXP);
