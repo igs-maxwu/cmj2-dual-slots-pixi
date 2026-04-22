@@ -2,8 +2,8 @@ import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 
 import type { Screen } from './ScreenManager';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import * as T from '@/config/DesignTokens';
-import { SYMBOLS } from '@/config/SymbolsConfig';
-import { buildFullPool } from '@/systems/SymbolPool';
+import { SYMBOLS, PAYOUT_BASE } from '@/config/SymbolsConfig';
+import { buildFullPool, totalWeight } from '@/systems/SymbolPool';
 import { SlotEngine } from '@/systems/SlotEngine';
 import {
   createFormation, isTeamAlive, teamHpTotal, type FormationGrid,
@@ -69,6 +69,9 @@ export class BattleScreen implements Screen {
   private running = false;
   private round = 0;
   private logLines: string[] = [];
+  /** Consecutive rounds with zero wayHits per side — triggers guaranteed way at 3 */
+  private consecutiveMissA = 0;
+  private consecutiveMissB = 0;
 
   constructor(private cfg: DraftResult, private onExit: () => void) {}
 
@@ -388,8 +391,30 @@ export class BattleScreen implements Screen {
       const lineFx = this.reel.highlightWays(spin.sideA.wayHits, spin.sideB.wayHits);
       const jackpotFx = this.fireJackpots(spin.sideA.wayHits, spin.sideB.wayHits);
 
-      const dmgA = spin.sideA.dmgDealt;
-      const dmgB = spin.sideB.dmgDealt;
+      let dmgA = spin.sideA.dmgDealt;
+      let dmgB = spin.sideB.dmgDealt;
+
+      // ── Underdog boost: 1.3× damage when own HP ratio < 0.30 ──────────────
+      const ratioA = teamHpTotal(this.formationA) / this.cfg.teamHpA;
+      const ratioB = teamHpTotal(this.formationB) / this.cfg.teamHpB;
+      if (ratioA < 0.30 && dmgA > 0) dmgA = Math.ceil(dmgA * 1.3);
+      if (ratioB < 0.30 && dmgB > 0) dmgB = Math.ceil(dmgB * 1.3);
+
+      // ── Consecutive-miss tracking + guaranteed way ─────────────────────────
+      if (spin.sideA.wayHits.length === 0) this.consecutiveMissA++;
+      else                                  this.consecutiveMissA = 0;
+      if (spin.sideB.wayHits.length === 0) this.consecutiveMissB++;
+      else                                  this.consecutiveMissB = 0;
+
+      if (this.consecutiveMissA >= 3 && dmgA === 0) {
+        dmgA = this.minGuaranteedDmg('A');
+        this.consecutiveMissA = 0;
+      }
+      if (this.consecutiveMissB >= 3 && dmgB === 0) {
+        dmgB = this.minGuaranteedDmg('B');
+        this.consecutiveMissB = 0;
+      }
+
       const eventsOnB = dmgA > 0 ? distributeDamage(this.formationB, dmgA, 'A') : [];
       const eventsOnA = dmgB > 0 ? distributeDamage(this.formationA, dmgB, 'B') : [];
 
@@ -411,10 +436,12 @@ export class BattleScreen implements Screen {
       }));
       await Promise.all(fx);
 
+      const tagA = ratioA < 0.30 ? '↑' : '';
+      const tagB = ratioB < 0.30 ? '↑' : '';
       this.logLines.push(
         `R${this.round.toString().padStart(2, '0')}  ` +
-        `A→B dmg ${dmgA} (${spin.sideA.wayHits.length} ways)   ` +
-        `B→A dmg ${dmgB} (${spin.sideB.wayHits.length} ways)`,
+        `A→B dmg ${dmgA}${tagA} (${spin.sideA.wayHits.length} ways)   ` +
+        `B→A dmg ${dmgB}${tagB} (${spin.sideB.wayHits.length} ways)`,
       );
       this.refresh();
 
@@ -427,6 +454,26 @@ export class BattleScreen implements Screen {
     this.logLines.push('');
     this.logLines.push(`>>> ${winner} WINS  <<<`);
     this.refresh();
+  }
+
+  /**
+   * Minimum damage injected for the guaranteed way mechanic.
+   * Equivalent to a 3-way hit with numWays=1 using the most common selected symbol.
+   */
+  private minGuaranteedDmg(side: 'A' | 'B'): number {
+    const selected  = side === 'A' ? this.cfg.selectedA : this.cfg.selectedB;
+    const dmgScale  = side === 'A' ? this.cfg.dmgScaleA : this.cfg.dmgScaleB;
+    const bet       = side === 'A' ? this.cfg.betA       : this.cfg.betB;
+    const pool      = buildFullPool(SYMBOLS);
+    const tw        = totalWeight(pool);
+    // Use highest-weight symbol (most common) → smallest ratio → conservative minimum
+    const anchorId  = selected.reduce(
+      (best, id) => SYMBOLS[id].weight > SYMBOLS[best].weight ? id : best,
+      selected[0],
+    );
+    const mult    = SlotEngine.scaledMult(anchorId, tw, 1, dmgScale, this.cfg.fairnessExp);
+    const rawDmg  = (PAYOUT_BASE[3] ?? 5) * 1 * mult.dmgMult;
+    return Math.max(1, Math.floor(rawDmg * (bet / 100)));
   }
 
   private async fireJackpots(
