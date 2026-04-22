@@ -17,6 +17,20 @@ import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import { tween, delay, Easings } from '@/systems/tween';
 import { SpiritPortrait } from '@/components/SpiritPortrait';
 
+// ─── Signature types ────────────────────────────────────────────────────────
+
+/**
+ * Identifies which Phase-4 (Fire) choreography to dispatch.
+ * PR #1: field is stored only.
+ * PR #2: attackTimeline dispatches on this value.
+ */
+export type SpiritSignature =
+  | 'lightning-xcross'   // 蒼嵐 — X-slash + cyan lightning + shockwave
+  | 'triple-dash'        // 珞洛 — 3× melee dash + afterimages + tiger claw
+  | 'dual-fireball'      // 朱鸞 — twin fireball charge + particle burst
+  | 'python-summon'      // 昭宇 — summoning circle + serpent
+  | 'generic';           // all male spirits (孟辰璋, 寅, 凌羽, 玄墨)
+
 // ─── Per-spirit personality config ─────────────────────────────────────────
 
 export interface SpiritPersonality {
@@ -26,6 +40,8 @@ export interface SpiritPersonality {
   arcHeight:       number;
   /** Canvas-shake pixel radius on impact */
   shakeIntensity:  number;
+  /** Which Phase-4 signature to dispatch */
+  signature:       SpiritSignature;
   /** Timing in ms for each animation phase */
   duration: {
     prepare: number;   // scale-up pulse before jump
@@ -38,33 +54,53 @@ export interface SpiritPersonality {
 
 /** Personalities keyed by spiritKey.  Add one per spirit as assets land. */
 const PERSONALITIES: Record<string, SpiritPersonality> = {
-  /** 孟辰璋 — cyan, swift arc, heavy shake */
+  /** 孟辰璋 — cyan, generic (male spirit template) */
   mengchenzhang: {
     particleColor: 0x00FFFF,
-    arcHeight: 130,
+    arcHeight:     130,
     shakeIntensity: 8,
+    signature:     'generic',
     duration: { prepare: 130, leap: 300, hold: 180, fire: 270, return: 240 },
   },
-  /** 朱鸞 — vermilion, wide arc */
+  /** 朱鸞 — vermilion, dual fireball */
   zhuluan: {
     particleColor: 0xff8a6a,
-    arcHeight: 110,
+    arcHeight:     110,
     shakeIntensity: 6,
+    signature:     'dual-fireball',
     duration: { prepare: 130, leap: 320, hold: 160, fire: 290, return: 250 },
   },
-  /** 蒼嵐 — azure */
+  /** 蒼嵐 — azure, lightning X-cross */
   canlan: {
     particleColor: 0x6ab7ff,
-    arcHeight: 100,
+    arcHeight:     100,
     shakeIntensity: 6,
+    signature:     'lightning-xcross',
     duration: { prepare: 120, leap: 290, hold: 150, fire: 260, return: 230 },
+  },
+  /** 珞洛 — tiger orange, triple melee dash */
+  luoluo: {
+    particleColor: 0xffa500,
+    arcHeight:      60,   // low arc — melee fighter
+    shakeIntensity:  7,
+    signature:     'triple-dash',
+    duration: { prepare: 100, leap: 200, hold:  80, fire: 420, return: 200 },
+  },
+  /** 昭宇 — venom green, python summon */
+  zhaoyu: {
+    particleColor: 0x4adb8e,
+    arcHeight:      80,
+    shakeIntensity:  4,
+    signature:     'python-summon',
+    duration: { prepare: 160, leap: 320, hold: 240, fire: 340, return: 240 },
   },
 };
 
 const DEFAULT_PERSONALITY: SpiritPersonality = {
   particleColor: 0xFFD700,
-  arcHeight: 90,
+  arcHeight:     90,
   shakeIntensity: 5,
+  signature:     'generic',
   duration: { prepare: 120, leap: 290, hold: 160, fire: 260, return: 230 },
 };
 
