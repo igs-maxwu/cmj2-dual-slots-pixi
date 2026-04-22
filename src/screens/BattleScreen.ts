@@ -371,6 +371,10 @@ export class BattleScreen implements Screen {
     // Full pool: all 8 symbols always spin; non-selected ones fill cells without scoring
     const pool = buildFullPool(SYMBOLS);
 
+    // Overkill tiebreaker state (used if both teams die in the same round)
+    let lastDmgA = 0, lastDmgB = 0;
+    let lastPreHpA = 0, lastPreHpB = 0;
+
     while (this.running && isTeamAlive(this.formationA) && isTeamAlive(this.formationB)) {
       this.round++;
       this.refresh();
@@ -415,6 +419,11 @@ export class BattleScreen implements Screen {
         this.consecutiveMissB = 0;
       }
 
+      // Capture pre-damage HP for overkill tiebreaker
+      lastPreHpA = teamHpTotal(this.formationA);
+      lastPreHpB = teamHpTotal(this.formationB);
+      lastDmgA = dmgA; lastDmgB = dmgB;
+
       const eventsOnB = dmgA > 0 ? distributeDamage(this.formationB, dmgA, 'A') : [];
       const eventsOnA = dmgB > 0 ? distributeDamage(this.formationA, dmgB, 'B') : [];
 
@@ -450,7 +459,26 @@ export class BattleScreen implements Screen {
     }
 
     if (!this.running) return;
-    const winner = isTeamAlive(this.formationA) ? 'Player A' : 'Player B';
+
+    // ── Determine winner (overkill tiebreaker on double-death) ────────────────
+    const aAlive = isTeamAlive(this.formationA);
+    const bAlive = isTeamAlive(this.formationB);
+    let winner: string;
+    if (aAlive && !bAlive) {
+      winner = 'Player A';
+    } else if (!aAlive && bAlive) {
+      winner = 'Player B';
+    } else if (!aAlive && !bAlive) {
+      // Both died same round — higher overkill damage wins
+      const overkillA = Math.max(0, lastDmgA - lastPreHpB);
+      const overkillB = Math.max(0, lastDmgB - lastPreHpA);
+      if      (overkillA > overkillB) winner = 'Player A (OVERKILL)';
+      else if (overkillB > overkillA) winner = 'Player B (OVERKILL)';
+      else                             winner = 'DRAW';
+    } else {
+      winner = 'DRAW';
+    }
+
     this.logLines.push('');
     this.logLines.push(`>>> ${winner} WINS  <<<`);
     this.refresh();
