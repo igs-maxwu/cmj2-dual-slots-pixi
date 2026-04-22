@@ -208,13 +208,54 @@ When `formationHP / maxFormationHP < 0.30` → next round damage × **1.3**
 
 ## 11. Sprint Roadmap
 
-| Sprint | Focus | Status |
-|---|---|---|
-| **Sprint 0** | Core loop (5×3 Ways, 243 ways/side, portrait, dual-scale, overkill) | ✅ **Merged 2026-04-22** |
-| **Sprint 1** | T0 spirit attack choreography (4 females + male generic) + T1 particle-emitter + T2 reel anticipation + T3 pixi-filters + T5 hitstop | 🟡 **T0 framework + T2 merged; rest in progress** |
-| **Sprint 2** | T4 parallax bg + T6 Mega/Jackpot ceremony + T8 UI microinteractions + T9 sound/BGM + T10 ink-brush transitions | ⏸ pending |
-| **Sprint 3** | T7 4-beast theme depth + 4 male spirit signatures + trailer | ⏸ pending |
-| **Sprint 4** | Actuarial calibration (10 k simulations, RTP pass) + rebalance | ⏸ pending |
+Each sprint interleaves **gameplay work** with **visual polish** — visual upgrade
+items (V-tier A/B/C) are distributed across phases so the build always advances
+in both dimensions, preventing an "all-function-no-art" prototype cliff.
+
+| Sprint | Gameplay Focus | Visual Polish (V-items) | Status |
+|---|---|---|---|
+| **Sprint 0** | Core loop (5×3 Ways, 243 ways/side, portrait, dual-scale, overkill) | UI rebalance (JP placeholder, 128×150 reel cells) | ✅ **Merged 2026-04-22** |
+| **Sprint 1** | T0 attack choreography (4 females) + T1 particle-emitter + T2 reel anticipation + T3 pixi-filters + T5 hitstop | **A3** formation breathing glow · **A4** spirit-HP pulse bar (< 30 % red edge) · **B4 enhancement** R3 anticipation teaser when R1+R2 pre-match | 🟡 T0 framework + T2 + UI merged; remainder in progress |
+| **Sprint 1.5** | *(interleave week, no new gameplay)* | **A2** reel symbols → spirit portrait art (replace text labels) · symbol-spirit 1:1 visible on reel | ⏸ pending |
+| **Sprint 2** | T6 Big/Mega/Jackpot ceremony + T10 ink-brush transitions | **A1** 3-layer ink-wash parallax bg · **A5** ambient petal/qi particle layer · **A6** BACK button ornate redesign · **B1** bitmap gold numeric font (HP / round / win) · **B2** VS badge live (rotate + particle shed) · **B3** reel frame ornate (dragon-head corners + water ripple edge) · **B5** wallet cascade count-up · **B6** JP area real design (3-tier marquee + particle halo) · **C1** BGM (battle / big-win / victory, 3 tracks) · **C2** SFX pack (~30 cues: stop / win / skill / impact / UI) | ⏸ pending |
+| **Sprint 3** | T7 4-beast theme depth + 4 male spirit signatures + trailer | **C4** 4 male spirit signature animations (Meng/Yin/Xuanmo/Lingyu) · theme-consistency audit across all art · cinematic trailer (30 s) | ⏸ pending |
+| **Sprint 4** | Actuarial calibration (10 k simulations, RTP ≈ 95 %, fairnessExp binary search) | **Post-launch polish pass**: texture/lighting QA, chromatic aberration on Mega Win, performance profiling on mobile devices | ⏸ pending |
+
+### V-Tier Definitions
+
+**Tier A (high C/P, no external resource)** — 5 days total when concentrated, distributed across Sprint 1 / 1.5 / 2:
+- A1 · 3-layer ink-wash parallax background
+- A2 · Reel symbols become spirit portrait art (not text labels)
+- A3 · Formation cell breathing glow (alive) + greyscale cross (dead)
+- A4 · Living HP bar ("靈力槽") with gradient + pulse at low HP
+- A5 · Full-screen ambient particles (petals / qi / drifting motes)
+- A6 · Ornate button redesign (gold rim, gem centre, hover glow)
+
+**Tier B (medium C/P, craftsmanship polish)** — 7 days, concentrated in Sprint 2:
+- B1 · Bitmap gold numeric font with shadow + gradient
+- B2 · VS badge animated (slow rotate + gold particle shed + per-round pulse)
+- B3 · Reel frame ornate (corner dragon-heads + flowing water ripple edge)
+- B4 · R3 anticipation teaser (when R1+R2 pre-match ≥ 2 symbols)
+- B5 · Wallet number cascade count-up (ka-ching digit-by-digit)
+- B6 · JP area real design (placeholder → real 3-tier marquee + particle halo)
+
+**Tier C (resource-dependent, outsourced or specialist)** — Sprint 2–3:
+- C1 · BGM (3 tracks: battle / big-win / victory, 古箏 + 電音)
+- C2 · SFX pack (~30 cues: stop, win, skill launches, impact, UI)
+- C3 · Mega Win full-screen ceremony (Sweet Bonanza tier)
+- C4 · 4 male spirit signature animations (replace genericT0Template)
+
+### Visual Direction (locked for all sprints)
+
+**Primary aesthetic: (a) 傳統水墨仙俠** — ink-wash ambient backgrounds + flowing
+brush trails on attacks + gold/jade accent palette.
+
+**Secondary (character assets): (b) 神獸華麗玄幻** — spirit portraits use
+bright saturated 3D-chibi style for readability.
+
+These two styles are **deliberately paired**: ink-wash world + saturated heroes
+matches modern Chinese mobile game conventions (e.g. Honkai Star Rail, 陰陽師).
+All new art must pass consistency check against this combined direction.
 
 ---
 
@@ -237,6 +278,7 @@ When `formationHP / maxFormationHP < 0.30` → next round damage × **1.3**
 | 2026-04-22 | Stop timing locked at 0.6 / 1.1 / 1.6 s (fast variant) | Owner |
 | 2026-04-22 | UI layout rebalanced: JP placeholder + enlarged reel (128×150 cells) | Owner |
 | 2026-04-22 | Sprint 1 T0 scope limited to 4 female spirits (Canlan/Luoluo/Zhuluan/Zhaoyu) | Owner |
+| 2026-04-22 | V-tier visual polish plan added; roadmap restructured to interleave gameplay + visual each sprint. Direction locked: (a) 水墨仙俠 world + (b) 華麗 3D-chibi characters | Owner |
 
 ---
 
