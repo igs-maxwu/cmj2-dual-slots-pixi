@@ -115,7 +115,7 @@ export class BattleScreen implements Screen {
     addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 130, 0.55);
     this.drawHeader();
     this.drawHpBars();
-    this.drawJackpotPlaceholder();
+    this.drawJackpotMarquee();
     this.drawFormation('A');
     this.drawFormation('B');
     this.drawSlot();
@@ -274,46 +274,30 @@ export class BattleScreen implements Screen {
     return fill;
   }
 
-  // ─── Jackpot area ────────────────────────────────────────────────────────
-  private drawJackpotPlaceholder(): void {
-    const pad = 16;
-    const x = pad;
-    const y = JP_AREA_Y;
-    const w = CANVAS_WIDTH - pad * 2;
-    const h = JP_AREA_H;
+  // ─── Jackpot marquee ─────────────────────────────────────────────────────
+  private drawJackpotMarquee(): void {
+    const tex = Assets.get<Texture>('jp-marquee') ?? Texture.WHITE;
+    const marquee = new Sprite(tex);
+    marquee.anchor.set(0.5, 0.5);
+    marquee.width  = CANVAS_WIDTH - 32;
+    marquee.height = JP_AREA_H;
+    marquee.x = CANVAS_WIDTH / 2;
+    marquee.y = JP_AREA_Y + JP_AREA_H / 2;
+    this.container.addChild(marquee);
 
-    // Semi-transparent gold bg + gold border
-    const bg = new Graphics()
-      .roundRect(x, y, w, h, T.RADIUS.md)
-      .fill({ color: T.GOLD.deep, alpha: 0.12 })
-      .stroke({ width: 2, color: T.GOLD.base, alpha: 0.65 });
-    this.container.addChild(bg);
-
-    // Placeholder label — will be replaced by real JP counters later
-    const label = new Text({
-      text: 'JACKPOT · GRAND · MAJOR',
-      style: {
-        fontFamily: T.FONT.title, fontWeight: '700',
-        fontSize: T.FONT_SIZE.lg,
-        fill: T.GOLD.base, letterSpacing: 4,
-      },
-    });
-    label.anchor.set(0.5, 0.5);
-    label.x = CANVAS_WIDTH / 2;
-    label.y = y + h / 2 - 12;
-    this.container.addChild(label);
-
-    const hint = new Text({
-      text: '✦ design pending ✦',
-      style: {
-        fontFamily: T.FONT.num, fontSize: T.FONT_SIZE.xs,
-        fill: T.FG.muted, letterSpacing: 2,
-      },
-    });
-    hint.anchor.set(0.5, 0.5);
-    hint.x = CANVAS_WIDTH / 2;
-    hint.y = y + h / 2 + 18;
-    this.container.addChild(hint);
+    const numY = JP_AREA_Y + JP_AREA_H / 2 + 14;
+    const tiers: [number, string][] = [
+      [CANVAS_WIDTH * 0.22, '50,000'],
+      [CANVAS_WIDTH * 0.50, '500,000'],
+      [CANVAS_WIDTH * 0.78, '5,000,000'],
+    ];
+    for (const [x, val] of tiers) {
+      const t = goldText(val, { fontSize: 22, withShadow: true });
+      t.anchor.set(0.5, 0.5);
+      t.x = x;
+      t.y = numY;
+      this.container.addChild(t);
+    }
   }
 
   private drawFormation(side: 'A' | 'B'): void {

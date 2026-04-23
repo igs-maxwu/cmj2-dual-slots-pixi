@@ -11,6 +11,7 @@ export const UI_ASSET_KEYS = [
   'win-burst',
   'divider',
   'vs-badge',
+  'jp-marquee',
   'logo-mark',
 ] as const;
 
