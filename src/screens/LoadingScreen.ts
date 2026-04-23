@@ -144,7 +144,7 @@ export class LoadingScreen implements Screen {
     const base = import.meta.env.BASE_URL;
     const assets = UI_ASSET_KEYS.map(k => ({
       alias: k,
-      src:   `${base}assets/ui/${k}.png`,
+      src:   `${base}assets/ui/${k}.webp`,
     }));
     const total = assets.length;
     this.updateProgress(0, total, 'Loading UI');
@@ -158,7 +158,7 @@ export class LoadingScreen implements Screen {
     const base = import.meta.env.BASE_URL;
     const assets = SYMBOLS.map(s => ({
       alias: s.spiritKey,
-      src:   `${base}assets/spirits/${s.spiritKey}.png`,
+      src:   `${base}assets/spirits/${s.spiritKey}.webp`,
     }));
     const total = assets.length;
     this.updateProgress(0, total, 'Loading spirits');
