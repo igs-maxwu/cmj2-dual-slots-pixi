@@ -29,7 +29,8 @@ export type SpiritSignature =
   | 'dragon-dual-slash'  // 孟辰璋 — twin jade swords + dragon-scale trail
   | 'tiger-fist-combo'      // 寅 — 3× heavy punch + tiger ghost + earth crack
   | 'tortoise-hammer-smash' // 玄墨 — charge → overhead smash → radial crack + shell halo
-  | 'generic';              // 凌羽 (pending Sprint 3 D)
+  | 'phoenix-flame-arrow'  // 凌羽 — bow draw → bezier flame arrow → phoenix burst
+  | 'generic';             // (no remaining spirits — all signatures landed)
 
 // ─── Per-spirit personality config ─────────────────────────────────────────
 
@@ -75,6 +76,10 @@ const PERSONALITIES: Record<string, SpiritPersonality> = {
   xuanmo: {
     particleColor: 0xa0a8c0,  arcHeight: 110, shakeIntensity: 12, signature: 'tortoise-hammer-smash',
     duration: { prepare: 140, leap: 310, hold: 200, fire: 750, return: 250 },
+  },
+  lingyu: {
+    particleColor: 0xFF4500,  arcHeight:  80, shakeIntensity: 7, signature: 'phoenix-flame-arrow',
+    duration: { prepare: 120, leap: 280, hold: 140, fire: 700, return: 220 },
   },
 };
 
@@ -165,6 +170,7 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
     case 'dragon-dual-slash': await _sigDragonDualSlash(ctx); break;
     case 'tiger-fist-combo':       await _sigTigerFistCombo(ctx);       break;
     case 'tortoise-hammer-smash':  await _sigTortoiseHammerSmash(ctx);  break;
+    case 'phoenix-flame-arrow':    await _sigPhoenixFlameArrow(ctx);    break;
     default: {
       const shots = targetPositions.map(tp =>
         _fireShot(stage, centerX, centerY, tp.x, tp.y, particleColor, D.fire));
@@ -732,6 +738,154 @@ async function _sigTortoiseHammerSmash(ctx: Phase4Ctx): Promise<void> {
   hammer.destroy({ children: true });
   for (const ck of cracks) ck.destroy();
   await swPromise;
+}
+
+// ─── 凌羽 — Phoenix Flame Arrow ─────────────────────────────────────────
+
+async function _sigPhoenixFlameArrow(ctx: Phase4Ctx): Promise<void> {
+  const { stage, avatar, centerX: cx, centerY: cy, targets, color } = ctx;
+  AudioManager.playSfx('skill-lingyu');
+  const DARK_RED  = 0x8b1a1a;
+  const GOLD_BOW  = 0xd4a028;
+
+  const tp0 = targets[0] ?? { x: cx, y: cy + 80 };
+
+  // (a) 0–200ms: bow + arrow appear — scale 0.8→1 + alpha 0→1 (backOut)
+  const bowG = new Graphics();
+  const bowX = cx + 20;
+  const bowY = cy;
+
+  // D-shaped bow: polyline arc + string
+  bowG.moveTo(0, -22);
+  for (let i = 1; i <= 8; i++) {
+    const t = i / 8;
+    bowG.lineTo(Math.sin(t * Math.PI) * 16, -22 + t * 44);
+  }
+  bowG.stroke({ width: 3, color: GOLD_BOW, alpha: 0.9 });
+  bowG.moveTo(0, -22).lineTo(0, 22).stroke({ width: 1.5, color: GOLD_BOW, alpha: 0.55 });
+
+  bowG.x = bowX; bowG.y = bowY;
+  stage.addChild(bowG);
+
+  // Arrow: rect body + pointed tip
+  const arrowG = new Graphics();
+  arrowG.rect(-6, -1, 44, 2).fill({ color: DARK_RED, alpha: 0.95 });
+  arrowG.moveTo(38, -3).lineTo(44, 0).lineTo(38, 3).fill({ color, alpha: 0.9 });
+  arrowG.x = bowX; arrowG.y = bowY;
+  stage.addChild(arrowG);
+
+  const arrowGlow = applyGlow(arrowG, color, 1.5, 8);
+
+  await tween(200, p => {
+    const s = 0.8 + 0.2 * Easings.backOut(p);
+    const a = Easings.easeOut(p);
+    bowG.scale.set(s);  bowG.alpha = a;
+    arrowG.scale.set(s); arrowG.alpha = a;
+  });
+
+  // (b) 200–280ms: charge flicker — 2 × 40ms alpha pulses (0.7 ↔ 1.0)
+  for (let f = 0; f < 2; f++) {
+    await tween(40, p => {
+      const a = 0.7 + 0.3 * Math.sin(p * Math.PI);
+      bowG.alpha = a; arrowG.alpha = a;
+    });
+  }
+
+  // (c) 280–480ms: arrow flight along quadratic bezier + orange flame trail
+  // Bow fades out in background (300ms, fire-and-forget)
+  void tween(300, p => { bowG.alpha = 1 - p; }).then(() => { bowG.destroy(); });
+
+  const startX = bowX + 38;  // arrow tip origin
+  const startY = bowY;
+  const ctrlX  = (startX + tp0.x) / 2;
+  const ctrlY  = Math.min(startY, tp0.y) - 80;
+
+  let lastSpawnSeg = -1;
+  await tween(200, p => {
+    const ep = Easings.easeIn(p);
+    // Quadratic bezier position
+    const bx = (1 - ep) * (1 - ep) * startX + 2 * (1 - ep) * ep * ctrlX + ep * ep * tp0.x;
+    const by = (1 - ep) * (1 - ep) * startY + 2 * (1 - ep) * ep * ctrlY + ep * ep * tp0.y;
+    // Tangent for arrow rotation
+    const t1  = Math.min(ep + 0.01, 1);
+    const bx1 = (1 - t1) * (1 - t1) * startX + 2 * (1 - t1) * t1 * ctrlX + t1 * t1 * tp0.x;
+    const by1 = (1 - t1) * (1 - t1) * startY + 2 * (1 - t1) * t1 * ctrlY + t1 * t1 * tp0.y;
+    arrowG.x = bx; arrowG.y = by;
+    arrowG.rotation = Math.atan2(by1 - by, bx1 - bx);
+
+    // Spawn flame particle every ~20ms (~10 per 200ms flight)
+    const seg = Math.floor(p * 10);
+    if (seg > lastSpawnSeg) {
+      lastSpawnSeg = seg;
+      const r = 3 + Math.random() * 2;
+      const flame = new Graphics().circle(0, 0, r).fill({ color, alpha: 0.9 });
+      flame.x = bx; flame.y = by;
+      stage.addChild(flame);
+      void tween(120, p2 => { flame.alpha = 0.9 * (1 - p2); }).then(() => { flame.destroy(); });
+    }
+  });
+
+  // (d) 480–560ms: impact — flash + phoenix silhouette + shockwave + shake
+  removeFilter(arrowG, arrowGlow);
+  arrowG.destroy();
+  AudioManager.playSfx('damage-crit');
+
+  const swPromise = applyShockwave(stage, tp0.x, tp0.y, 90, 100);
+  void _screenShake(stage, ctx.shakeIntensity);
+
+  const flash = new Graphics()
+    .rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+    .fill({ color: 0xffffff, alpha: 0.5 });
+  stage.addChild(flash);
+
+  // Phoenix silhouette: 2 rings + 2 wing rects
+  const pxOuter = new Graphics().circle(0, 0, 60).fill({ color: 0xff8844, alpha: 0.35 });
+  pxOuter.x = tp0.x; pxOuter.y = tp0.y;
+  const pxInner = new Graphics().circle(0, 0, 30).fill({ color, alpha: 0.65 });
+  pxInner.x = tp0.x; pxInner.y = tp0.y;
+  const wingL = new Graphics().rect(-60, -10, 60, 20).fill({ color, alpha: 0.50 });
+  wingL.x = tp0.x; wingL.y = tp0.y; wingL.rotation = -0.4;
+  const wingR = new Graphics().rect(0, -10, 60, 20).fill({ color, alpha: 0.50 });
+  wingR.x = tp0.x; wingR.y = tp0.y; wingR.rotation = 0.4;
+  stage.addChild(pxOuter, pxInner, wingL, wingR);
+
+  const bloom = applyBloom(stage, 1.5);
+  await tween(80, p => { flash.alpha = 0.5 * (1 - p); });
+  flash.destroy();
+  removeFilter(stage, bloom);
+
+  // (e) 560–700ms: phoenix fade + 5 ember particles float upward (120ms)
+  const embers: Graphics[] = [];
+  const emberVX: number[] = [];
+  for (let i = 0; i < 5; i++) {
+    const em = new Graphics().circle(0, 0, 3).fill({ color, alpha: 0.7 });
+    em.x = tp0.x; em.y = tp0.y;
+    stage.addChild(em);
+    embers.push(em);
+    emberVX.push((Math.random() - 0.5) * 1.0);
+  }
+
+  await Promise.all([
+    tween(120, p => {
+      pxOuter.alpha = 0.35 * (1 - p);
+      pxInner.alpha = 0.65 * (1 - p);
+      wingL.alpha   = 0.50 * (1 - p);
+      wingR.alpha   = 0.50 * (1 - p);
+      for (let i = 0; i < embers.length; i++) {
+        embers[i].x = tp0.x + emberVX[i] * p * 60;
+        embers[i].y = tp0.y - p * 60;
+        embers[i].alpha = 0.7 * (1 - p);
+      }
+    }),
+    delay(60),
+  ]);
+
+  // Cleanup
+  pxOuter.destroy(); pxInner.destroy();
+  wingL.destroy();   wingR.destroy();
+  for (const em of embers) em.destroy();
+  await swPromise;
+  void avatar;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
