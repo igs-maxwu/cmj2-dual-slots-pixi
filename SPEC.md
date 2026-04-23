@@ -305,6 +305,9 @@ Canonical source-of-truth drawers (Wing: GameEconomy, Room: DualSlot-engine):
 - `drawer_GameEconomy_DualSlot-engine_355b7ce2bccf855f` — **Lightweight Strategy v1.0 (§16 source)**
 - "DualSlot-Pixi CORE DESIGN LOCK (2026-04-22)" — 5 pillars + blind spots
 
+Executor prompt archive: see `prompts/README.md` for the full index of dispatched prompts
+per PR (Sprint 2 V-tier, polish rounds, Sprint 3 signatures, chore PRs).
+
 Related knowledge-graph facts:
 
 - DualSlot-Pixi → reel_stop_timing → 0.6 / 1.1 / 1.6 s
