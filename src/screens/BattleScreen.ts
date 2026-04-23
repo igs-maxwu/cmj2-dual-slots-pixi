@@ -407,7 +407,7 @@ export class BattleScreen implements Screen {
 
   private drawBackButton(): void {
     const btn = new UiButton('BACK TO DRAFT', 260, 46, () => this.onExit(),
-      { fontSize: T.FONT_SIZE.md });
+      { fontSize: T.FONT_SIZE.md, variant: 'ornate' });
     btn.x = CANVAS_WIDTH / 2;
     btn.y = BACK_BTN_Y;
     this.container.addChild(btn);

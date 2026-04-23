@@ -3,6 +3,7 @@ export const UI_ASSET_KEYS = [
   'slot-frame',
   'draft-tile-frame',
   'btn-normal',
+  'btn-ornate',
   'hp-frame',
   'portrait-ring',
   'corner-ornament',
