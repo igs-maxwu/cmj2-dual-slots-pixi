@@ -1,0 +1,41 @@
+
+sos2-declare-fire.webp
+size: 824,195
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+FX/Fire_1
+  rotate: true
+  xy: 2, 2
+  size: 191, 257
+  orig: 200, 257
+  offset: 2, 0
+  index: -1
+FX/Fire_2
+  rotate: false
+  xy: 750, 34
+  size: 32, 84
+  orig: 34, 87
+  offset: 0, 1
+  index: -1
+FX/Fire_6
+  rotate: true
+  xy: 261, 7
+  size: 186, 224
+  orig: 186, 224
+  offset: 0, 0
+  index: -1
+FX/Fire_7
+  rotate: true
+  xy: 487, 14
+  size: 179, 261
+  orig: 180, 261
+  offset: 0, 0
+  index: -1
+FX/Particle_04
+  rotate: true
+  xy: 750, 120
+  size: 73, 72
+  orig: 100, 100
+  offset: 18, 10
+  index: -1
