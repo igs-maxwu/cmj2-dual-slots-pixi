@@ -19,6 +19,7 @@ import { attackTimeline } from './SpiritAttackChoreographer';
 import type { WayHit } from '@/systems/SlotEngine';
 import { mercenaryWeakFx } from '@/fx/MercenaryFx';
 import { AmbientBackground } from './AmbientBackground';
+import { VsBadgeAnimator } from '@/fx/VsBadgeAnimator';
 
 // ─── Portrait layout 720×1280 ───────────────────────────────────────────────
 const HEADER_Y   = 14;
@@ -65,6 +66,7 @@ interface FormationCellRefs {
 export class BattleScreen implements Screen {
   private app!: Application;
   private bg!: AmbientBackground;
+  private vsBadge!: VsBadgeAnimator;
   private container = new Container();
   private roundText!: Text;
   private hpBarA!: Graphics;
@@ -145,10 +147,12 @@ export class BattleScreen implements Screen {
     badge.x = CANVAS_WIDTH / 2;
     badge.y = HP_Y + HP_BAR_H / 2;
     this.container.addChild(badge);
+    this.vsBadge = new VsBadgeAnimator(badge, this.app, this.container);
   }
 
   onUnmount(): void {
     this.running = false;
+    this.vsBadge.destroy();
     this.bg.destroyLayers();
     this.bg.destroy({ children: true });
     if (this._breatheTick) {
@@ -495,6 +499,7 @@ export class BattleScreen implements Screen {
 
     while (this.running && isTeamAlive(this.formationA) && isTeamAlive(this.formationB)) {
       this.round++;
+      this.vsBadge.pulse();
       this.refresh();
 
       const spin = this.engine.spin(
