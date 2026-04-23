@@ -18,6 +18,7 @@ import type { DraftResult } from './DraftScreen';
 import { attackTimeline } from './SpiritAttackChoreographer';
 import type { WayHit } from '@/systems/SlotEngine';
 import { mercenaryWeakFx } from '@/fx/MercenaryFx';
+import { AmbientBackground } from './AmbientBackground';
 
 // ─── Portrait layout 720×1280 ───────────────────────────────────────────────
 const HEADER_Y   = 14;
@@ -63,6 +64,7 @@ interface FormationCellRefs {
 
 export class BattleScreen implements Screen {
   private app!: Application;
+  private bg!: AmbientBackground;
   private container = new Container();
   private roundText!: Text;
   private hpBarA!: Graphics;
@@ -94,6 +96,8 @@ export class BattleScreen implements Screen {
   // ─── Screen lifecycle ────────────────────────────────────────────────────
   async onMount(app: Application, stage: Container): Promise<void> {
     this.app = app;
+    this.bg = new AmbientBackground(app);
+    stage.addChild(this.bg);
     stage.addChild(this.container);
     this.formationA = createFormation(this.cfg.selectedA, this.cfg.teamHpA);
     this.formationB = createFormation(this.cfg.selectedB, this.cfg.teamHpB);
@@ -145,6 +149,8 @@ export class BattleScreen implements Screen {
 
   onUnmount(): void {
     this.running = false;
+    this.bg.destroyLayers();
+    this.bg.destroy({ children: true });
     if (this._breatheTick) {
       this.app.ticker.remove(this._breatheTick);
       this._breatheTick = null;
@@ -156,9 +162,7 @@ export class BattleScreen implements Screen {
 
   // ─── Build UI ────────────────────────────────────────────────────────────
   private drawBackground(): void {
-    const bg = new Graphics().rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT).fill(T.SEA.abyss);
-    this.container.addChild(bg);
-
+    // Solid base is provided by AmbientBackground; only draw the grid overlay.
     const grid = new Graphics();
     for (let x = 0; x < CANVAS_WIDTH; x += 40) grid.moveTo(x, 0).lineTo(x, CANVAS_HEIGHT);
     for (let y = 0; y < CANVAS_HEIGHT; y += 40) grid.moveTo(0, y).lineTo(CANVAS_WIDTH, y);
