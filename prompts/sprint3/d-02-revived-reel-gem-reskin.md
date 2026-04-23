@@ -12,7 +12,7 @@ Source:
 - PR #62 d-00 SOS2 assets: `public/assets/symbols/gems/gem-{triangle,diamond,pentagon,square,hexagon}.webp`（5 顆，每顆 ~1.8 KB）
 - `src/config/SymbolsConfig.ts` 每個 SymbolDef 已有 `shape: 'triangle'|'hexagon'|'square'|'cross'|'circle'|'heart'|'diamond'|'star'` 欄位
 - `src/screens/SlotReel.ts` line 130 `new SpiritPortrait(0, 100)` 是主要改點
-- Owner mockup: `download_picture/dual-slot-pixi/battle-redesign/mockup.png`（若未放，STOP 等 owner）
+- Owner mockup: `download_picture/mockup_reference.jpg`（若未放，STOP 等 owner）
 
 Base: master HEAD（可 **並行** c-02 free-standing spirits PR，兩者不同檔案）
 Target: `feat/sprint3d-02-reel-gem-reskin`
