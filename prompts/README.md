@@ -58,7 +58,22 @@ The executor opens the file with the `Read` tool and follows it verbatim.
 
 | PR | Prompt file | Status |
 |---|---|---|
-| (pending) c-01 DraftScreen clan grouping | [`sprint3/c-01-draftscreen-4beast-grouping.md`](sprint3/c-01-draftscreen-4beast-grouping.md) | **ready to dispatch** — mockup in `download_picture/dual-slot-pixi/` |
+| (in-flight) c-01 DraftScreen clan grouping | [`sprint3/c-01-draftscreen-4beast-grouping.md`](sprint3/c-01-draftscreen-4beast-grouping.md) | dispatched — mockup in `download_picture/dual-slot-pixi/` |
+
+### Sprint 3 · D — SOS2 asset integration (FX + Symbols)
+
+Roadmap doc: [`sprint3/D-ROADMAP.md`](sprint3/D-ROADMAP.md)
+
+| PR | Prompt file | Status |
+|---|---|---|
+| [#62](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/62) d-00 SOS2 assets import (chore) | *(orchestrator task, no executor prompt)* | ✅ merged |
+| (pending) d-01 FXAtlas loader + clanTint helper | [`sprint3/d-01-fx-atlas-loader.md`](sprint3/d-01-fx-atlas-loader.md) | **ready to dispatch** (parallel with c-01) |
+| (roadmap) d-02 Symbol reskin (5 gems) | — | to be written after d-01 merge |
+| (roadmap) d-03 Phoenix coin-on-kill visual | — | depends on d-01 |
+| (roadmap) d-04 Signature FX upgrade (dragon/phoenix/tortoise fire+smoke) | — | depends on d-01 |
+| (roadmap) d-05 Near-win gold-dust teaser | — | depends on d-01 |
+| (roadmap) d-06 Way highlight win-frame | — | depends on d-01 |
+| (roadmap) d-07 BigWin / MegaWin ceremony (Sprint 6 prep) | — | depends on d-01 |
 
 ### Sprint 3 · B — Spirit passives (SPEC §8 gameplay skills)
 
