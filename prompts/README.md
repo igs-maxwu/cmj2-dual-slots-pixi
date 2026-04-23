@@ -51,8 +51,8 @@ The executor opens the file with the `Read` tool and follows it verbatim.
 |---|---|---|
 | [#42](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/42) Meng 孟辰璋 dragon dual-slash | [`sprint3/a-01-meng-dragon.md`](sprint3/a-01-meng-dragon.md) | ✅ merged |
 | [#44](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/44) Yin 寅 tiger fist combo | [`sprint3/a-02-yin-tiger.md`](sprint3/a-02-yin-tiger.md) | ✅ merged |
-| (planned) Xuanmo 玄墨 tortoise hammer | `sprint3/a-03-xuanmo-hammer.md` | after FX preview lands |
-| (planned) Lingyu 凌羽 phoenix arrow | `sprint3/a-04-lingyu-phoenix.md` | after FX preview lands |
+| (pending) Xuanmo 玄墨 tortoise hammer | [`sprint3/a-03-xuanmo-hammer.md`](sprint3/a-03-xuanmo-hammer.md) | **ready to dispatch** |
+| (pending) Lingyu 凌羽 phoenix arrow | [`sprint3/a-04-lingyu-phoenix.md`](sprint3/a-04-lingyu-phoenix.md) | **ready to dispatch** (after 03 merges) |
 
 ### Chore
 
@@ -63,7 +63,7 @@ The executor opens the file with the `Read` tool and follows it verbatim.
 | [#39](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/39) (closed — superseded by #40) | — |
 | [#41](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/41) prompts/ archive convention | *(self-referential; the meta-PR that created this README)* |
 | [#43](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/43) add Yin prompt to archive | *(doc PR, no standalone prompt file)* |
-| (pending) FX Preview Harness (URL param + console hook) | [`chore/fx-preview-harness.md`](chore/fx-preview-harness.md) | **ready to dispatch** |
+| [#46](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/46) FX Preview Harness (URL param + console hook) | [`chore/fx-preview-harness.md`](chore/fx-preview-harness.md) | ✅ merged |
 
 ## Backfill policy
 
