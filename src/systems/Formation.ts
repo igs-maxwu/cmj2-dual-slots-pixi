@@ -1,8 +1,9 @@
 export interface GridUnit {
-  symbolId: number;
-  hp:       number;
-  maxHp:    number;
-  alive:    boolean;
+  symbolId:   number;
+  hp:         number;
+  maxHp:      number;
+  alive:      boolean;
+  shieldUsed?: boolean;  // Black Tortoise passive (b-02) — consumed on fatal hit
 }
 
 /** 9-element flat array; index = row*3+col. null = empty slot. */
