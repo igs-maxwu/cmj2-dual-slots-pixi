@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@pixi/particle-emitter": "^5.0.10",
+    "pixi-filters": "^6.1.5",
     "pixi.js": "^8.6.0"
   },
   "devDependencies": {
