@@ -88,6 +88,8 @@ always appear on the reel (RTP stability). Non-drafted spirit hits pay at **30 %
 Each beat separated by 500 ms. Centre reel has an extra 200 ms gold anticipation
 flash before its spin starts.
 
+**Conditional extension**: when B4 teaser triggers (see §11), R3 pre-flash extends from 200 ms → 400 ms and R3 lock shifts to ~1.8 s.
+
 ### 5.3 Settle animation (T2)
 
 After lock, each reel runs: compress scale (0.90 outer / 0.85 centre) → `backOut`
@@ -284,6 +286,7 @@ All new art must pass consistency check against this combined direction.
 | 2026-04-22 | V-tier visual polish plan added; roadmap restructured to interleave gameplay + visual each sprint. Direction locked: (a) 水墨仙俠 world + (b) 華麗 3D-chibi characters | Owner |
 | 2026-04-22 | Math Model v1.0 locked: 7 meta mechanics (M1/M2/M3/M5/M6/M10/M12), Base Ways RTP 60 %, Sprints 5–7 added. See §15. | Owner |
 | 2026-04-22 | Lightweight Strategy v1.0 locked: PWA delivery, ≤ 5 MB total session bundle, Sprint 4 concentrated optimization (L1–L10). See §16. | Owner |
+| 2026-04-23 | B4 R3 anticipation teaser: R3 lock extended 1.6s→1.8s when R1+R2 or R4+R5 pre-match ≥1 symbol | Owner |
 
 ---
 

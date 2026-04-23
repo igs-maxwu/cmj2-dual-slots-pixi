@@ -5,6 +5,13 @@ import { tween, delay, Easings } from '@/systems/tween';
 import { SpiritPortrait } from '@/components/SpiritPortrait';
 import type { WayHit } from '@/systems/SlotEngine';
 
+function hasPreMatch(grid: number[][], colLeft: number, colRight: number): boolean {
+  const left = new Set<number>();
+  for (let r = 0; r < 3; r++) left.add(grid[r][colLeft]);
+  for (let r = 0; r < 3; r++) if (left.has(grid[r][colRight])) return true;
+  return false;
+}
+
 const COLS = 5;
 const ROWS = 3;
 const CELL_W = 128;
@@ -143,10 +150,14 @@ export class SlotReel extends Container {
       this.spinColumn(3, finalGrid, 510),
     ]);
 
-    // Center — start 500ms after inner, lock at t ≈ 1600ms
-    // (spinColumnCenter adds 200ms pre-flash + 90ms fade before swap)
+    // B4 teaser: if either outer/inner pair on one side shares a symbol,
+    // escalate the center pre-flash to tease a possible 3-way.
+    const teaser = hasPreMatch(finalGrid, 0, 1) || hasPreMatch(finalGrid, 4, 3);
+
+    // Center — start 500ms after inner, lock at t ≈ 1600ms (or ≈ 1800ms if teaser)
+    // (spinColumnCenter adds 200ms/400ms pre-flash + 90ms fade before swap)
     await delay(500);
-    const p2 = this.spinColumnCenter(2, finalGrid, 310);
+    const p2 = this.spinColumnCenter(2, finalGrid, 310, teaser);
 
     await Promise.all([p04, p13, p2]);
   }
@@ -193,17 +204,20 @@ export class SlotReel extends Container {
   /**
    * Center column: gold anticipation flash then slow-mo spin (0.7× speed).
    */
-  private async spinColumnCenter(col: number, finalGrid: number[][], spinMs: number): Promise<void> {
+  private async spinColumnCenter(col: number, finalGrid: number[][], spinMs: number, anticipated: boolean): Promise<void> {
     const colCells = this.cells[col];
 
-    // Gold pre-flash anticipation
+    // Gold pre-flash anticipation — brighter + longer when B4 teaser triggers
+    const flashFill = anticipated ? (T.GOLD.light ?? T.GOLD.base) : T.GOLD.base;
+    const flashMs   = anticipated ? 400 : 200;
+    const flashPeak = anticipated ? 0.85 : 0.55;
     for (const cell of colCells) {
       cell.overlay.clear()
         .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
-        .fill(T.GOLD.base);
+        .fill(flashFill);
     }
-    await tween(200, p => {
-      const a = Easings.pulse(p) * 0.55;
+    await tween(flashMs, p => {
+      const a = Easings.pulse(p) * flashPeak;
       for (const cell of colCells) cell.overlay.alpha = a;
     });
     for (const cell of colCells) {
