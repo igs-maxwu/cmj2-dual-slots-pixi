@@ -17,6 +17,7 @@ import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import { tween, delay, Easings } from '@/systems/tween';
 import { SpiritPortrait } from '@/components/SpiritPortrait';
 import { applyGlow, applyBloom, applyShockwave, removeFilter } from '@/fx/GlowWrapper';
+import { AudioManager } from '@/systems/AudioManager';
 
 // ─── Signature types ────────────────────────────────────────────────────────
 
@@ -25,7 +26,8 @@ export type SpiritSignature =
   | 'triple-dash'        // 珞洛 — 3× melee dash + afterimages + tiger claw
   | 'dual-fireball'      // 朱鸞 — twin fireball charge + particle burst
   | 'python-summon'      // 朝雨 — summoning circle + serpent
-  | 'generic';           // all male spirits (孟辰璋, 寅, 凌羽, 玄墨)
+  | 'dragon-dual-slash'  // 孟辰璋 — twin jade swords + dragon-scale trail
+  | 'generic';           // 寅, 凌羽, 玄墨 (pending Sprint 3 B/C/D)
 
 // ─── Per-spirit personality config ─────────────────────────────────────────
 
@@ -45,8 +47,8 @@ export interface SpiritPersonality {
 
 const PERSONALITIES: Record<string, SpiritPersonality> = {
   mengchenzhang: {
-    particleColor: 0x00FFFF,  arcHeight: 130, shakeIntensity: 8, signature: 'generic',
-    duration: { prepare: 130, leap: 300, hold: 180, fire: 270, return: 240 },
+    particleColor: 0x4a90e2,  arcHeight: 130, shakeIntensity: 8, signature: 'dragon-dual-slash',
+    duration: { prepare: 130, leap: 300, hold: 180, fire: 640, return: 240 },
   },
   zhuluan: {
     particleColor: 0xff8a6a,  arcHeight: 110, shakeIntensity: 6, signature: 'dual-fireball',
@@ -150,6 +152,7 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
     case 'triple-dash':      await _sigTripleDash(ctx);      break;
     case 'dual-fireball':    await _sigDualFireball(ctx);    break;
     case 'python-summon':    await _sigPythonSummon(ctx);    break;
+    case 'dragon-dual-slash': await _sigDragonDualSlash(ctx); break;
     default: {
       const shots = targetPositions.map(tp =>
         _fireShot(stage, centerX, centerY, tp.x, tp.y, particleColor, D.fire));
@@ -424,6 +427,102 @@ async function _sigPythonSummon(ctx: Phase4Ctx): Promise<void> {
   circle.clear();
   circle.destroy();
   await swPromise;
+}
+
+// ─── 孟辰璋 — Dragon Dual Slash ──────────────────────────────────────────
+
+async function _sigDragonDualSlash(ctx: Phase4Ctx): Promise<void> {
+  const { stage, centerX: cx, centerY: cy, targets, color } = ctx;
+  AudioManager.playSfx('skill-meng');
+  const AZURE = 0x4a90e2, AZURE_LITE = 0xa0d8ff;
+  const SWORD_W = 6, SWORD_H = 44;
+
+  // (a) 0–120ms: two jade swords appear
+  const drawSword = (g: Graphics) => {
+    g.clear();
+    g.rect(-SWORD_W / 2, -SWORD_H / 2, SWORD_W, SWORD_H).fill(AZURE_LITE);
+    g.rect(-1, -SWORD_H / 2, 2, SWORD_H).fill(AZURE);
+  };
+  const swordL = new Graphics(); drawSword(swordL);
+  const swordR = new Graphics(); drawSword(swordR);
+  swordL.x = cx - 28; swordL.y = cy; swordL.alpha = 0;
+  swordR.x = cx + 28; swordR.y = cy; swordR.alpha = 0;
+  stage.addChild(swordL, swordR);
+  const glowL = applyGlow(swordL, AZURE, 3, 10);
+  const glowR = applyGlow(swordR, AZURE, 3, 10);
+  await tween(120, p => { swordL.alpha = swordR.alpha = p; });
+
+  // (b+c) 120–400ms: diagonal slash + hex particle trail
+  const tp0 = targets[0] ?? { x: cx, y: cy + 80 };
+  const tp1 = targets[1] ?? targets[0] ?? { x: cx, y: cy + 80 };
+  const PARTICLE_COUNT = 12;
+  const particles: Graphics[] = [];
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const pt = new Graphics();
+    const r = 4;
+    for (let s = 0; s < 6; s++) {
+      const a = (s / 6) * Math.PI * 2;
+      if (s === 0) pt.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      else pt.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    pt.closePath().fill({ color: AZURE, alpha: 0.8 });
+    pt.visible = false;
+    stage.addChild(pt);
+    particles.push(pt);
+  }
+  let spawnIdx = 0;
+  await tween(280, p => {
+    const ep = Easings.easeIn(p);
+    swordL.rotation = -0.8 - p * 0.8;
+    swordL.x = cx - 28 + (tp0.x - (cx - 28)) * ep;
+    swordL.y = cy + (tp0.y - cy) * ep;
+    swordR.rotation = 0.8 + p * 0.8;
+    swordR.x = cx + 28 + (tp1.x - (cx + 28)) * ep;
+    swordR.y = cy + (tp1.y - cy) * ep;
+    if (p > 0.15 && spawnIdx < PARTICLE_COUNT) {
+      const pt = particles[spawnIdx++];
+      const src = spawnIdx % 2 === 0 ? swordL : swordR;
+      pt.x = src.x + (Math.random() - 0.5) * 10;
+      pt.y = src.y + (Math.random() - 0.5) * 10;
+      pt.alpha = 0.8; pt.visible = true;
+    }
+    for (let i = 0; i < spawnIdx; i++)
+      particles[i].alpha = Math.max(0, particles[i].alpha - 0.04);
+  });
+
+  // (d) 400–520ms: impact flash + glow rings
+  const flash = new Graphics()
+    .rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+    .fill({ color: 0xffffff, alpha: 0.4 });
+  flash.alpha = 0.4; stage.addChild(flash);
+  const impactA = new Graphics().circle(tp0.x, tp0.y, 22).fill({ color: AZURE, alpha: 0.65 });
+  const impactB = new Graphics().circle(tp1.x, tp1.y, 22).fill({ color: AZURE, alpha: 0.65 });
+  stage.addChild(impactA, impactB);
+  const glowIA = applyGlow(impactA, AZURE, 2.5, 16);
+  const glowIB = applyGlow(impactB, AZURE, 2.5, 16);
+  await Promise.all([
+    tween(80,  p => { flash.alpha = 0.4 * (1 - p); }),
+    tween(120, p => {
+      impactA.scale.set(1 + p * 1.3); impactA.alpha = 0.65 * (1 - p);
+      impactB.scale.set(1 + p * 1.3); impactB.alpha = 0.65 * (1 - p);
+    }),
+    _screenShake(stage, ctx.shakeIntensity),
+  ]);
+
+  // (e) 520–640ms: swords fade + hitstop
+  await Promise.all([
+    tween(120, p => { swordL.alpha = swordR.alpha = 1 - p; }),
+    delay(60),
+  ]);
+
+  // Cleanup
+  removeFilter(swordL, glowL); swordL.destroy();
+  removeFilter(swordR, glowR); swordR.destroy();
+  removeFilter(impactA, glowIA); impactA.destroy();
+  removeFilter(impactB, glowIB); impactB.destroy();
+  flash.destroy();
+  for (const pt of particles) pt.destroy();
+  void color;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
