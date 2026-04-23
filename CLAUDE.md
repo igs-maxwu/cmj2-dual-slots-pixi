@@ -88,3 +88,16 @@ Every executor prompt should include these 5 sections:
 5. **Handoff** — PR URL + 1-line summary + spec deviations + dependencies
 
 Full template: drawer `f9b2d1727ebf23a7`.
+
+---
+
+## Prompt archive (added 2026-04-23)
+
+All executor prompts dispatched by the orchestrator live in `prompts/` at the repo root. The workflow is:
+
+1. Orchestrator writes the prompt as `prompts/<folder>/<sprint-nn-slug>.md` (not pasted into chat).
+2. Owner tells the executor CLI: "Read `prompts/sprint3/a-01-meng-dragon.md` and execute it."
+3. Executor opens the file with the `Read` tool and follows its instructions verbatim.
+4. After merge, the prompt file stays in the folder as historical record. `git log prompts/...` shows when / why each prompt evolved.
+
+See `prompts/README.md` for the index of all dispatched prompts, the folder convention, and the backfill policy. Prompts from before 2026-04-23 afternoon are not backfilled — retrieve from conversation transcripts if needed.
