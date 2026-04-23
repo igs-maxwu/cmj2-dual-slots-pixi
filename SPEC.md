@@ -52,14 +52,14 @@ Safe zones: 60 px top + bottom for mobile notch.
 
 | Beast | Spirit (gender) | Symbol asset | Sprint 1 T0 priority |
 |---|---|---|---|
-| Azure Dragon | **Canlan** 燦瀾 (female) | `canlan.png` | ⭐ Sprint 1 (female batch) |
+| Azure Dragon | **Canlan** 蒼嵐 (female) | `canlan.png` | ⭐ Sprint 1 (female batch) |
 | Azure Dragon | Meng 孟辰璋 (male) | `mengchenzhang.png` | Sprint 3 (generic placeholder for now) |
-| White Tiger | **Luoluo** 落落 (female) | `luoluo.png` | ⭐ Sprint 1 (female batch) |
-| White Tiger | Yin 殷 (male) | `yin.png` | Sprint 3 |
+| White Tiger | **Luoluo** 珞洛 (female) | `luoluo.png` | ⭐ Sprint 1 (female batch) |
+| White Tiger | Yin 寅 (male) | `yin.png` | Sprint 3 |
 | Vermilion Phoenix | **Zhuluan** 朱鸞 (female) | `zhuluan.png` | ⭐ Sprint 1 (female batch) |
 | Vermilion Phoenix | Lingyu 凌羽 (male) | `lingyu.png` | Sprint 3 |
-| Black Tortoise | **Zhaoyu** 照宇 (female) | `zhaoyu.png` | ⭐ Sprint 1 (female batch) |
-| Black Tortoise | Xuanmo 玄沫 (male) | `xuanmo.png` | Sprint 3 |
+| Black Tortoise | **Zhaoyu** 朝雨 (female) | `zhaoyu.png` | ⭐ Sprint 1 (female batch) |
+| Black Tortoise | Xuanmo 玄墨 (male) | `xuanmo.png` | Sprint 3 |
 
 **Draft rules**: each player picks **4 spirits** to their formation. All 8 symbol types
 always appear on the reel (RTP stability). Non-drafted spirit hits pay at **30 %**
@@ -287,6 +287,7 @@ All new art must pass consistency check against this combined direction.
 | 2026-04-22 | Math Model v1.0 locked: 7 meta mechanics (M1/M2/M3/M5/M6/M10/M12), Base Ways RTP 60 %, Sprints 5–7 added. See §15. | Owner |
 | 2026-04-22 | Lightweight Strategy v1.0 locked: PWA delivery, ≤ 5 MB total session bundle, Sprint 4 concentrated optimization (L1–L10). See §16. | Owner |
 | 2026-04-23 | B4 R3 anticipation teaser: R3 lock extended 1.6s→1.8s when R1+R2 or R4+R5 pre-match ≥1 symbol | Owner |
+| 2026-04-23 | Spirit name canonicalization (owner decision): 燦瀾→蒼嵐, 殷→寅, 落落→珞洛, 照宇→朝雨, 玄沫→玄墨. Pinyin identifiers unchanged. Clan data fix: luoluo vermilion→white, zhaoyu white→black (aligns with SPEC §4 beast groupings). | Owner |
 
 ---
 
