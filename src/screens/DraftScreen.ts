@@ -13,6 +13,7 @@ import { SpiritPortrait } from '@/components/SpiritPortrait';
 import { UiButton } from '@/components/UiButton';
 import { addCornerOrnaments } from '@/components/Decorations';
 import { AudioManager } from '@/systems/AudioManager';
+import { goldText } from '@/components/GoldText';
 
 // ─── Layout (proportional to canvas) ───────────────────────────────────────
 const TILE_W  = 160;
@@ -50,6 +51,8 @@ export interface DraftResult {
   coinScaleB: number;
   dmgScaleB: number;
   fairnessExp: number;
+  walletA: number;
+  walletB: number;
 }
 
 interface TileRefs {
@@ -87,6 +90,7 @@ export class DraftScreen implements Screen {
     this.drawBackground();
     addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 130, 0.55);
     this.drawTitle();
+    this.drawWallets();
     this.drawDistribution();
     this.buildTiles();
     this.buildStatus();
@@ -139,6 +143,32 @@ export class DraftScreen implements Screen {
     sub.x = CANVAS_WIDTH / 2;
     sub.y = Math.round(CANVAS_HEIGHT * 0.13);
     this.container.addChild(sub);
+  }
+
+  // ─── Wallet info (static) ────────────────────────────────────────────────
+  private drawWallets(): void {
+    const y      = Math.round(CANVAS_HEIGHT * 0.07);
+    const labelY = y - 16;
+    const sides: Array<['A' | 'B', number, number]> = [
+      ['A', Math.round(CANVAS_WIDTH * 0.14), 0.5],
+      ['B', Math.round(CANVAS_WIDTH * 0.86), 0.5],
+    ];
+
+    for (const [side, x] of sides) {
+      const color = side === 'A' ? T.TEAM.azure : T.TEAM.vermilion;
+      const lbl = new Text({
+        text: `PLAYER ${side} · WALLET`,
+        style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.xs, fill: color, letterSpacing: 2 },
+      });
+      lbl.anchor.set(0.5, 1);
+      lbl.x = x; lbl.y = labelY;
+      this.container.addChild(lbl);
+
+      const amt = goldText('10,000 NTD', { fontSize: 20, withShadow: true });
+      amt.anchor.set(0.5, 0);
+      amt.x = x; amt.y = y;
+      this.container.addChild(amt);
+    }
   }
 
   // ─── Team weight distribution ────────────────────────────────────────────
@@ -487,6 +517,8 @@ export class DraftScreen implements Screen {
       coinScaleA: sa.coinScale, dmgScaleA: sa.dmgScale,
       coinScaleB: sb.coinScale, dmgScaleB: sb.dmgScale,
       fairnessExp: DEFAULT_FAIRNESS_EXP,
+      walletA: 10000,
+      walletB: 10000,
     });
   }
 }

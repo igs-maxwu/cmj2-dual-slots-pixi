@@ -84,6 +84,12 @@ export class BattleScreen implements Screen {
   private cellsB: FormationCellRefs[] = [];
   private displayedHpA = 0;
   private displayedHpB = 0;
+  private walletA = 10000;
+  private walletB = 10000;
+  private displayedWalletA = 10000;
+  private displayedWalletB = 10000;
+  private walletTextA!: Text;
+  private walletTextB!: Text;
   private logText!: Text;
   private fxLayer = new Container();    // damage numbers live here
   private reel!: SlotReel;
@@ -113,11 +119,16 @@ export class BattleScreen implements Screen {
     this.formationB = createFormation(this.cfg.selectedB, this.cfg.teamHpB);
     this.displayedHpA = teamHpTotal(this.formationA);
     this.displayedHpB = teamHpTotal(this.formationB);
+    this.walletA = this.cfg.walletA ?? 10000;
+    this.walletB = this.cfg.walletB ?? 10000;
+    this.displayedWalletA = this.walletA;
+    this.displayedWalletB = this.walletB;
 
     this.drawBackground();
     addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 130, 0.55);
     this.drawHeader();
     this.drawHpBars();
+    this.drawWallets();
     this.drawJackpotMarquee();
     this.drawFormation('A');
     this.drawFormation('B');
@@ -237,6 +248,38 @@ export class BattleScreen implements Screen {
     this.hpTextB.anchor.set(0.5, 0.5);
     this.hpTextB.x = bx + HP_BAR_W / 2; this.hpTextB.y = HP_Y + HP_BAR_H / 2;
     this.container.addChild(this.hpTextB);
+  }
+
+  private drawWallets(): void {
+    const y = HP_Y + HP_BAR_H + 18;
+    this.walletTextA = goldText(this.formatWallet(this.walletA), { fontSize: 16, withShadow: true });
+    this.walletTextA.anchor.set(0.5, 0);
+    this.walletTextA.x = HP_A_X + HP_BAR_W / 2;
+    this.walletTextA.y = y;
+    this.container.addChild(this.walletTextA);
+
+    this.walletTextB = goldText(this.formatWallet(this.walletB), { fontSize: 16, withShadow: true });
+    this.walletTextB.anchor.set(0.5, 0);
+    this.walletTextB.x = HP_B_X + HP_BAR_W / 2;
+    this.walletTextB.y = y;
+    this.container.addChild(this.walletTextB);
+  }
+
+  private formatWallet(n: number): string {
+    return `${Math.round(n).toLocaleString('en-US')} NTD`;
+  }
+
+  private cascadeWallet(side: 'A' | 'B'): void {
+    const from = side === 'A' ? this.displayedWalletA : this.displayedWalletB;
+    const to   = side === 'A' ? this.walletA : this.walletB;
+    if (from === to) return;
+    const duration = Math.max(300, Math.min(800, Math.abs(to - from) * 2));
+    const text = side === 'A' ? this.walletTextA : this.walletTextB;
+    void tweenValue(from, to, duration, v => {
+      if (side === 'A') this.displayedWalletA = v;
+      else              this.displayedWalletB = v;
+      text.text = this.formatWallet(v);
+    }, Easings.easeOut);
   }
 
   private makeHpLabel(cx: number, y: number, text: string, color: number): void {
@@ -504,6 +547,12 @@ export class BattleScreen implements Screen {
         this.cfg.fairnessExp,
       );
       if (!this.running) return;
+
+      // Deduct bet, credit winnings, kick cascade animation (non-blocking)
+      this.walletA = this.walletA - this.cfg.betA + spin.sideA.coinWon;
+      this.walletB = this.walletB - this.cfg.betB + spin.sideB.coinWon;
+      this.cascadeWallet('A');
+      this.cascadeWallet('B');
 
       AudioManager.playSfx('reel-spin-loop');
       await this.reel.spin(spin.grid);
