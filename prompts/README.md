@@ -51,8 +51,17 @@ The executor opens the file with the `Read` tool and follows it verbatim.
 |---|---|---|
 | [#42](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/42) Meng 孟辰璋 dragon dual-slash | [`sprint3/a-01-meng-dragon.md`](sprint3/a-01-meng-dragon.md) | ✅ merged |
 | [#44](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/44) Yin 寅 tiger fist combo | [`sprint3/a-02-yin-tiger.md`](sprint3/a-02-yin-tiger.md) | ✅ merged |
-| (pending) Xuanmo 玄墨 tortoise hammer | [`sprint3/a-03-xuanmo-hammer.md`](sprint3/a-03-xuanmo-hammer.md) | **ready to dispatch** |
-| (pending) Lingyu 凌羽 phoenix arrow | [`sprint3/a-04-lingyu-phoenix.md`](sprint3/a-04-lingyu-phoenix.md) | **ready to dispatch** (after 03 merges) |
+| [#48](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/48) Xuanmo 玄墨 tortoise hammer | [`sprint3/a-03-xuanmo-hammer.md`](sprint3/a-03-xuanmo-hammer.md) | ✅ merged |
+| [#49](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/49) Lingyu 凌羽 phoenix arrow | [`sprint3/a-04-lingyu-phoenix.md`](sprint3/a-04-lingyu-phoenix.md) | ✅ merged — **Sprint 3 A COMPLETE 4/4** |
+
+### Sprint 3 · B — Spirit passives (SPEC §8 gameplay skills)
+
+| PR | Prompt file | Status |
+|---|---|---|
+| (pending) b-01 白虎 −10% damage taken | [`sprint3/b-01-tiger-passive-damage-reduction.md`](sprint3/b-01-tiger-passive-damage-reduction.md) | **ready to dispatch** |
+| (planned) b-02 玄武 last-alive shield | `sprint3/b-02-tortoise-last-alive-shield.md` | tbd after b-01 merges |
+| (planned) b-03 青龍 4+ match +20% dmg | `sprint3/b-03-dragon-4match-bonus.md` | tbd after b-01 merges |
+| (planned) b-04 朱雀 coin-on-kill | `sprint3/b-04-phoenix-coin-on-kill.md` | tbd after b-01 merges |
 
 ### Chore
 
