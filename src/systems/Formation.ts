@@ -40,3 +40,14 @@ export function isTeamAlive(grid: FormationGrid): boolean {
 export function teamHpTotal(grid: FormationGrid): number {
   return grid.reduce((s, u) => s + (u?.hp ?? 0), 0);
 }
+
+import type { Clan } from '@/config/SymbolsConfig';
+import { SYMBOLS }   from '@/config/SymbolsConfig';
+
+/** Returns true if the formation has at least one alive spirit of the given clan. */
+export function hasAliveOfClan(formation: FormationGrid, clan: Clan): boolean {
+  for (const unit of formation) {
+    if (unit && unit.alive && SYMBOLS[unit.symbolId]?.clan === clan) return true;
+  }
+  return false;
+}
