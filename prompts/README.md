@@ -58,10 +58,10 @@ The executor opens the file with the `Read` tool and follows it verbatim.
 
 | PR | Prompt file | Status |
 |---|---|---|
-| (pending) b-01 白虎 −10% damage taken | [`sprint3/b-01-tiger-passive-damage-reduction.md`](sprint3/b-01-tiger-passive-damage-reduction.md) | **ready to dispatch** |
-| (planned) b-02 玄武 last-alive shield | `sprint3/b-02-tortoise-last-alive-shield.md` | tbd after b-01 merges |
-| (planned) b-03 青龍 4+ match +20% dmg | `sprint3/b-03-dragon-4match-bonus.md` | tbd after b-01 merges |
-| (planned) b-04 朱雀 coin-on-kill | `sprint3/b-04-phoenix-coin-on-kill.md` | tbd after b-01 merges |
+| [#51](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/51) b-01 白虎 −10% damage taken | [`sprint3/b-01-tiger-passive-damage-reduction.md`](sprint3/b-01-tiger-passive-damage-reduction.md) | ✅ merged |
+| (pending) b-02 玄武 last-alive shield | [`sprint3/b-02-tortoise-last-alive-shield.md`](sprint3/b-02-tortoise-last-alive-shield.md) | **ready to dispatch** |
+| (pending) b-03 青龍 4+ match +20% dmg | [`sprint3/b-03-dragon-4match-bonus.md`](sprint3/b-03-dragon-4match-bonus.md) | **ready to dispatch** (parallel with b-02) |
+| (planned) b-04 朱雀 coin-on-kill | `sprint3/b-04-phoenix-coin-on-kill.md` | tbd after b-02/03 merge |
 
 ### Chore
 
@@ -73,6 +73,7 @@ The executor opens the file with the `Read` tool and follows it verbatim.
 | [#41](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/41) prompts/ archive convention | *(self-referential; the meta-PR that created this README)* |
 | [#43](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/43) add Yin prompt to archive | *(doc PR, no standalone prompt file)* |
 | [#46](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/46) FX Preview Harness (URL param + console hook) | [`chore/fx-preview-harness.md`](chore/fx-preview-harness.md) | ✅ merged |
+| [#52](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/52) wire xuanmo + lingyu into SIG_SPIRIT maps | *(proactive cleanup by executor after a-03/a-04 landed)* |
 
 ## Backfill policy
 
