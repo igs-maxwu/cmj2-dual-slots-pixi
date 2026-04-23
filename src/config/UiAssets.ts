@@ -7,6 +7,7 @@ export const UI_ASSET_KEYS = [
   'hp-frame',
   'portrait-ring',
   'corner-ornament',
+  'dragon-corner',
   'win-burst',
   'divider',
   'vs-badge',

@@ -81,6 +81,29 @@ export class SlotReel extends Container {
         .stroke({ width: 2, color: T.GOLD.deep, alpha: 0.85 });
       this.addChild(border);
     }
+
+    // Dragon-head corner ornaments — mirrored to all 4 corners
+    const cornerTex = Assets.get<Texture>('dragon-corner');
+    if (cornerTex) {
+      const corners: Array<[number, number, number, number, number, number]> = [
+        // ax,  ay,  x,              y,              sx,  sy
+        [0, 0,  -8,            -8,            1,  1],
+        [1, 0,  REEL_W + 8,    -8,           -1,  1],
+        [0, 1,  -8,            REEL_H + 8,    1, -1],
+        [1, 1,  REEL_W + 8,    REEL_H + 8,   -1, -1],
+      ];
+      for (const [ax, ay, x, y, sx, sy] of corners) {
+        const corner = new Sprite(cornerTex);
+        corner.anchor.set(ax, ay);
+        corner.width = 120;
+        corner.height = 120;
+        corner.x = x;
+        corner.y = y;
+        corner.scale.x = Math.sign(sx) * Math.abs(corner.scale.x);
+        corner.scale.y = Math.sign(sy) * Math.abs(corner.scale.y);
+        this.addChild(corner);
+      }
+    }
   }
 
   private buildCells(): void {
