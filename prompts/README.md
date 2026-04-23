@@ -49,8 +49,8 @@ The executor opens the file with the `Read` tool and follows it verbatim.
 
 | PR | Prompt file | Status |
 |---|---|---|
-| (pending) Meng 孟辰璋 dragon dual-slash | [`sprint3/a-01-meng-dragon.md`](sprint3/a-01-meng-dragon.md) | **ready to dispatch** |
-| (planned) Yin 寅 tiger fist combo | `sprint3/a-02-yin-tiger.md` | tbd |
+| [#42](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/42) Meng 孟辰璋 dragon dual-slash | [`sprint3/a-01-meng-dragon.md`](sprint3/a-01-meng-dragon.md) | ✅ merged |
+| (pending) Yin 寅 tiger fist combo | [`sprint3/a-02-yin-tiger.md`](sprint3/a-02-yin-tiger.md) | **ready to dispatch** |
 | (planned) Xuanmo 玄墨 tortoise hammer | `sprint3/a-03-xuanmo-hammer.md` | tbd |
 | (planned) Lingyu 凌羽 phoenix arrow | `sprint3/a-04-lingyu-phoenix.md` | tbd |
 
