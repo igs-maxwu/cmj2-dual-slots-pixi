@@ -59,7 +59,7 @@ The executor opens the file with the `Read` tool and follows it verbatim.
 | PR | Prompt file | Status |
 |---|---|---|
 | [#51](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/51) b-01 白虎 −10% damage taken | [`sprint3/b-01-tiger-passive-damage-reduction.md`](sprint3/b-01-tiger-passive-damage-reduction.md) | ✅ merged |
-| (pending) b-02 玄武 last-alive shield | [`sprint3/b-02-tortoise-last-alive-shield.md`](sprint3/b-02-tortoise-last-alive-shield.md) | **ready to dispatch** |
+| [#54](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/54) b-02 玄武 last-alive shield | [`sprint3/b-02-tortoise-last-alive-shield.md`](sprint3/b-02-tortoise-last-alive-shield.md) | ✅ merged — **Sprint 3B COMPLETE 4/4** |
 | [#55](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/55) b-03 青龍 4+ match +20% dmg | [`sprint3/b-03-dragon-4match-bonus.md`](sprint3/b-03-dragon-4match-bonus.md) | ✅ merged |
 | [#57](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/57) b-04 朱雀 coin-on-kill | [`sprint3/b-04-phoenix-coin-on-kill.md`](sprint3/b-04-phoenix-coin-on-kill.md) | ✅ merged |
 
