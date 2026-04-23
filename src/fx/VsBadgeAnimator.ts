@@ -22,11 +22,15 @@ export class VsBadgeAnimator {
   private readonly _particles: Particle[] = [];
   private _spawnCountdown = SPAWN_MIN + Math.floor(Math.random() * SPAWN_RNG);
   private _tick: (() => void) | null = null;
+  private readonly _baseScaleX: number;
+  private readonly _baseScaleY: number;
 
   constructor(badge: Sprite, app: Application, parentContainer: Container) {
     this._app       = app;
     this._badge     = badge;
     this._container = parentContainer;
+    this._baseScaleX = badge.scale.x;
+    this._baseScaleY = badge.scale.y;
 
     this._tick = () => {
       // (a) Slow continuous rotation
@@ -61,9 +65,13 @@ export class VsBadgeAnimator {
 
   // Called once per round start — scale pop then settle.
   pulse(): void {
-    this._badge.scale.set(1.0);
-    void tweenValue(1.0, 1.18, 80, v => { this._badge.scale.set(v); }, Easings.backOut)
-      .then(() => tweenValue(1.18, 1.0, 160, v => { this._badge.scale.set(v); }, Easings.easeOut));
+    this._badge.scale.set(this._baseScaleX, this._baseScaleY);
+    void tweenValue(1.0, 1.18, 80, v => {
+      this._badge.scale.set(this._baseScaleX * v, this._baseScaleY * v);
+    }, Easings.backOut)
+      .then(() => tweenValue(1.18, 1.0, 160, v => {
+        this._badge.scale.set(this._baseScaleX * v, this._baseScaleY * v);
+      }, Easings.easeOut));
   }
 
   destroy(): void {

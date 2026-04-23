@@ -251,7 +251,7 @@ export class BattleScreen implements Screen {
   }
 
   private drawWallets(): void {
-    const y = HP_Y + HP_BAR_H + 18;
+    const y = HP_Y - 38;
     this.walletTextA = goldText(this.formatWallet(this.walletA), { fontSize: 16, withShadow: true });
     this.walletTextA.anchor.set(0.5, 0);
     this.walletTextA.x = HP_A_X + HP_BAR_W / 2;
