@@ -54,6 +54,12 @@ The executor opens the file with the `Read` tool and follows it verbatim.
 | [#48](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/48) Xuanmo 玄墨 tortoise hammer | [`sprint3/a-03-xuanmo-hammer.md`](sprint3/a-03-xuanmo-hammer.md) | ✅ merged |
 | [#49](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/49) Lingyu 凌羽 phoenix arrow | [`sprint3/a-04-lingyu-phoenix.md`](sprint3/a-04-lingyu-phoenix.md) | ✅ merged — **Sprint 3 A COMPLETE 4/4** |
 
+### Sprint 3 · C — 4-beast theme depth (T7)
+
+| PR | Prompt file | Status |
+|---|---|---|
+| (pending) c-01 DraftScreen clan grouping | [`sprint3/c-01-draftscreen-4beast-grouping.md`](sprint3/c-01-draftscreen-4beast-grouping.md) | **ready to dispatch** — mockup in `download_picture/dual-slot-pixi/` |
+
 ### Sprint 3 · B — Spirit passives (SPEC §8 gameplay skills)
 
 | PR | Prompt file | Status |
