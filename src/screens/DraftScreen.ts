@@ -150,8 +150,8 @@ export class DraftScreen implements Screen {
     const y      = Math.round(CANVAS_HEIGHT * 0.07);
     const labelY = y - 16;
     const sides: Array<['A' | 'B', number, number]> = [
-      ['A', Math.round(CANVAS_WIDTH * 0.14), 0.5],
-      ['B', Math.round(CANVAS_WIDTH * 0.86), 0.5],
+      ['A', Math.round(CANVAS_WIDTH * 0.30), 0.5],
+      ['B', Math.round(CANVAS_WIDTH * 0.70), 0.5],
     ];
 
     for (const [side, x] of sides) {
