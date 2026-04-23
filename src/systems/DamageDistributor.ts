@@ -1,4 +1,5 @@
 import type { FormationGrid } from './Formation';
+import { hasAliveOfClan } from './Formation';
 
 export type AttackerSide = 'A' | 'B';
 
@@ -20,6 +21,11 @@ export function distributeDamage(
   totalDmg:    number,
   attackerSide: AttackerSide,
 ): DmgEvent[] {
+  // Passive: White Tiger clan — incoming damage × 0.9 if any tiger alive on defending side
+  if (hasAliveOfClan(grid, 'white')) {
+    totalDmg = Math.ceil(totalDmg * 0.9);
+  }
+
   const colOrder = attackerSide === 'A' ? [0, 1, 2] : [2, 1, 0];
   const queue: number[] = [];
 
