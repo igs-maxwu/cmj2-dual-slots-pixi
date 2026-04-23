@@ -6,7 +6,7 @@ import { SYMBOLS, PAYOUT_BASE } from '@/config/SymbolsConfig';
 import { buildFullPool, totalWeight } from '@/systems/SymbolPool';
 import { SlotEngine } from '@/systems/SlotEngine';
 import {
-  createFormation, isTeamAlive, teamHpTotal, type FormationGrid,
+  createFormation, isTeamAlive, teamHpTotal, hasAliveOfClan, type FormationGrid,
 } from '@/systems/Formation';
 import { distributeDamage, type DmgEvent } from '@/systems/DamageDistributor';
 import { tween, tweenValue, delay, Easings } from '@/systems/tween';
@@ -566,6 +566,22 @@ export class BattleScreen implements Screen {
 
       let dmgA = spin.sideA.dmgDealt;
       let dmgB = spin.sideB.dmgDealt;
+
+      // ── Azure Dragon passive: +20% dmg on own-side 4+ match of dragon-clan symbols ──
+      if (hasAliveOfClan(this.formationA, 'azure')) {
+        for (const wh of spin.sideA.wayHits) {
+          if (wh.matchCount >= 4 && SYMBOLS[wh.symbolId]?.clan === 'azure') {
+            dmgA += Math.floor(wh.rawDmg * 0.2 * (this.cfg.betA / 100));
+          }
+        }
+      }
+      if (hasAliveOfClan(this.formationB, 'azure')) {
+        for (const wh of spin.sideB.wayHits) {
+          if (wh.matchCount >= 4 && SYMBOLS[wh.symbolId]?.clan === 'azure') {
+            dmgB += Math.floor(wh.rawDmg * 0.2 * (this.cfg.betB / 100));
+          }
+        }
+      }
 
       // ── Underdog boost: 1.3× damage when own HP ratio < 0.30 ──────────────
       const ratioA = teamHpTotal(this.formationA) / this.cfg.teamHpA;
