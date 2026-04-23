@@ -27,8 +27,9 @@ export type SpiritSignature =
   | 'dual-fireball'      // 朱鸞 — twin fireball charge + particle burst
   | 'python-summon'      // 朝雨 — summoning circle + serpent
   | 'dragon-dual-slash'  // 孟辰璋 — twin jade swords + dragon-scale trail
-  | 'tiger-fist-combo'   // 寅 — 3× heavy punch + tiger ghost + earth crack
-  | 'generic';           // 凌羽, 玄墨 (pending Sprint 3 C/D)
+  | 'tiger-fist-combo'      // 寅 — 3× heavy punch + tiger ghost + earth crack
+  | 'tortoise-hammer-smash' // 玄墨 — charge → overhead smash → radial crack + shell halo
+  | 'generic';              // 凌羽 (pending Sprint 3 D)
 
 // ─── Per-spirit personality config ─────────────────────────────────────────
 
@@ -70,6 +71,10 @@ const PERSONALITIES: Record<string, SpiritPersonality> = {
   yin: {
     particleColor: 0xff8c33,  arcHeight:  90, shakeIntensity: 9, signature: 'tiger-fist-combo',
     duration: { prepare: 130, leap: 290, hold: 160, fire: 720, return: 230 },
+  },
+  xuanmo: {
+    particleColor: 0xa0a8c0,  arcHeight: 110, shakeIntensity: 12, signature: 'tortoise-hammer-smash',
+    duration: { prepare: 140, leap: 310, hold: 200, fire: 750, return: 250 },
   },
 };
 
@@ -158,7 +163,8 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
     case 'dual-fireball':    await _sigDualFireball(ctx);    break;
     case 'python-summon':    await _sigPythonSummon(ctx);    break;
     case 'dragon-dual-slash': await _sigDragonDualSlash(ctx); break;
-    case 'tiger-fist-combo':  await _sigTigerFistCombo(ctx);  break;
+    case 'tiger-fist-combo':       await _sigTigerFistCombo(ctx);       break;
+    case 'tortoise-hammer-smash':  await _sigTortoiseHammerSmash(ctx);  break;
     default: {
       const shots = targetPositions.map(tp =>
         _fireShot(stage, centerX, centerY, tp.x, tp.y, particleColor, D.fire));
@@ -614,6 +620,117 @@ async function _sigTigerFistCombo(ctx: Phase4Ctx): Promise<void> {
 
   // Cleanup
   removeFilter(avatar, chargeGlow);
+  await swPromise;
+}
+
+// ─── 玄墨 — Tortoise Hammer Smash ───────────────────────────────────────
+
+async function _sigTortoiseHammerSmash(ctx: Phase4Ctx): Promise<void> {
+  const { stage, avatar, centerX: cx, centerY: cy, targets, color } = ctx;
+  AudioManager.playSfx('skill-xuanmo');
+  const CRACK = 0x3a4055;
+  const GOLD  = 0xd4af37;
+
+  const tp0 = targets[0] ?? { x: cx, y: cy + 80 };
+
+  // (a) 0–250ms: charge — hammer rises above head + silver spiral particles
+  const hammerBody = new Graphics();
+  hammerBody.rect(-11, -72, 22, 72).fill({ color: CRACK, alpha: 0.9 });
+  hammerBody.rect(-4,  -72,  8, 72).fill({ color, alpha: 0.45 });    // silver highlight stripe
+  const hammerHead = new Graphics().circle(0, -72, 8).fill({ color: GOLD, alpha: 0.95 });
+  const hammer = new Container();
+  hammer.addChild(hammerBody, hammerHead);
+  hammer.x = cx; hammer.y = cy; hammer.alpha = 0;
+  stage.addChild(hammer);
+  const hammerGlow = applyGlow(hammer, color, 2, 10);
+
+  const spiralPts: Graphics[] = [];
+  for (let i = 0; i < 6; i++) {
+    const pt = new Graphics().circle(0, 0, 4).fill({ color, alpha: 0.7 });
+    stage.addChild(pt);
+    spiralPts.push(pt);
+  }
+
+  const origX = avatar.x;
+  await tween(250, p => {
+    avatar.x = origX - 5 * Easings.easeOut(p);
+    hammer.alpha = Easings.easeOut(p);
+    hammer.y = cy + 20 - 80 * Easings.easeOut(p);
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2 + p * Math.PI * 4;
+      const r = 30 + p * 20;
+      spiralPts[i].x = cx + Math.cos(angle) * r;
+      spiralPts[i].y = (cy - 20) + Math.sin(angle) * r * 0.5;
+      spiralPts[i].alpha = 0.7 * (1 - p * 0.5);
+    }
+  });
+
+  // (b) 250–400ms: overhead dive smash (easeIn — accelerating)
+  const hammerStartY = hammer.y;
+  await tween(150, p => {
+    const ep = Easings.easeIn(p);
+    hammer.rotation = 1.5 * ep;
+    hammer.x = cx + (tp0.x - cx) * ep;
+    hammer.y = hammerStartY + (tp0.y - hammerStartY) * ep;
+    for (const sp of spiralPts) sp.alpha = 0.35 * (1 - ep);
+  });
+  for (const sp of spiralPts) sp.destroy();
+
+  // (c) 400–480ms: impact burst — flash + 8 radial cracks; kick off shake + shockwave
+  AudioManager.playSfx('hit-heavy');
+  const swPromise = applyShockwave(stage, tp0.x, tp0.y, 120, 150);
+  void _screenShake(stage, ctx.shakeIntensity);
+
+  const flash = new Graphics()
+    .rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+    .fill({ color: 0xffffff, alpha: 0.5 });
+  stage.addChild(flash);
+
+  const cracks: Graphics[] = [];
+  for (let i = 0; i < 8; i++) {
+    const ck = new Graphics().rect(0, -2, 90, 4).fill({ color: CRACK, alpha: 0.9 });
+    ck.x = tp0.x; ck.y = tp0.y;
+    ck.rotation = (i / 8) * Math.PI * 2;
+    ck.scale.x = 0;
+    stage.addChild(ck);
+    cracks.push(ck);
+  }
+
+  await tween(80, p => {
+    flash.alpha = 0.5 * (1 - p);
+    hammer.alpha = 1 - p;
+    for (const ck of cracks) ck.scale.x = Easings.easeOut(p);
+  });
+  flash.destroy();
+
+  // (d) 480–600ms: hitstop (60ms) + hex shell halo (120ms) — concurrent
+  const hexHalo = new Graphics();
+  hexHalo.x = cx; hexHalo.y = cy;
+  stage.addChild(hexHalo);
+
+  await Promise.all([
+    delay(60),
+    tween(120, p => {
+      const r = 90 + 40 * p;
+      hexHalo.clear().moveTo(r, 0);
+      for (let s = 1; s <= 6; s++) {
+        const a = (s / 6) * Math.PI * 2;
+        hexHalo.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      }
+      hexHalo.closePath().stroke({ width: 4, color: GOLD, alpha: 0.5 * (1 - p) });
+    }),
+  ]);
+  hexHalo.destroy();
+
+  // (e) 600–720ms: cracks fade out
+  await tween(120, p => {
+    for (const ck of cracks) ck.alpha = 0.9 * (1 - p);
+  });
+
+  // Cleanup
+  removeFilter(hammer, hammerGlow);
+  hammer.destroy({ children: true });
+  for (const ck of cracks) ck.destroy();
   await swPromise;
 }
 
