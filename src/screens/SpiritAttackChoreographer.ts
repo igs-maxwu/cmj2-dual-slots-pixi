@@ -27,7 +27,8 @@ export type SpiritSignature =
   | 'dual-fireball'      // 朱鸞 — twin fireball charge + particle burst
   | 'python-summon'      // 朝雨 — summoning circle + serpent
   | 'dragon-dual-slash'  // 孟辰璋 — twin jade swords + dragon-scale trail
-  | 'generic';           // 寅, 凌羽, 玄墨 (pending Sprint 3 B/C/D)
+  | 'tiger-fist-combo'   // 寅 — 3× heavy punch + tiger ghost + earth crack
+  | 'generic';           // 凌羽, 玄墨 (pending Sprint 3 C/D)
 
 // ─── Per-spirit personality config ─────────────────────────────────────────
 
@@ -65,6 +66,10 @@ const PERSONALITIES: Record<string, SpiritPersonality> = {
   zhaoyu: {
     particleColor: 0x4adb8e,  arcHeight:  80, shakeIntensity: 4, signature: 'python-summon',
     duration: { prepare: 160, leap: 320, hold: 240, fire: 340, return: 240 },
+  },
+  yin: {
+    particleColor: 0xff8c33,  arcHeight:  90, shakeIntensity: 9, signature: 'tiger-fist-combo',
+    duration: { prepare: 130, leap: 290, hold: 160, fire: 720, return: 230 },
   },
 };
 
@@ -153,6 +158,7 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
     case 'dual-fireball':    await _sigDualFireball(ctx);    break;
     case 'python-summon':    await _sigPythonSummon(ctx);    break;
     case 'dragon-dual-slash': await _sigDragonDualSlash(ctx); break;
+    case 'tiger-fist-combo':  await _sigTigerFistCombo(ctx);  break;
     default: {
       const shots = targetPositions.map(tp =>
         _fireShot(stage, centerX, centerY, tp.x, tp.y, particleColor, D.fire));
@@ -523,6 +529,92 @@ async function _sigDragonDualSlash(ctx: Phase4Ctx): Promise<void> {
   flash.destroy();
   for (const pt of particles) pt.destroy();
   void color;
+}
+
+// ─── 寅 — Tiger Fist Combo ───────────────────────────────────────────────
+
+async function _sigTigerFistCombo(ctx: Phase4Ctx): Promise<void> {
+  const { stage, avatar, centerX: cx, centerY: cy, targets, color: TIGER } = ctx;
+  AudioManager.playSfx('skill-yin');
+
+  const tp0 = targets[0] ?? { x: cx, y: cy + 80 };
+  const tp1 = targets[1] ?? tp0;
+
+  // (a) 0–120ms: charge pose — glow + expanding foot ring
+  const chargeGlow = applyGlow(avatar, TIGER, 2.5, 14);
+  const footRing = new Graphics();
+  stage.addChild(footRing);
+  await tween(120, p => {
+    footRing.clear()
+      .circle(cx, cy + 32, 30 + p * 20)
+      .fill({ color: TIGER, alpha: 0.6 * (1 - p) });
+  });
+  footRing.destroy();
+
+  // Punch helper — lunge 10 px toward target + concurrent impact ring + afterimage
+  const doPunch = async (tp: { x: number; y: number }, ms: number) => {
+    const startX = avatar.x, startY = avatar.y;
+    const dx = tp.x - startX, dy = tp.y - startY;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const lungeX = startX + (dx / dist) * 10;
+    const lungeY = startY + (dy / dist) * 10;
+
+    // Afterimage at departure (fire-and-forget)
+    const ghost = new Graphics().circle(0, 0, 22).fill({ color: TIGER, alpha: 0.4 });
+    ghost.x = startX; ghost.y = startY; ghost.scale.set(1.05);
+    stage.addChild(ghost);
+    void tween(150, p2 => { ghost.alpha = 0.4 * (1 - p2); }).then(() => ghost.destroy());
+
+    // Lunge out (first half) + return (second half) + impact ring
+    const ring = new Graphics();
+    stage.addChild(ring);
+    await tween(ms, p => {
+      const lerp = p < 0.5 ? p * 2 : (1 - p) * 2;
+      avatar.x = startX + (lungeX - startX) * lerp;
+      avatar.y = startY + (lungeY - startY) * lerp;
+      if (p < 0.6) {
+        const rp = p / 0.6;
+        ring.clear()
+          .circle(tp.x, tp.y, 16 + rp * 12)
+          .stroke({ width: 3, color: TIGER, alpha: 0.9 * (1 - rp) });
+      }
+    });
+    avatar.x = cx; avatar.y = cy;
+    ring.destroy();
+  };
+
+  // (b) 120–300ms: 1st heavy punch → target 0
+  await doPunch(tp0, 180);
+  // (c) 300–480ms: 2nd heavy punch → target 1
+  await doPunch(tp1, 180);
+  // (d) 480–560ms: 3rd decisive blow (faster)
+  await doPunch(tp0, 80);
+
+  // (d cont) 560–620ms: earth crack cross + shockwave (concurrent, fire-and-forget shake)
+  const crackX = tp0.x, crackY = tp0.y + 40;
+  const crack = new Graphics();
+  crack.rect(crackX - 30, crackY - 3, 60, 6).fill({ color: TIGER, alpha: 0.9 });
+  crack.rect(crackX - 3, crackY - 30, 6, 60).fill({ color: TIGER, alpha: 0.9 });
+  stage.addChild(crack);
+  const swPromise = applyShockwave(stage, crackX, crackY, 80, 100);
+  void _screenShake(stage, ctx.shakeIntensity);
+  await tween(60, p => { crack.alpha = 0.9 * (1 - p); });
+  crack.destroy();
+
+  // (e) 620–720ms: tiger ghost — dual-ring flash (白虎加持)
+  const ghostOuter = new Graphics().circle(cx, cy, 90).fill({ color: 0xffffff, alpha: 0.25 });
+  const ghostInner = new Graphics().circle(cx, cy, 50).fill({ color: TIGER, alpha: 0.40 });
+  stage.addChild(ghostOuter, ghostInner);
+  await tween(100, p => {
+    ghostOuter.alpha = 0.25 * (1 - p);
+    ghostInner.alpha = 0.40 * (1 - p);
+  });
+  ghostOuter.destroy();
+  ghostInner.destroy();
+
+  // Cleanup
+  removeFilter(avatar, chargeGlow);
+  await swPromise;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
