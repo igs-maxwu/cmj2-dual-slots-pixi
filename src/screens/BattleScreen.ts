@@ -21,6 +21,7 @@ import { mercenaryWeakFx } from '@/fx/MercenaryFx';
 import { AmbientBackground } from './AmbientBackground';
 import { VsBadgeAnimator } from '@/fx/VsBadgeAnimator';
 import { goldText } from '@/components/GoldText';
+import { AmbientParticles } from '@/fx/AmbientParticles';
 
 // ─── Portrait layout 720×1280 ───────────────────────────────────────────────
 const HEADER_Y   = 14;
@@ -67,6 +68,7 @@ interface FormationCellRefs {
 export class BattleScreen implements Screen {
   private app!: Application;
   private bg!: AmbientBackground;
+  private particles!: AmbientParticles;
   private vsBadge!: VsBadgeAnimator;
   private container = new Container();
   private roundText!: Text;
@@ -101,6 +103,8 @@ export class BattleScreen implements Screen {
     this.app = app;
     this.bg = new AmbientBackground(app);
     stage.addChild(this.bg);
+    this.particles = new AmbientParticles(app);
+    stage.addChild(this.particles);
     stage.addChild(this.container);
     this.formationA = createFormation(this.cfg.selectedA, this.cfg.teamHpA);
     this.formationB = createFormation(this.cfg.selectedB, this.cfg.teamHpB);
@@ -156,6 +160,7 @@ export class BattleScreen implements Screen {
     this.vsBadge.destroy();
     this.bg.destroyLayers();
     this.bg.destroy({ children: true });
+    this.particles.destroy({ children: true });
     if (this._breatheTick) {
       this.app.ticker.remove(this._breatheTick);
       this._breatheTick = null;
