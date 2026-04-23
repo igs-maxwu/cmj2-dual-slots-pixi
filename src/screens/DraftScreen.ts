@@ -147,7 +147,7 @@ export class DraftScreen implements Screen {
 
   // ─── Wallet info (static) ────────────────────────────────────────────────
   private drawWallets(): void {
-    const y      = Math.round(CANVAS_HEIGHT * 0.07);
+    const y      = Math.round(CANVAS_HEIGHT * 0.11);
     const labelY = y - 16;
     const sides: Array<['A' | 'B', number, number]> = [
       ['A', Math.round(CANVAS_WIDTH * 0.30), 0.5],

@@ -24,7 +24,7 @@ export type SpiritSignature =
   | 'lightning-xcross'   // 蒼嵐 — X-slash + cyan lightning + shockwave
   | 'triple-dash'        // 珞洛 — 3× melee dash + afterimages + tiger claw
   | 'dual-fireball'      // 朱鸞 — twin fireball charge + particle burst
-  | 'python-summon'      // 昭宇 — summoning circle + serpent
+  | 'python-summon'      // 朝雨 — summoning circle + serpent
   | 'generic';           // all male spirits (孟辰璋, 寅, 凌羽, 玄墨)
 
 // ─── Per-spirit personality config ─────────────────────────────────────────
@@ -348,7 +348,7 @@ async function _sigDualFireball(ctx: Phase4Ctx): Promise<void> {
   await Promise.all([_screenShake(stage, ctx.shakeIntensity), delay(60)]);
 }
 
-// ─── 昭宇 — Python Summon ────────────────────────────────────────────────
+// ─── 朝雨 — Python Summon ────────────────────────────────────────────────
 
 async function _sigPythonSummon(ctx: Phase4Ctx): Promise<void> {
   const { stage, targets, color, duration } = ctx;
