@@ -20,6 +20,7 @@ import type { WayHit } from '@/systems/SlotEngine';
 import { mercenaryWeakFx } from '@/fx/MercenaryFx';
 import { AmbientBackground } from './AmbientBackground';
 import { VsBadgeAnimator } from '@/fx/VsBadgeAnimator';
+import { goldText } from '@/components/GoldText';
 
 // ─── Portrait layout 720×1280 ───────────────────────────────────────────────
 const HEADER_Y   = 14;
@@ -186,10 +187,8 @@ export class BattleScreen implements Screen {
     title.x = CANVAS_WIDTH / 2; title.y = HEADER_Y;
     this.container.addChild(title);
 
-    this.roundText = new Text({
-      text: 'ROUND 00',
-      style: { fontFamily: T.FONT.num, fontSize: T.FONT_SIZE.md, fill: T.FG.muted, letterSpacing: 2 },
-    });
+    this.roundText = goldText('ROUND 00', { fontSize: 32, withShadow: true });
+    this.roundText.style.letterSpacing = 2;
     this.roundText.anchor.set(0.5, 0);
     this.roundText.x = CANVAS_WIDTH / 2;
     this.roundText.y = HEADER_Y + T.FONT_SIZE.h1 + 4;
@@ -220,22 +219,12 @@ export class BattleScreen implements Screen {
     this.hpEdgeB.alpha = 0;
     this.container.addChild(this.hpEdgeB);
 
-    this.hpTextA = new Text({
-      text: '', style: {
-        fontFamily: T.FONT.num, fontWeight: '700', fontSize: T.FONT_SIZE.md,
-        fill: T.FG.white, stroke: { color: 0x000, width: 3 },
-      },
-    });
+    this.hpTextA = goldText('', { fontSize: T.FONT_SIZE.md, fontWeight: '700', withShadow: true });
     this.hpTextA.anchor.set(0.5, 0.5);
     this.hpTextA.x = ax + HP_BAR_W / 2; this.hpTextA.y = HP_Y + HP_BAR_H / 2;
     this.container.addChild(this.hpTextA);
 
-    this.hpTextB = new Text({
-      text: '', style: {
-        fontFamily: T.FONT.num, fontWeight: '700', fontSize: T.FONT_SIZE.md,
-        fill: T.FG.white, stroke: { color: 0x000, width: 3 },
-      },
-    });
+    this.hpTextB = goldText('', { fontSize: T.FONT_SIZE.md, fontWeight: '700', withShadow: true });
     this.hpTextB.anchor.set(0.5, 0.5);
     this.hpTextB.x = bx + HP_BAR_W / 2; this.hpTextB.y = HP_Y + HP_BAR_H / 2;
     this.container.addChild(this.hpTextB);
