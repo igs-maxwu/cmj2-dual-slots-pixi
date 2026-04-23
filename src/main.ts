@@ -4,7 +4,9 @@ import { ScreenManager } from '@/screens/ScreenManager';
 import { LoadingScreen } from '@/screens/LoadingScreen';
 import { DraftScreen, type DraftResult } from '@/screens/DraftScreen';
 import { BattleScreen } from '@/screens/BattleScreen';
+import { FXPreviewScreen } from '@/screens/FXPreviewScreen';
 import { initTweenTicker } from '@/systems/tween';
+import { installFxDevHook } from '@/systems/FXDevHook';
 
 async function main(): Promise<void> {
   const app = new Application();
@@ -21,6 +23,9 @@ async function main(): Promise<void> {
   // Wire tween time-axis to Pixi ticker (prevents split RAF + Ticker time-axes)
   initTweenTicker(app.ticker);
 
+  // Dev console hook: window.__DEV_FX.play('lightning-xcross') (self-gates on DEV)
+  installFxDevHook(app);
+
   document.getElementById('app')!.appendChild(app.canvas);
 
   const sm = new ScreenManager(app);
@@ -30,6 +35,13 @@ async function main(): Promise<void> {
       sm.show(new BattleScreen(cfg, goToDraft));
     }));
   };
+
+  // Dev-only: ?fx=<signature-name> jumps straight to FX preview loop
+  const fxParam = new URLSearchParams(location.search).get('fx');
+  if (fxParam && import.meta.env.DEV) {
+    sm.show(new FXPreviewScreen(fxParam, goToDraft));
+    return;
+  }
 
   sm.show(new LoadingScreen(goToDraft));
 }
