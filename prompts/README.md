@@ -59,6 +59,7 @@ The executor opens the file with the `Read` tool and follows it verbatim.
 | PR | Prompt file | Status |
 |---|---|---|
 | [#61](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/61) c-01 DraftScreen clan grouping | [`sprint3/c-01-draftscreen-4beast-grouping.md`](sprint3/c-01-draftscreen-4beast-grouping.md) | ✅ merged |
+| (pending) c-02 BattleScreen free-standing spirits (no round frames) | [`sprint3/c-02-battlescreen-freestanding-spirits.md`](sprint3/c-02-battlescreen-freestanding-spirits.md) | **ready to dispatch** (parallel with d-03) |
 
 ### Sprint 3 · D — SOS2 asset integration (FX + Symbols)
 
@@ -68,7 +69,7 @@ Roadmap doc: [`sprint3/D-ROADMAP.md`](sprint3/D-ROADMAP.md)
 |---|---|---|
 | [#62](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/62) d-00 SOS2 assets import (chore) | *(orchestrator task, no executor prompt)* | ✅ merged |
 | [#65](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/65) d-01 FXAtlas loader + clanTint helper | [`sprint3/d-01-fx-atlas-loader.md`](sprint3/d-01-fx-atlas-loader.md) | ✅ merged |
-| (skipped) d-02 Symbol reskin (5 gems) | — | pivoted — SlotReel already has Midjourney portraits; gems reserved for Sprint 5 Resonance pips / Sprint 6 JP/Scatter |
+| (pending) d-02 Reel gem reskin (5 gems replace reel portraits) | [`sprint3/d-02-revived-reel-gem-reskin.md`](sprint3/d-02-revived-reel-gem-reskin.md) | **ready to dispatch** — revived after owner mockup 2026-04-23 |
 | (pending) d-03 Phoenix coin-on-kill visual | [`sprint3/d-03-phoenix-coin-visual.md`](sprint3/d-03-phoenix-coin-visual.md) | **ready to dispatch** |
 | (roadmap) d-04 Signature FX upgrade (dragon/phoenix/tortoise fire+smoke) | — | depends on d-01 |
 | (roadmap) d-05 Near-win gold-dust teaser | — | depends on d-01 |
