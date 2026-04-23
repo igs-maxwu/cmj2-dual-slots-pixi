@@ -1,5 +1,6 @@
 import type { FormationGrid } from './Formation';
 import { hasAliveOfClan } from './Formation';
+import { SYMBOLS } from '@/config/SymbolsConfig';
 
 export type AttackerSide = 'A' | 'B';
 
@@ -43,12 +44,20 @@ export function distributeDamage(
   for (const idx of queue) {
     if (remaining <= 0) break;
     const u = grid[idx]!;
-    const taken = Math.min(u.hp, remaining);
-    u.hp      -= taken;
-    remaining -= taken;
+    let hit = Math.min(u.hp, remaining);
+
+    // Passive: Black Tortoise — last alive tortoise absorbs lethal damage once
+    const aliveCount = grid.filter(g => g !== null && g.alive).length;
+    if (SYMBOLS[u.symbolId]?.clan === 'black' && !u.shieldUsed && aliveCount === 1 && hit >= u.hp) {
+      hit = u.hp - 1;
+      u.shieldUsed = true;
+    }
+
+    u.hp      -= hit;
+    remaining -= hit;
     const died = u.hp <= 0;
     if (died) u.alive = false;
-    events.push({ slotIndex: idx, damageTaken: taken, died });
+    events.push({ slotIndex: idx, damageTaken: hit, died });
   }
 
   return events;
