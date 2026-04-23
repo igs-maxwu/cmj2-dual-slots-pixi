@@ -7,6 +7,7 @@ import { BattleScreen } from '@/screens/BattleScreen';
 import { FXPreviewScreen } from '@/screens/FXPreviewScreen';
 import { initTweenTicker } from '@/systems/tween';
 import { installFxDevHook } from '@/systems/FXDevHook';
+import { FXAtlas } from '@/fx/FXAtlas';
 
 async function main(): Promise<void> {
   const app = new Application();
@@ -27,6 +28,14 @@ async function main(): Promise<void> {
   installFxDevHook(app);
 
   document.getElementById('app')!.appendChild(app.canvas);
+
+  // Preload SOS2 FX atlas sheets before any screen renders.
+  // BASE_URL handles GitHub Pages sub-path (/cmj2-dual-slots-pixi/).
+  await FXAtlas.load([
+    { name: 'sos2-bigwin',       atlas: `${import.meta.env.BASE_URL}assets/fx/sos2-bigwin.atlas` },
+    { name: 'sos2-near-win',     atlas: `${import.meta.env.BASE_URL}assets/fx/sos2-near-win.atlas` },
+    { name: 'sos2-declare-fire', atlas: `${import.meta.env.BASE_URL}assets/fx/sos2-declare-fire.atlas` },
+  ]);
 
   const sm = new ScreenManager(app);
 
