@@ -12,8 +12,10 @@ const SIG_SPIRIT: Record<string, { spiritKey: string; symbolId: number }> = {
   'dual-fireball':     { spiritKey: 'zhuluan',       symbolId: 1 },
   'python-summon':     { spiritKey: 'zhaoyu',        symbolId: 2 },
   'dragon-dual-slash': { spiritKey: 'mengchenzhang', symbolId: 3 },
-  'tiger-fist-combo':  { spiritKey: 'yin',           symbolId: 0 },
-  'generic':           { spiritKey: 'canlan',        symbolId: 4 },
+  'tiger-fist-combo':        { spiritKey: 'yin',           symbolId: 0 },
+  'tortoise-hammer-smash':   { spiritKey: 'xuanmo',        symbolId: 7 },
+  'phoenix-flame-arrow':     { spiritKey: 'lingyu',        symbolId: 6 },
+  'generic':                 { spiritKey: 'canlan',        symbolId: 4 },
 };
 
 export const FX_SIGNATURES: string[] = Object.keys(SIG_SPIRIT);
