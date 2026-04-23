@@ -612,6 +612,23 @@ export class BattleScreen implements Screen {
       const eventsOnB = dmgA > 0 ? distributeDamage(this.formationB, dmgA, 'A') : [];
       const eventsOnA = dmgB > 0 ? distributeDamage(this.formationA, dmgB, 'B') : [];
 
+      // ── Vermilion Phoenix passive: +500 coin per enemy kill when own side has alive phoenix ──
+      const PHOENIX_COIN_PER_KILL = 500;
+      if (hasAliveOfClan(this.formationA, 'vermilion')) {
+        const killsByA = eventsOnB.filter(e => e.died).length;
+        if (killsByA > 0) {
+          this.walletA += killsByA * PHOENIX_COIN_PER_KILL * (this.cfg.betA / 100);
+          this.cascadeWallet('A');
+        }
+      }
+      if (hasAliveOfClan(this.formationB, 'vermilion')) {
+        const killsByB = eventsOnA.filter(e => e.died).length;
+        if (killsByB > 0) {
+          this.walletB += killsByB * PHOENIX_COIN_PER_KILL * (this.cfg.betB / 100);
+          this.cascadeWallet('B');
+        }
+      }
+
       const newHpA = teamHpTotal(this.formationA);
       const newHpB = teamHpTotal(this.formationB);
 
