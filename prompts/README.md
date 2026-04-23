@@ -58,7 +58,7 @@ The executor opens the file with the `Read` tool and follows it verbatim.
 
 | PR | Prompt file | Status |
 |---|---|---|
-| (in-flight) c-01 DraftScreen clan grouping | [`sprint3/c-01-draftscreen-4beast-grouping.md`](sprint3/c-01-draftscreen-4beast-grouping.md) | dispatched — mockup in `download_picture/dual-slot-pixi/` |
+| [#61](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/61) c-01 DraftScreen clan grouping | [`sprint3/c-01-draftscreen-4beast-grouping.md`](sprint3/c-01-draftscreen-4beast-grouping.md) | ✅ merged |
 
 ### Sprint 3 · D — SOS2 asset integration (FX + Symbols)
 
