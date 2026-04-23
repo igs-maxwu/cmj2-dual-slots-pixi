@@ -22,6 +22,7 @@ import { AmbientBackground } from './AmbientBackground';
 import { VsBadgeAnimator } from '@/fx/VsBadgeAnimator';
 import { goldText } from '@/components/GoldText';
 import { AmbientParticles } from '@/fx/AmbientParticles';
+import { AudioManager } from '@/systems/AudioManager';
 
 // ─── Portrait layout 720×1280 ───────────────────────────────────────────────
 const HEADER_Y   = 14;
@@ -101,6 +102,8 @@ export class BattleScreen implements Screen {
   // ─── Screen lifecycle ────────────────────────────────────────────────────
   async onMount(app: Application, stage: Container): Promise<void> {
     this.app = app;
+    await AudioManager.init();
+    AudioManager.playBgm('battle', true);
     this.bg = new AmbientBackground(app);
     stage.addChild(this.bg);
     this.particles = new AmbientParticles(app);
@@ -157,6 +160,7 @@ export class BattleScreen implements Screen {
 
   onUnmount(): void {
     this.running = false;
+    AudioManager.stopBgm();
     this.vsBadge.destroy();
     this.bg.destroyLayers();
     this.bg.destroy({ children: true });
@@ -465,6 +469,17 @@ export class BattleScreen implements Screen {
     }
   }
 
+  private playWinTierSfx(hitsA: WayHit[], hitsB: WayHit[]): void {
+    const hasJackpot = [...hitsA, ...hitsB].some(h => h.matchCount === 5);
+    if (hasJackpot) { AudioManager.playSfx('win-jackpot'); return; }
+    const totalWays = hitsA.length + hitsB.length;
+    if (totalWays === 0) return;
+    if (totalWays >= 30)      AudioManager.playSfx('win-mega');
+    else if (totalWays >= 11) AudioManager.playSfx('win-big');
+    else if (totalWays >= 4)  AudioManager.playSfx('win-nice');
+    else                      AudioManager.playSfx('win-small');
+  }
+
   // ─── Auto-battle loop ────────────────────────────────────────────────────
   private async loop(): Promise<void> {
     this.running = true;
@@ -490,9 +505,11 @@ export class BattleScreen implements Screen {
       );
       if (!this.running) return;
 
+      AudioManager.playSfx('reel-spin-loop');
       await this.reel.spin(spin.grid);
       if (!this.running) return;
 
+      this.playWinTierSfx(spin.sideA.wayHits, spin.sideB.wayHits);
       const lineFx = this.reel.highlightWays(spin.sideA.wayHits, spin.sideB.wayHits);
       const jackpotFx = this.fireJackpots(spin.sideA.wayHits, spin.sideB.wayHits);
       // Spirit attack choreography (concurrent with way highlights)

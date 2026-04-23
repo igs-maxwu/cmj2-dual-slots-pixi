@@ -12,6 +12,7 @@ import { calculateScales } from '@/systems/ScaleCalculator';
 import { SpiritPortrait } from '@/components/SpiritPortrait';
 import { UiButton } from '@/components/UiButton';
 import { addCornerOrnaments } from '@/components/Decorations';
+import { AudioManager } from '@/systems/AudioManager';
 
 // ─── Layout (proportional to canvas) ───────────────────────────────────────
 const TILE_W  = 160;
@@ -262,11 +263,11 @@ export class DraftScreen implements Screen {
         hoverA: false, hoverB: false,
       };
 
-      btnA.on('pointertap', () => this.toggle('A', i));
+      btnA.on('pointertap', () => { AudioManager.playSfx('ui-draft-select'); this.toggle('A', i); });
       btnA.on('pointerover', () => { refs.hoverA = true; this.redrawTile(i); });
       btnA.on('pointerout',  () => { refs.hoverA = false; this.redrawTile(i); });
 
-      btnB.on('pointertap', () => this.toggle('B', i));
+      btnB.on('pointertap', () => { AudioManager.playSfx('ui-draft-select'); this.toggle('B', i); });
       btnB.on('pointerover', () => { refs.hoverB = true; this.redrawTile(i); });
       btnB.on('pointerout',  () => { refs.hoverB = false; this.redrawTile(i); });
 
@@ -470,6 +471,7 @@ export class DraftScreen implements Screen {
   // ─── Launch ──────────────────────────────────────────────────────────────
   private launch(): void {
     if (!this.canGo()) return;
+    AudioManager.playSfx('ui-apply');
     const selectedA = Array.from(this.selectedA);
     const selectedB = Array.from(this.selectedB);
     // Full pool: poolTotalW must match what the engine uses at runtime
