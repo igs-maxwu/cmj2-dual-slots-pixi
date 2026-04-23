@@ -1,0 +1,97 @@
+
+sos2-near-win.webp
+size: 681,145
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+FrameGlow
+  rotate: false
+  xy: 54, 24
+  size: 36, 27
+  orig: 80, 80
+  offset: 22, 31
+  index: -1
+Frame_Base
+  rotate: true
+  xy: 114, 8
+  size: 47, 157
+  orig: 50, 158
+  offset: 2, 1
+  index: -1
+Frame_Blur
+  rotate: true
+  xy: 471, 38
+  size: 31, 85
+  orig: 32, 85
+  offset: 0, 0
+  index: -1
+Frame_Ramp
+  rotate: true
+  xy: 471, 5
+  size: 31, 85
+  orig: 32, 85
+  offset: 0, 0
+  index: -1
+Light_01
+  rotate: false
+  xy: 643, 18
+  size: 36, 60
+  orig: 45, 75
+  offset: 4, 0
+  index: -1
+Light_03
+  rotate: false
+  xy: 2, 2
+  size: 50, 49
+  orig: 50, 50
+  offset: 0, 1
+  index: -1
+Particle_3
+  rotate: false
+  xy: 276, 9
+  size: 193, 60
+  orig: 203, 68
+  offset: 5, 3
+  index: -1
+Sand_01
+  rotate: true
+  xy: 276, 71
+  size: 72, 289
+  orig: 72, 289
+  offset: 0, 0
+  index: -1
+Sand_02
+  rotate: true
+  xy: 567, 6
+  size: 64, 74
+  orig: 70, 74
+  offset: 4, 0
+  index: -1
+Sand_03
+  rotate: false
+  xy: 2, 53
+  size: 110, 90
+  orig: 112, 92
+  offset: 2, 0
+  index: -1
+Sand_04
+  rotate: true
+  xy: 567, 72
+  size: 71, 68
+  orig: 75, 77
+  offset: 1, 5
+  index: -1
+Smoke_2
+  rotate: false
+  xy: 114, 57
+  size: 160, 86
+  orig: 170, 95
+  offset: 6, 4
+  index: -1
+Speed_01
+  rotate: true
+  xy: 637, 80
+  size: 63, 38
+  orig: 65, 40
+  offset: 1, 1
+  index: -1
