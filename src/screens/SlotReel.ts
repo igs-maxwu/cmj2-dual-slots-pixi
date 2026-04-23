@@ -1,4 +1,4 @@
-import { Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
+import { Assets, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import * as T from '@/config/DesignTokens';
 import { SYMBOLS } from '@/config/SymbolsConfig';
 import { tween, delay, Easings } from '@/systems/tween';
@@ -18,7 +18,6 @@ export const REEL_H = ROWS * CELL_H + (ROWS - 1) * CELL_GAP + FRAME_PAD * 2;
 interface Cell {
   container: Container;
   portrait: SpiritPortrait;
-  label: Text;
   overlay: Graphics;
   currentSymbol: number;
 }
@@ -97,20 +96,9 @@ export class SlotReel extends Container {
           .stroke({ width: 1, color: T.SEA.rim, alpha: 0.7 });
         container.addChild(cellBg);
 
-        const portrait = new SpiritPortrait(0, 64);
-        portrait.y = -6;
+        const portrait = new SpiritPortrait(0, 100);
+        portrait.y = 0;
         container.addChild(portrait);
-
-        const label = new Text({
-          text: '',
-          style: {
-            fontFamily: T.FONT.title, fontWeight: '700',
-            fontSize: T.FONT_SIZE.xs, fill: T.FG.cream,
-          },
-        });
-        label.anchor.set(0.5, 0.5);
-        label.y = 48;
-        container.addChild(label);
 
         const overlay = new Graphics()
           .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
@@ -118,7 +106,7 @@ export class SlotReel extends Container {
         overlay.alpha = 0;
         container.addChild(overlay);
 
-        colCells.push({ container, portrait, label, overlay, currentSymbol: -1 });
+        colCells.push({ container, portrait, overlay, currentSymbol: -1 });
         this.setCellSymbol(colCells[r], r % SYMBOLS.length);
       }
       this.cells.push(colCells);
@@ -129,7 +117,6 @@ export class SlotReel extends Container {
     if (cell.currentSymbol === symId) return;
     cell.currentSymbol = symId;
     cell.portrait.setSymbol(symId);
-    cell.label.text = SYMBOLS[symId].spiritName;
   }
 
   // ─── Spin ────────────────────────────────────────────────────────────────
