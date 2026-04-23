@@ -1,6 +1,7 @@
 import { Assets, Container, Sprite, Text, Texture } from 'pixi.js';
 import { GlowFilter } from 'pixi-filters';
 import * as T from '@/config/DesignTokens';
+import { AudioManager } from '@/systems/AudioManager';
 
 /**
  * Gold-plate button backed by btn-normal.png. Three states via sprite.tint +
@@ -65,8 +66,8 @@ export class UiButton extends Container {
 
     this.eventMode = 'static';
     this.cursor = 'pointer';
-    this.on('pointertap', () => { if (this.enabled) this.onTap(); });
-    this.on('pointerover', () => this.setState('hover'));
+    this.on('pointertap', () => { if (this.enabled) { AudioManager.playSfx('ui-click', 0.7); this.onTap(); } });
+    this.on('pointerover', () => { AudioManager.playSfx('ui-hover', 0.5); this.setState('hover'); });
     this.on('pointerout',  () => this.setState('normal'));
     this.on('pointerdown', () => this.setState('pressed'));
     this.on('pointerup',   () => this.setState('hover'));

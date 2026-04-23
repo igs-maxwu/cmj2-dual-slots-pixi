@@ -4,6 +4,7 @@ import { SYMBOLS } from '@/config/SymbolsConfig';
 import { tween, delay, Easings } from '@/systems/tween';
 import { SpiritPortrait } from '@/components/SpiritPortrait';
 import type { WayHit } from '@/systems/SlotEngine';
+import { AudioManager } from '@/systems/AudioManager';
 
 function hasPreMatch(grid: number[][], colLeft: number, colRight: number): boolean {
   const left = new Set<number>();
@@ -216,6 +217,8 @@ export class SlotReel extends Container {
     });
     for (const cell of colCells) cell.container.scale.set(1);
 
+    AudioManager.playSfx('reel-stop-outer');
+
     // Stop-flash
     await tween(160, p => {
       const a = Easings.pulse(p) * 0.30;
@@ -229,6 +232,8 @@ export class SlotReel extends Container {
    */
   private async spinColumnCenter(col: number, finalGrid: number[][], spinMs: number, anticipated: boolean): Promise<void> {
     const colCells = this.cells[col];
+
+    AudioManager.playSfx('reel-r3-anticipation');
 
     // Gold pre-flash anticipation — brighter + longer when B4 teaser triggers
     const flashFill = anticipated ? (T.GOLD.light ?? T.GOLD.base) : T.GOLD.base;
@@ -277,6 +282,8 @@ export class SlotReel extends Container {
       for (const cell of colCells) cell.container.scale.set(0.85 + Easings.backOut(p) * 0.15);
     });
     for (const cell of colCells) cell.container.scale.set(1);
+
+    AudioManager.playSfx('reel-stop-inner');
 
     // Brighter stop-flash for center
     await tween(200, p => {
