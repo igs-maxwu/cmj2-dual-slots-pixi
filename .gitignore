@@ -9,3 +9,4 @@ Thumbs.db
 # Raw image inbox — originals dropped here for me to slice/resize/compress
 # before being written into public/assets/. Never commit the raw inbox.
 download_picture/
+download_audio/
