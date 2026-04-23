@@ -54,18 +54,24 @@ const ROUND_GAP_MS   = 500; // pause between rounds
 // ─── Components for formation display ────────────────────────────────────────
 interface FormationCellRefs {
   cell: Graphics;
+  glowRing: Graphics;
+  crossMark: Graphics;
   label: Text;
   container: Container;
   portrait: SpiritPortrait | null;
 }
 
 export class BattleScreen implements Screen {
+  private app!: Application;
   private container = new Container();
   private roundText!: Text;
   private hpBarA!: Graphics;
   private hpBarB!: Graphics;
+  private hpEdgeA!: Graphics;
+  private hpEdgeB!: Graphics;
   private hpTextA!: Text;
   private hpTextB!: Text;
+  private _breatheTick: (() => void) | null = null;
   private cellsA: FormationCellRefs[] = [];
   private cellsB: FormationCellRefs[] = [];
   private displayedHpA = 0;
@@ -86,7 +92,8 @@ export class BattleScreen implements Screen {
   constructor(private cfg: DraftResult, private onExit: () => void) {}
 
   // ─── Screen lifecycle ────────────────────────────────────────────────────
-  async onMount(_app: Application, stage: Container): Promise<void> {
+  async onMount(app: Application, stage: Container): Promise<void> {
+    this.app = app;
     stage.addChild(this.container);
     this.formationA = createFormation(this.cfg.selectedA, this.cfg.teamHpA);
     this.formationB = createFormation(this.cfg.selectedB, this.cfg.teamHpB);
@@ -106,6 +113,19 @@ export class BattleScreen implements Screen {
     this.drawBackButton();
     this.container.addChild(this.fxLayer);  // fx on top
     this.refresh();
+    this._breatheTick = () => {
+      const t = performance.now();
+      const breatheAlpha = 0.25 + (Math.sin(t / 600) * 0.5 + 0.5) * 0.40;
+      for (const ref of [...this.cellsA, ...this.cellsB]) {
+        if (ref.glowRing.visible) ref.glowRing.alpha = breatheAlpha;
+      }
+      const ratioA = this.displayedHpA / this.cfg.teamHpA;
+      const ratioB = this.displayedHpB / this.cfg.teamHpB;
+      const pulseAlpha = 0.35 + (Math.sin(t / 300) * 0.5 + 0.5) * 0.65;
+      this.hpEdgeA.alpha = ratioA < 0.30 ? pulseAlpha : 0;
+      this.hpEdgeB.alpha = ratioB < 0.30 ? pulseAlpha : 0;
+    };
+    this.app.ticker.add(this._breatheTick);
     void this.loop();
   }
 
@@ -125,6 +145,10 @@ export class BattleScreen implements Screen {
 
   onUnmount(): void {
     this.running = false;
+    if (this._breatheTick) {
+      this.app.ticker.remove(this._breatheTick);
+      this._breatheTick = null;
+    }
     this.container.destroy({ children: true });
     this.cellsA = [];
     this.cellsB = [];
@@ -171,9 +195,22 @@ export class BattleScreen implements Screen {
     this.makeHpLabel(ax + HP_BAR_W / 2, HP_Y - 20, 'PLAYER A', T.TEAM.azure);
     this.makeHpLabel(bx + HP_BAR_W / 2, HP_Y - 20, 'PLAYER B', T.TEAM.vermilion);
 
-    // Stack order per side: dark track → colored fill → ornate frame → text.
+    // Stack order per side: dark track → colored fill → ornate frame → A4 edge → text.
     this.hpBarA = this.buildHpStack(ax, HP_Y, HP_BAR_W, HP_BAR_H);
     this.hpBarB = this.buildHpStack(bx, HP_Y, HP_BAR_W, HP_BAR_H);
+
+    // A4 — low-HP pulse edge (stroke-only overlay, alpha driven by ticker)
+    this.hpEdgeA = new Graphics()
+      .roundRect(ax, HP_Y, HP_BAR_W, HP_BAR_H, HP_BAR_H / 2)
+      .stroke({ width: 3, color: T.HP.low, alpha: 1 });
+    this.hpEdgeA.alpha = 0;
+    this.container.addChild(this.hpEdgeA);
+
+    this.hpEdgeB = new Graphics()
+      .roundRect(bx, HP_Y, HP_BAR_W, HP_BAR_H, HP_BAR_H / 2)
+      .stroke({ width: 3, color: T.HP.low, alpha: 1 });
+    this.hpEdgeB.alpha = 0;
+    this.container.addChild(this.hpEdgeB);
 
     this.hpTextA = new Text({
       text: '', style: {
@@ -281,6 +318,7 @@ export class BattleScreen implements Screen {
     const ox = side === 'A' ? FORMATION_A_X : FORMATION_B_X;
     const grid = side === 'A' ? this.formationA : this.formationB;
     const cells = side === 'A' ? this.cellsA : this.cellsB;
+    const glowColor = side === 'A' ? T.TEAM.azureGlow : T.TEAM.vermilionGlow;
 
     for (let r = 0; r < 3; r++) {
       for (let c = 0; c < 3; c++) {
@@ -290,6 +328,15 @@ export class BattleScreen implements Screen {
         container.x = x + FORMATION_CELL / 2;
         container.y = y + FORMATION_CELL / 2;
         this.container.addChild(container);
+
+        // A3 — breathing glow ring (behind everything, alpha driven by ticker)
+        const half = FORMATION_CELL / 2;
+        const glowRing = new Graphics()
+          .roundRect(-half - 2, -half - 2, FORMATION_CELL + 4, FORMATION_CELL + 4, T.RADIUS.sm + 2)
+          .stroke({ width: 3, color: glowColor, alpha: 1 });
+        glowRing.alpha = 0;
+        glowRing.visible = false;
+        container.addChildAt(glowRing, 0);
 
         const cell = new Graphics();
         container.addChild(cell);
@@ -313,7 +360,17 @@ export class BattleScreen implements Screen {
         label.y = 22;
         container.addChild(label);
 
-        cells.push({ cell, label, container, portrait });
+        // A3 — dead cross (✕), drawn above label so always readable
+        const margin = 10;
+        const ch = FORMATION_CELL / 2 - margin;
+        const crossMark = new Graphics()
+          .moveTo(-ch, -ch).lineTo(ch, ch)
+          .moveTo(ch, -ch).lineTo(-ch, ch)
+          .stroke({ width: 3, color: T.FG.dim, alpha: 0.85 });
+        crossMark.visible = false;
+        container.addChild(crossMark);
+
+        cells.push({ cell, glowRing, crossMark, label, container, portrait });
       }
     }
   }
@@ -405,6 +462,8 @@ export class BattleScreen implements Screen {
           .fill({ color: T.SEA.deep, alpha: 0.45 })
           .stroke({ width: 1, color: T.SEA.rim, alpha: 0.4 });
         ref.label.text = '';
+        ref.glowRing.visible = false;
+        ref.crossMark.visible = false;
         continue;
       }
       ref.cell.roundRect(-FORMATION_CELL / 2, -FORMATION_CELL / 2, FORMATION_CELL, FORMATION_CELL, T.RADIUS.sm)
@@ -414,6 +473,9 @@ export class BattleScreen implements Screen {
       ref.label.text = unit.alive ? `${unit.hp}` : 'DEAD';
       ref.label.style.fill = unit.alive ? T.FG.cream : T.FG.dim;
       ref.label.alpha = unit.alive ? 1 : 0.6;
+      // A3 — breathing glow for alive, dead cross for fallen
+      ref.glowRing.visible = unit.alive;
+      ref.crossMark.visible = !unit.alive;
     }
   }
 
