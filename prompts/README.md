@@ -67,9 +67,9 @@ Roadmap doc: [`sprint3/D-ROADMAP.md`](sprint3/D-ROADMAP.md)
 | PR | Prompt file | Status |
 |---|---|---|
 | [#62](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/62) d-00 SOS2 assets import (chore) | *(orchestrator task, no executor prompt)* | ✅ merged |
-| (pending) d-01 FXAtlas loader + clanTint helper | [`sprint3/d-01-fx-atlas-loader.md`](sprint3/d-01-fx-atlas-loader.md) | **ready to dispatch** (parallel with c-01) |
-| (roadmap) d-02 Symbol reskin (5 gems) | — | to be written after d-01 merge |
-| (roadmap) d-03 Phoenix coin-on-kill visual | — | depends on d-01 |
+| [#65](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/65) d-01 FXAtlas loader + clanTint helper | [`sprint3/d-01-fx-atlas-loader.md`](sprint3/d-01-fx-atlas-loader.md) | ✅ merged |
+| (skipped) d-02 Symbol reskin (5 gems) | — | pivoted — SlotReel already has Midjourney portraits; gems reserved for Sprint 5 Resonance pips / Sprint 6 JP/Scatter |
+| (pending) d-03 Phoenix coin-on-kill visual | [`sprint3/d-03-phoenix-coin-visual.md`](sprint3/d-03-phoenix-coin-visual.md) | **ready to dispatch** |
 | (roadmap) d-04 Signature FX upgrade (dragon/phoenix/tortoise fire+smoke) | — | depends on d-01 |
 | (roadmap) d-05 Near-win gold-dust teaser | — | depends on d-01 |
 | (roadmap) d-06 Way highlight win-frame | — | depends on d-01 |
