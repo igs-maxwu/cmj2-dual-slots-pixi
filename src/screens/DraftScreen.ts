@@ -1,12 +1,14 @@
-import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
+import { Application, Container, FillGradient, Graphics, Text } from 'pixi.js';
 import type { Screen } from './ScreenManager';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import * as T from '@/config/DesignTokens';
+import type { ClanId } from '@/config/DesignTokens';
 import {
   SYMBOLS, DEFAULT_TARGET_RTP, DEFAULT_TARGET_DMG,
   DEFAULT_TEAM_HP, DEFAULT_BET, DEFAULT_FAIRNESS_EXP,
   DEFAULT_SELECTED_A, DEFAULT_SELECTED_B,
 } from '@/config/SymbolsConfig';
+import type { SymbolDef } from '@/config/SymbolsConfig';
 import { buildFullPool } from '@/systems/SymbolPool';
 import { calculateScales } from '@/systems/ScaleCalculator';
 import { SpiritPortrait } from '@/components/SpiritPortrait';
@@ -15,30 +17,47 @@ import { addCornerOrnaments } from '@/components/Decorations';
 import { AudioManager } from '@/systems/AudioManager';
 import { goldText } from '@/components/GoldText';
 
-// ─── Layout (proportional to canvas) ───────────────────────────────────────
-const TILE_W  = 160;
-const TILE_H  = 172;
-const TILE_GAP = T.SPACING.s4;
-const COLS = 4;
-const ROWS = 2;
-const GRID_W = COLS * TILE_W + (COLS - 1) * TILE_GAP;
-const GRID_H = ROWS * TILE_H + (ROWS - 1) * TILE_GAP;
-const GRID_X = Math.round((CANVAS_WIDTH - GRID_W) / 2);
-const GRID_Y = Math.round(CANVAS_HEIGHT * 0.20);
-const MAX_PICKS = 5;
+// ─── Clan-grouped layout ────────────────────────────────────────────────────
+const CLAN_ORDER: ClanId[] = ['azure', 'white', 'vermilion', 'black'];
+const TILE_W              = 152;
+const TILE_H              = 152;
+const TILE_GAP            = 40;    // horizontal gap between the 2 tiles in each row
+const BANNER_H            = 32;
+const BANNER_TO_TILES_GAP = 8;
+const CLAN_ROW_GAP        = 12;    // vertical gap between clan rows
+const ROW_H               = BANNER_H + BANNER_TO_TILES_GAP + TILE_H;   // 192
+const GRID_H              = ROW_H * 4 + CLAN_ROW_GAP * 3;              // 804
+const GRID_Y              = 160;   // below title + wallet header
+const TILES_TOTAL_W       = TILE_W * 2 + TILE_GAP;                     // 344
+const TILES_START_X       = Math.round((CANVAS_WIDTH - TILES_TOTAL_W) / 2); // 188
+const MAX_PICKS           = 5;
 
-// ─── Tile sub-zones (relative to each tile origin) ─────────────────────────
-const PORTRAIT_D  = 60;
-const PORTRAIT_CY = 42;
-const NAME_Y      = 80;
-const META_Y      = 104;
-const BTN_ZONE_Y  = 128;
-const BTN_ZONE_H  = 34;
+// ─── Tile sub-zones (relative to tile top-left corner) ──────────────────────
+const PORTRAIT_R  = 26;                        // portrait circle radius
+const PORTRAIT_CX = Math.round(TILE_W / 2);   // 76
+const PORTRAIT_CY = 36;                        // circle centre y (top=10, r=26 → 10+26=36)
+const NAME_Y      = 65;
+const META_Y      = 86;
+const BTN_ZONE_Y  = 110;
+const BTN_ZONE_H  = 32;
 const BTN_INSET_X = 6;
 const BTN_GAP     = 4;
-const BTN_W       = (TILE_W - 2 * BTN_INSET_X - BTN_GAP) / 2;
+const BTN_W       = (TILE_W - 2 * BTN_INSET_X - BTN_GAP) / 2;  // 68
 const BADGE_R     = 12;
 
+// ─── Module-level helper ─────────────────────────────────────────────────────
+function spiritsByClan(): Record<ClanId, { sym: SymbolDef; idx: number }[]> {
+  const out: Record<ClanId, { sym: SymbolDef; idx: number }[]> = {
+    azure: [], white: [], vermilion: [], black: [],
+  };
+  SYMBOLS.forEach((sym, idx) => { out[sym.clan as ClanId].push({ sym, idx }); });
+  if (SYMBOLS.length !== 8 || CLAN_ORDER.some(c => out[c].length !== 2)) {
+    throw new Error('spiritsByClan: expected 4 clans × 2 spirits each');
+  }
+  return out;
+}
+
+// ─── Public interfaces ───────────────────────────────────────────────────────
 export interface DraftResult {
   selectedA: number[];
   selectedB: number[];
@@ -69,14 +88,15 @@ interface TileRefs {
   hoverB:  boolean;
 }
 
+// ─── Screen ──────────────────────────────────────────────────────────────────
 export class DraftScreen implements Screen {
-  private container = new Container();
-  private selectedA = new Set<number>(DEFAULT_SELECTED_A);
-  private selectedB = new Set<number>(DEFAULT_SELECTED_B);
+  private container    = new Container();
+  private selectedA    = new Set<number>(DEFAULT_SELECTED_A);
+  private selectedB    = new Set<number>(DEFAULT_SELECTED_B);
   private tiles: TileRefs[] = [];
   private statusText!: Text;
-  private distAText!: Text;
-  private distBText!: Text;
+  private clanCountA!: Text;
+  private clanCountB!: Text;
   private goButton!: UiButton;
   private pulseElapsed = 0;
   private app: Application | null = null;
@@ -84,6 +104,7 @@ export class DraftScreen implements Screen {
 
   constructor(private onReady: (cfg: DraftResult) => void) {}
 
+  // ─── Screen lifecycle ──────────────────────────────────────────────────────
   onMount(app: Application, stage: Container): void {
     this.app = app;
     stage.addChild(this.container);
@@ -91,7 +112,7 @@ export class DraftScreen implements Screen {
     addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 130, 0.55);
     this.drawTitle();
     this.drawWallets();
-    this.drawDistribution();
+    this.drawClanCountRow();
     this.buildTiles();
     this.buildStatus();
     this.buildToolbar();
@@ -109,7 +130,7 @@ export class DraftScreen implements Screen {
     this.tiles = [];
   }
 
-  // ─── Background ──────────────────────────────────────────────────────────
+  // ─── Background ───────────────────────────────────────────────────────────
   private drawBackground(): void {
     const bg = new Graphics().rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT).fill(T.SEA.abyss);
     this.container.addChild(bg);
@@ -121,6 +142,7 @@ export class DraftScreen implements Screen {
     this.container.addChild(grid);
   }
 
+  // ─── Header (fits inside 0–160 px) ────────────────────────────────────────
   private drawTitle(): void {
     const title = new Text({
       text: 'SYMBOL DRAFT',
@@ -132,7 +154,7 @@ export class DraftScreen implements Screen {
     });
     title.anchor.set(0.5, 0);
     title.x = CANVAS_WIDTH / 2;
-    title.y = Math.round(CANVAS_HEIGHT * 0.04);
+    title.y = 12;
     this.container.addChild(title);
 
     const sub = new Text({
@@ -141,17 +163,16 @@ export class DraftScreen implements Screen {
     });
     sub.anchor.set(0.5, 0);
     sub.x = CANVAS_WIDTH / 2;
-    sub.y = Math.round(CANVAS_HEIGHT * 0.13);
+    sub.y = 58;
     this.container.addChild(sub);
   }
 
-  // ─── Wallet info (static) ────────────────────────────────────────────────
   private drawWallets(): void {
-    const y      = Math.round(CANVAS_HEIGHT * 0.11);
-    const labelY = y - 16;
-    const sides: Array<['A' | 'B', number, number]> = [
-      ['A', Math.round(CANVAS_WIDTH * 0.30), 0.5],
-      ['B', Math.round(CANVAS_WIDTH * 0.70), 0.5],
+    const labelY = 82;
+    const amtY   = 98;
+    const sides: Array<['A' | 'B', number]> = [
+      ['A', Math.round(CANVAS_WIDTH * 0.30)],
+      ['B', Math.round(CANVAS_WIDTH * 0.70)],
     ];
 
     for (const [side, x] of sides) {
@@ -160,149 +181,266 @@ export class DraftScreen implements Screen {
         text: `PLAYER ${side} · WALLET`,
         style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.xs, fill: color, letterSpacing: 2 },
       });
-      lbl.anchor.set(0.5, 1);
+      lbl.anchor.set(0.5, 0);
       lbl.x = x; lbl.y = labelY;
       this.container.addChild(lbl);
 
       const amt = goldText('10,000 NTD', { fontSize: 20, withShadow: true });
       amt.anchor.set(0.5, 0);
-      amt.x = x; amt.y = y;
+      amt.x = x; amt.y = amtY;
       this.container.addChild(amt);
     }
   }
 
-  // ─── Team weight distribution ────────────────────────────────────────────
-  private drawDistribution(): void {
-    const right = CANVAS_WIDTH - Math.round(CANVAS_WIDTH * 0.04);
-    const top   = Math.round(CANVAS_HEIGHT * 0.05);
+  // ─── Clan-count readout (replaces old weight-pct distribution) ───────────
+  private drawClanCountRow(): void {
+    const y = 132;
 
-    this.distAText = new Text({
-      text: '', style: { fontFamily: T.FONT.num, fontSize: T.FONT_SIZE.md, fill: T.TEAM.azure },
+    this.clanCountA = new Text({
+      text: '',
+      style: { fontFamily: T.FONT.num, fontSize: T.FONT_SIZE.xs, fill: T.FG.muted, letterSpacing: 1 },
     });
-    this.distAText.anchor.set(1, 0);
-    this.distAText.x = right; this.distAText.y = top;
-    this.container.addChild(this.distAText);
+    this.clanCountA.anchor.set(0, 0.5);
+    this.clanCountA.x = 24; this.clanCountA.y = y;
+    this.container.addChild(this.clanCountA);
 
-    this.distBText = new Text({
-      text: '', style: { fontFamily: T.FONT.num, fontSize: T.FONT_SIZE.md, fill: T.TEAM.vermilion },
+    this.clanCountB = new Text({
+      text: '',
+      style: { fontFamily: T.FONT.num, fontSize: T.FONT_SIZE.xs, fill: T.FG.muted, letterSpacing: 1 },
     });
-    this.distBText.anchor.set(1, 0);
-    this.distBText.x = right; this.distBText.y = top + 22;
-    this.container.addChild(this.distBText);
+    this.clanCountB.anchor.set(1, 0.5);
+    this.clanCountB.x = CANVAS_WIDTH - 24; this.clanCountB.y = y;
+    this.container.addChild(this.clanCountB);
   }
 
-  // ─── Tile grid ───────────────────────────────────────────────────────────
+  // ─── Tile grid — 4 clan rows ──────────────────────────────────────────────
   private buildTiles(): void {
-    const totalW = SYMBOLS.reduce((s, x) => s + x.weight, 0);
+    // Pre-size array so we can assign by symbolId index
+    this.tiles = new Array(SYMBOLS.length).fill(null) as unknown as TileRefs[];
+    const totalW  = SYMBOLS.reduce((s, x) => s + x.weight, 0);
+    const grouped = spiritsByClan();
 
-    SYMBOLS.forEach((sym, i) => {
-      const col = i % COLS;
-      const row = Math.floor(i / COLS);
-      const tx = GRID_X + col * (TILE_W + TILE_GAP);
-      const ty = GRID_Y + row * (TILE_H + TILE_GAP);
+    CLAN_ORDER.forEach((clanId, rowIdx) => {
+      const rowY  = GRID_Y + rowIdx * (ROW_H + CLAN_ROW_GAP);
+      this.drawClanBanner(clanId, rowY);
 
-      const tile = new Container();
-      tile.x = tx; tile.y = ty;
-      this.container.addChild(tile);
-
-      // Decorative frame (static art) — loaded PNG behind everything
-      const frameTex = Assets.get<Texture>('draft-tile-frame');
-      if (frameTex) {
-        const frame = new Sprite(frameTex);
-        frame.anchor.set(0, 0);
-        frame.width = TILE_W;
-        frame.height = TILE_H;
-        tile.addChild(frame);
-      }
-
-      // Selection state outline (drawn dynamically in refresh)
-      const border = new Graphics();
-      tile.addChild(border);
-
-      // Spirit portrait
-      const portrait = new SpiritPortrait(i, PORTRAIT_D);
-      portrait.x = TILE_W / 2;
-      portrait.y = PORTRAIT_CY;
-      tile.addChild(portrait);
-
-      // 中文 name
-      const name = new Text({
-        text: sym.spiritName,
-        style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.lg, fill: T.FG.cream, letterSpacing: 2 },
+      const tileY = rowY + BANNER_H + BANNER_TO_TILES_GAP;
+      grouped[clanId].forEach((entry, col) => {
+        const tileX = TILES_START_X + col * (TILE_W + TILE_GAP);
+        this.drawSpiritTile(entry.sym, entry.idx, clanId, tileX, tileY, totalW);
       });
-      name.anchor.set(0.5, 0);
-      name.x = TILE_W / 2; name.y = NAME_Y;
-      tile.addChild(name);
-
-      // Weight + probability
-      const prob = ((sym.weight / totalW) * 100).toFixed(1);
-      const meta = new Text({
-        text: `W:${sym.weight}   ${prob}%`,
-        style: { fontFamily: T.FONT.num, fontSize: T.FONT_SIZE.sm, fill: T.FG.muted },
-      });
-      meta.anchor.set(0.5, 0);
-      meta.x = TILE_W / 2; meta.y = META_Y;
-      tile.addChild(meta);
-
-      // ── Pick buttons ──
-      const btnA = new Container();
-      btnA.x = BTN_INSET_X; btnA.y = BTN_ZONE_Y;
-      const btnABg = new Graphics();
-      btnA.addChild(btnABg);
-      const btnALbl = new Text({
-        text: 'A',
-        style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.lg, fill: T.FG.white, letterSpacing: 2 },
-      });
-      btnALbl.anchor.set(0.5, 0.5);
-      btnALbl.x = BTN_W / 2; btnALbl.y = BTN_ZONE_H / 2;
-      btnA.addChild(btnALbl);
-      btnA.eventMode = 'static';
-      btnA.cursor = 'pointer';
-      tile.addChild(btnA);
-
-      const btnB = new Container();
-      btnB.x = BTN_INSET_X + BTN_W + BTN_GAP; btnB.y = BTN_ZONE_Y;
-      const btnBBg = new Graphics();
-      btnB.addChild(btnBBg);
-      const btnBLbl = new Text({
-        text: 'B',
-        style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.lg, fill: T.FG.white, letterSpacing: 2 },
-      });
-      btnBLbl.anchor.set(0.5, 0.5);
-      btnBLbl.x = BTN_W / 2; btnBLbl.y = BTN_ZONE_H / 2;
-      btnB.addChild(btnBLbl);
-      btnB.eventMode = 'static';
-      btnB.cursor = 'pointer';
-      tile.addChild(btnB);
-
-      // ── Corner badges (shown when selected) ──
-      const badgeA = this.createBadge('A', T.TEAM.azure);
-      badgeA.x = 4; badgeA.y = 4;
-      badgeA.visible = false;
-      tile.addChild(badgeA);
-
-      const badgeB = this.createBadge('B', T.TEAM.vermilion);
-      badgeB.x = TILE_W - BADGE_R * 2 - 4; badgeB.y = 4;
-      badgeB.visible = false;
-      tile.addChild(badgeB);
-
-      const refs: TileRefs = {
-        border, badgeA, badgeB,
-        btnA, btnABg, btnALbl,
-        btnB, btnBBg, btnBLbl,
-        hoverA: false, hoverB: false,
-      };
-
-      btnA.on('pointertap', () => { AudioManager.playSfx('ui-draft-select'); this.toggle('A', i); });
-      btnA.on('pointerover', () => { refs.hoverA = true; this.redrawTile(i); });
-      btnA.on('pointerout',  () => { refs.hoverA = false; this.redrawTile(i); });
-
-      btnB.on('pointertap', () => { AudioManager.playSfx('ui-draft-select'); this.toggle('B', i); });
-      btnB.on('pointerover', () => { refs.hoverB = true; this.redrawTile(i); });
-      btnB.on('pointerout',  () => { refs.hoverB = false; this.redrawTile(i); });
-
-      this.tiles.push(refs);
     });
+  }
+
+  // ─── Clan banner (full-width, 32px) ──────────────────────────────────────
+  private drawClanBanner(clanId: ClanId, rowY: number): void {
+    const meta   = T.CLAN_META[clanId];
+    const banner = new Container();
+    banner.x = 0; banner.y = rowY;
+    this.container.addChild(banner);
+
+    // Solid panel base
+    const bg = new Graphics()
+      .rect(0, 0, CANVAS_WIDTH, BANNER_H)
+      .fill({ color: T.SURF.panelSolid.color, alpha: 1.0 });
+    banner.addChild(bg);
+
+    // Clan-tint gradient: solid left 60%, fades right (simple overlay)
+    const tint = new Graphics()
+      .rect(0, 0, Math.round(CANVAS_WIDTH * 0.6), BANNER_H)
+      .fill({ color: meta.color, alpha: 0.12 });
+    banner.addChild(tint);
+
+    // 4 px left colour bar
+    const bar = new Graphics()
+      .rect(0, 0, 4, BANNER_H)
+      .fill(meta.color);
+    banner.addChild(bar);
+
+    // Hairline top + bottom
+    const hairline = new Graphics()
+      .moveTo(0, 0).lineTo(CANVAS_WIDTH, 0)
+      .moveTo(0, BANNER_H - 1).lineTo(CANVAS_WIDTH, BANNER_H - 1)
+      .stroke({ width: 1, color: meta.color, alpha: 0.20 });
+    banner.addChild(hairline);
+
+    // Chinese calligraphy name
+    const cn = new Text({
+      text: meta.cn,
+      style: {
+        fontFamily: T.FONT.display, fontSize: 20, fontWeight: '700',
+        fill: meta.color,
+        dropShadow: { color: meta.color, alpha: 0.5, blur: 4, distance: 0 },
+        letterSpacing: 2,
+      },
+    });
+    cn.anchor.set(0, 0.5);
+    cn.x = 16; cn.y = BANNER_H / 2;
+    banner.addChild(cn);
+
+    // Separator dot
+    const dot = new Text({ text: '·', style: { fontFamily: T.FONT.num, fontSize: 11, fill: T.FG.muted } });
+    dot.anchor.set(0, 0.5);
+    dot.x = cn.x + cn.width + 8; dot.y = BANNER_H / 2;
+    banner.addChild(dot);
+
+    // English name
+    const en = new Text({
+      text: meta.en.toUpperCase(),
+      style: { fontFamily: T.FONT.title, fontSize: 11, fill: T.FG.muted, letterSpacing: 3 },
+    });
+    en.anchor.set(0, 0.5);
+    en.x = dot.x + dot.width + 8; en.y = BANNER_H / 2;
+    banner.addChild(en);
+
+    // Right: Sprint 5 Resonance hook placeholder
+    // RESONANCE_HOOK: Sprint 5 will replace this with pip indicator (2-pair x1.5 / 4-kind x2.0)
+    const rightHint = new Text({
+      text: '◇ RESONANCE',
+      style: { fontFamily: T.FONT.num, fontSize: 9, fill: T.FG.muted, letterSpacing: 2 },
+    });
+    rightHint.anchor.set(1, 0.5);
+    rightHint.x = CANVAS_WIDTH - 16; rightHint.y = BANNER_H / 2;
+    rightHint.alpha = 0.35;
+    banner.addChild(rightHint);
+  }
+
+  // ─── Single spirit tile ───────────────────────────────────────────────────
+  private drawSpiritTile(
+    sym: SymbolDef, idx: number, clanId: ClanId,
+    tileX: number, tileY: number, totalW: number,
+  ): void {
+    const meta = T.CLAN_META[clanId];
+    const tile = new Container();
+    tile.x = tileX; tile.y = tileY;
+    this.container.addChild(tile);
+
+    // ── Gradient background ──
+    const bgGrad = new FillGradient({
+      type: 'linear',
+      start: { x: 0, y: 0 },
+      end:   { x: 0, y: 1 },
+      textureSpace: 'local',
+      colorStops: [
+        { offset: 0, color: 0x12305a },
+        { offset: 1, color: 0x0a1f3c },
+      ],
+    });
+    tile.addChild(
+      new Graphics().roundRect(0, 0, TILE_W, TILE_H, T.RADIUS.md).fill(bgGrad),
+    );
+
+    // ── Inner gold hairline ──
+    tile.addChild(
+      new Graphics()
+        .roundRect(4, 4, TILE_W - 8, TILE_H - 8, 7)
+        .stroke({ width: 1, color: T.GOLD.base, alpha: 0.25 }),
+    );
+
+    // ── Selection border (redrawn per refresh) ──
+    const border = new Graphics();
+    tile.addChild(border);
+
+    // ── Portrait circle background ──
+    tile.addChild(
+      new Graphics()
+        .circle(PORTRAIT_CX, PORTRAIT_CY, PORTRAIT_R)
+        .fill({ color: meta.color, alpha: 0.28 }),
+    );
+    tile.addChild(
+      new Graphics()
+        .circle(PORTRAIT_CX, PORTRAIT_CY, PORTRAIT_R)
+        .stroke({ width: 1.5, color: meta.color, alpha: 0.90 }),
+    );
+
+    // ── Spirit portrait (actual texture) ──
+    const portrait = new SpiritPortrait(idx, 46);
+    portrait.x = PORTRAIT_CX;
+    portrait.y = PORTRAIT_CY;
+    tile.addChild(portrait);
+
+    // ── Chinese spirit name ──
+    const name = new Text({
+      text: sym.spiritName,
+      style: {
+        fontFamily: T.FONT.title, fontWeight: '700',
+        fontSize: T.FONT_SIZE.md, fill: T.FG.cream, letterSpacing: 2,
+      },
+    });
+    name.anchor.set(0.5, 0);
+    name.x = TILE_W / 2; name.y = NAME_Y;
+    tile.addChild(name);
+
+    // ── Meta row: weight + probability ──
+    const prob = ((sym.weight / totalW) * 100).toFixed(1);
+    const metaTxt = new Text({
+      text: `W:${sym.weight}   ${prob}%`,
+      style: { fontFamily: T.FONT.num, fontSize: T.FONT_SIZE.xs, fill: T.FG.muted },
+    });
+    metaTxt.anchor.set(0.5, 0);
+    metaTxt.x = TILE_W / 2; metaTxt.y = META_Y;
+    tile.addChild(metaTxt);
+
+    // ── Pick button A ──
+    const btnA = new Container();
+    btnA.x = BTN_INSET_X; btnA.y = BTN_ZONE_Y;
+    const btnABg = new Graphics();
+    btnA.addChild(btnABg);
+    const btnALbl = new Text({
+      text: 'A',
+      style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.lg, fill: T.FG.white, letterSpacing: 2 },
+    });
+    btnALbl.anchor.set(0.5, 0.5);
+    btnALbl.x = BTN_W / 2; btnALbl.y = BTN_ZONE_H / 2;
+    btnA.addChild(btnALbl);
+    btnA.eventMode = 'static';
+    btnA.cursor    = 'pointer';
+    tile.addChild(btnA);
+
+    // ── Pick button B ──
+    const btnB = new Container();
+    btnB.x = BTN_INSET_X + BTN_W + BTN_GAP; btnB.y = BTN_ZONE_Y;
+    const btnBBg = new Graphics();
+    btnB.addChild(btnBBg);
+    const btnBLbl = new Text({
+      text: 'B',
+      style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.lg, fill: T.FG.white, letterSpacing: 2 },
+    });
+    btnBLbl.anchor.set(0.5, 0.5);
+    btnBLbl.x = BTN_W / 2; btnBLbl.y = BTN_ZONE_H / 2;
+    btnB.addChild(btnBLbl);
+    btnB.eventMode = 'static';
+    btnB.cursor    = 'pointer';
+    tile.addChild(btnB);
+
+    // ── Corner badges (visible only when selected) ──
+    const badgeA = this.createBadge('A', T.TEAM.azure);
+    badgeA.x = -6; badgeA.y = -6;
+    badgeA.visible = false;
+    tile.addChild(badgeA);
+
+    const badgeB = this.createBadge('B', T.TEAM.vermilion);
+    badgeB.x = TILE_W - 18; badgeB.y = -6;
+    badgeB.visible = false;
+    tile.addChild(badgeB);
+
+    // ── Refs (indexed by symbol id for O(1) refresh) ──
+    const refs: TileRefs = {
+      border, badgeA, badgeB,
+      btnA, btnABg, btnALbl,
+      btnB, btnBBg, btnBLbl,
+      hoverA: false, hoverB: false,
+    };
+
+    btnA.on('pointertap',  () => { AudioManager.playSfx('ui-draft-select'); this.toggle('A', idx); });
+    btnA.on('pointerover', () => { refs.hoverA = true;  this.redrawTile(idx); });
+    btnA.on('pointerout',  () => { refs.hoverA = false; this.redrawTile(idx); });
+
+    btnB.on('pointertap',  () => { AudioManager.playSfx('ui-draft-select'); this.toggle('B', idx); });
+    btnB.on('pointerover', () => { refs.hoverB = true;  this.redrawTile(idx); });
+    btnB.on('pointerout',  () => { refs.hoverB = false; this.redrawTile(idx); });
+
+    this.tiles[idx] = refs;
   }
 
   private createBadge(letter: string, color: number): Container {
@@ -310,11 +448,11 @@ export class DraftScreen implements Screen {
     const g = new Graphics()
       .circle(BADGE_R, BADGE_R, BADGE_R)
       .fill(color)
-      .stroke({ width: 1.5, color: T.FG.white, alpha: 0.9 });
+      .stroke({ width: 2, color: T.GOLD.pale, alpha: 0.9 });
     c.addChild(g);
     const t = new Text({
       text: letter,
-      style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.sm, fill: T.FG.white },
+      style: { fontFamily: T.FONT.num, fontWeight: '700', fontSize: 12, fill: T.FG.white },
     });
     t.anchor.set(0.5, 0.5);
     t.x = BADGE_R; t.y = BADGE_R;
@@ -322,7 +460,7 @@ export class DraftScreen implements Screen {
     return c;
   }
 
-  // ─── Status + toolbar + go ───────────────────────────────────────────────
+  // ─── Status + toolbar + go ────────────────────────────────────────────────
   private buildStatus(): void {
     this.statusText = new Text({
       text: '',
@@ -335,18 +473,18 @@ export class DraftScreen implements Screen {
   }
 
   private buildToolbar(): void {
-    const labels  = ['CLEAR', 'MIRROR A→B', 'RANDOM 5+5'];
-    const handlers: (() => void)[] = [
+    const labels   = ['CLEAR', 'MIRROR A→B', 'RANDOM 5+5'];
+    const handlers = [
       () => this.clearAll(),
       () => this.mirror(),
       () => this.randomize(),
     ];
-    const BTN_W2 = 170;
-    const BTN_H2 = 44;
-    const GAP    = T.SPACING.s4;
-    const totalW = labels.length * BTN_W2 + (labels.length - 1) * GAP;
-    const startX = Math.round((CANVAS_WIDTH - totalW) / 2);
-    const y      = GRID_Y + GRID_H + Math.round(T.SPACING.s10 * 1.4);
+    const BTN_W2   = 170;
+    const BTN_H2   = 44;
+    const GAP      = T.SPACING.s4;
+    const totalW   = labels.length * BTN_W2 + (labels.length - 1) * GAP;
+    const startX   = Math.round((CANVAS_WIDTH - totalW) / 2);
+    const y        = GRID_Y + GRID_H + Math.round(T.SPACING.s10 * 1.4);
 
     labels.forEach((label, i) => {
       const btn = new UiButton(label, BTN_W2, BTN_H2, handlers[i], { fontSize: T.FONT_SIZE.sm });
@@ -360,12 +498,11 @@ export class DraftScreen implements Screen {
     this.goButton = new UiButton('SELECT 5 EACH', 320, 60, () => this.launch(),
       { fontSize: T.FONT_SIZE.xl });
     this.goButton.x = CANVAS_WIDTH / 2;
-    // Pushed further below the toolbar so the pulse doesn't collide with it
     this.goButton.y = GRID_Y + GRID_H + Math.round(T.SPACING.s12 * 2.8);
     this.container.addChild(this.goButton);
   }
 
-  // ─── Selection logic ─────────────────────────────────────────────────────
+  // ─── Selection logic ──────────────────────────────────────────────────────
   private toggle(side: 'A' | 'B', idx: number): void {
     const set = side === 'A' ? this.selectedA : this.selectedB;
     if (set.has(idx)) set.delete(idx);
@@ -391,7 +528,7 @@ export class DraftScreen implements Screen {
   }
 
   private pickRandomFive(): Set<number> {
-    const ids = [0,1,2,3,4,5,6,7];
+    const ids = [0, 1, 2, 3, 4, 5, 6, 7];
     for (let i = ids.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [ids[i], ids[j]] = [ids[j], ids[i]];
@@ -403,18 +540,17 @@ export class DraftScreen implements Screen {
     return this.selectedA.size === MAX_PICKS && this.selectedB.size === MAX_PICKS;
   }
 
-  // ─── Redraw ──────────────────────────────────────────────────────────────
+  // ─── Redraw ───────────────────────────────────────────────────────────────
   private refresh(): void {
     for (let i = 0; i < SYMBOLS.length; i++) this.redrawTile(i);
 
-    const a = this.selectedA.size;
-    const b = this.selectedB.size;
+    const a     = this.selectedA.size;
+    const b     = this.selectedB.size;
     const color = this.canGo() ? T.CTA.green : T.FG.cream;
     this.statusText.style.fill = color;
-    this.statusText.text = `A ${a}/${MAX_PICKS}    B ${b}/${MAX_PICKS}`;
+    this.statusText.text       = `A ${a}/${MAX_PICKS}    B ${b}/${MAX_PICKS}`;
 
-    this.distAText.text = `A  team weight  ${this.teamWeightPct('A')}%`;
-    this.distBText.text = `B  team weight  ${this.teamWeightPct('B')}%`;
+    this.updateClanCountReadout();
 
     const canGo = this.canGo();
     this.goButton.setText(canGo ? 'START BATTLE' : 'SELECT 5 EACH');
@@ -423,52 +559,65 @@ export class DraftScreen implements Screen {
 
   private redrawTile(i: number): void {
     const t = this.tiles[i];
-    const pickedA = this.selectedA.has(i);
-    const pickedB = this.selectedB.has(i);
-    const bothFull = !pickedA && !pickedB && this.selectedA.size === MAX_PICKS && this.selectedB.size === MAX_PICKS;
+    if (!t) return;
 
-    // Selection-state outline — sits ON TOP of the frame PNG
+    const pickedA  = this.selectedA.has(i);
+    const pickedB  = this.selectedB.has(i);
+    const bothFull = !pickedA && !pickedB &&
+      this.selectedA.size === MAX_PICKS && this.selectedB.size === MAX_PICKS;
+
+    // Selection-state border
     t.border.clear();
     if (pickedA && pickedB) {
-      t.border.roundRect(-2, -2, TILE_W + 4, TILE_H + 4, T.RADIUS.md)
-        .stroke({ width: 4, color: T.GOLD.base, alpha: 1 });
+      t.border.roundRect(-2, -2, TILE_W + 4, TILE_H + 4, T.RADIUS.md + 2)
+        .stroke({ width: 4, color: T.GOLD.glow, alpha: 1 });
     } else if (pickedA) {
-      t.border.roundRect(-2, -2, TILE_W + 4, TILE_H + 4, T.RADIUS.md)
+      t.border.roundRect(-2, -2, TILE_W + 4, TILE_H + 4, T.RADIUS.md + 2)
         .stroke({ width: 3, color: T.TEAM.azure, alpha: 1 });
     } else if (pickedB) {
-      t.border.roundRect(-2, -2, TILE_W + 4, TILE_H + 4, T.RADIUS.md)
+      t.border.roundRect(-2, -2, TILE_W + 4, TILE_H + 4, T.RADIUS.md + 2)
         .stroke({ width: 3, color: T.TEAM.vermilion, alpha: 1 });
+    } else {
+      t.border.roundRect(-2, -2, TILE_W + 4, TILE_H + 4, T.RADIUS.md + 2)
+        .stroke({ width: 2, color: T.GOLD.base, alpha: bothFull ? 0.15 : 0.25 });
     }
-    void bothFull;
 
     // Badges
     t.badgeA.visible = pickedA;
     t.badgeB.visible = pickedB;
 
-    // Pick buttons (three states: normal / hover / selected)
+    // Pick buttons
     const aLocked = !pickedA && this.selectedA.size >= MAX_PICKS;
     const bLocked = !pickedB && this.selectedB.size >= MAX_PICKS;
-    this.drawPickBtn(t.btnABg, t.btnALbl, 'A', pickedA ? 'selected' : (t.hoverA && !aLocked ? 'hover' : 'normal'), aLocked);
-    this.drawPickBtn(t.btnBBg, t.btnBLbl, 'B', pickedB ? 'selected' : (t.hoverB && !bLocked ? 'hover' : 'normal'), bLocked);
+    this.drawPickBtn(t.btnABg, t.btnALbl, 'A',
+      pickedA ? 'selected' : (t.hoverA && !aLocked ? 'hover' : 'normal'), aLocked);
+    this.drawPickBtn(t.btnBBg, t.btnBLbl, 'B',
+      pickedB ? 'selected' : (t.hoverB && !bLocked ? 'hover' : 'normal'), bLocked);
   }
 
   private drawPickBtn(
     bg: Graphics, lbl: Text, side: 'A' | 'B',
     state: 'normal' | 'hover' | 'selected', locked: boolean,
   ): void {
-    const team = side === 'A' ? T.TEAM.azure : T.TEAM.vermilion;
-    const teamDeep = side === 'A' ? T.TEAM.azureDeep : T.TEAM.vermilionDeep;
-    const teamGlow = side === 'A' ? T.TEAM.azureGlow : T.TEAM.vermilionGlow;
+    const team     = side === 'A' ? T.TEAM.azure      : T.TEAM.vermilion;
+    const teamDeep = side === 'A' ? T.TEAM.azureDeep  : T.TEAM.vermilionDeep;
+    const teamGlow = side === 'A' ? T.TEAM.azureGlow  : T.TEAM.vermilionGlow;
 
-    let fillColor: number;
-    let fillAlpha: number;
-    let strokeColor: number;
-    let labelColor: number;
+    let fillColor: number, fillAlpha: number, strokeColor: number, labelColor: number;
 
-    if (locked) { fillColor = T.COLORS.btnDisabled; fillAlpha = 0.5; strokeColor = T.FG.dim;  labelColor = T.FG.dim; }
-    else if (state === 'selected') { fillColor = team;      fillAlpha = 1;    strokeColor = teamGlow;      labelColor = T.FG.white; }
-    else if (state === 'hover')    { fillColor = teamDeep;  fillAlpha = 0.8;  strokeColor = T.GOLD.base;   labelColor = T.FG.white; }
-    else                           { fillColor = teamDeep;  fillAlpha = 0.45; strokeColor = team;          labelColor = teamGlow; }
+    if (locked) {
+      fillColor = T.COLORS.btnDisabled; fillAlpha = 0.5;
+      strokeColor = T.FG.dim;          labelColor = T.FG.dim;
+    } else if (state === 'selected') {
+      fillColor = team;      fillAlpha = 1.0;
+      strokeColor = teamGlow; labelColor = T.FG.white;
+    } else if (state === 'hover') {
+      fillColor = teamDeep;  fillAlpha = 0.8;
+      strokeColor = T.GOLD.base; labelColor = T.FG.white;
+    } else {
+      fillColor = teamDeep;  fillAlpha = 0.45;
+      strokeColor = team;    labelColor = teamGlow;
+    }
 
     bg.clear()
       .roundRect(0, 0, BTN_W, BTN_ZONE_H, T.RADIUS.sm)
@@ -477,38 +626,49 @@ export class DraftScreen implements Screen {
     lbl.style.fill = labelColor;
   }
 
+  // ─── Clan-count readout ───────────────────────────────────────────────────
+  private updateClanCountReadout(): void {
+    this.clanCountA.text = 'A · ' + this.clanCountStr(this.selectedA);
+    this.clanCountB.text = this.clanCountStr(this.selectedB) + ' · B';
+  }
+
+  private clanCountStr(selected: Set<number>): string {
+    const parts: string[] = [];
+    for (const clanId of CLAN_ORDER) {
+      const cnt = Array.from(selected).filter(id => SYMBOLS[id].clan === clanId).length;
+      if (cnt > 0) parts.push(`${T.CLAN_META[clanId].cn[0]}${cnt}`);
+    }
+    return parts.length > 0 ? parts.join('·') : '—';
+  }
+
+  // ─── Weight helper (kept for potential future use) ────────────────────────
   private teamWeightPct(side: 'A' | 'B'): string {
-    const set = side === 'A' ? this.selectedA : this.selectedB;
+    const set   = side === 'A' ? this.selectedA : this.selectedB;
     const total = SYMBOLS.reduce((s, x) => s + x.weight, 0);
-    const sum = Array.from(set).reduce((s, id) => s + SYMBOLS[id].weight, 0);
+    const sum   = Array.from(set).reduce((s, id) => s + SYMBOLS[id].weight, 0);
     if (total === 0) return '0';
     return ((sum / total) * 100).toFixed(1);
   }
-
-  // ─── Pulsing START button ────────────────────────────────────────────────
+  // ─── Pulsing START button ─────────────────────────────────────────────────
   private updatePulse(deltaMS: number): void {
     if (!this.goButton) return;
-    if (!this.canGo()) {
-      this.goButton.scale.set(1);
-      return;
-    }
+    if (!this.canGo()) { this.goButton.scale.set(1); return; }
     this.pulseElapsed += deltaMS;
     const amp = 0.025;
-    const s = 1 + amp * Math.sin((this.pulseElapsed / 650) * Math.PI);
+    const s   = 1 + amp * Math.sin((this.pulseElapsed / 650) * Math.PI);
     this.goButton.scale.set(s);
   }
 
-  // ─── Launch ──────────────────────────────────────────────────────────────
+  // ─── Launch ───────────────────────────────────────────────────────────────
   private launch(): void {
     if (!this.canGo()) return;
     AudioManager.playSfx('ui-apply');
     const selectedA = Array.from(this.selectedA);
     const selectedB = Array.from(this.selectedB);
-    // Full pool: poolTotalW must match what the engine uses at runtime
     const pool = buildFullPool(SYMBOLS);
-    const tw = pool.reduce((s, p) => s + p.weight, 0);
-    const sa = calculateScales(DEFAULT_TARGET_RTP, DEFAULT_TARGET_DMG, selectedA, tw, DEFAULT_FAIRNESS_EXP);
-    const sb = calculateScales(DEFAULT_TARGET_RTP, DEFAULT_TARGET_DMG, selectedB, tw, DEFAULT_FAIRNESS_EXP);
+    const tw   = pool.reduce((s, p) => s + p.weight, 0);
+    const sa   = calculateScales(DEFAULT_TARGET_RTP, DEFAULT_TARGET_DMG, selectedA, tw, DEFAULT_FAIRNESS_EXP);
+    const sb   = calculateScales(DEFAULT_TARGET_RTP, DEFAULT_TARGET_DMG, selectedB, tw, DEFAULT_FAIRNESS_EXP);
 
     this.onReady({
       selectedA, selectedB,

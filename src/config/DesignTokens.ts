@@ -62,6 +62,30 @@ export const TEAM = {
   vermilionGlow: 0xff8a6a,
 } as const;
 
+// ─── Clan · 4 聖獸（青龍 / 白虎 / 朱雀 / 玄武）────────────────────────────
+// 與 TEAM 色故意偏移（TEAM 是 player A/B side，CLAN 是聖獸歸屬）— 避免混淆。
+export const CLAN = {
+  azure:         0x38b6f5,  // 青龍 teal-sky
+  azureGlow:     0x7ae8ff,
+  white:         0xe8c87a,  // 白虎 amber-gold（非純白，避免消失）
+  whiteGlow:     0xfff0b3,
+  vermilion:     0xff6b35,  // 朱雀 flame-orange
+  vermilionGlow: 0xffaa70,
+  black:         0x6b9e8a,  // 玄武 jade-sea
+  blackGlow:     0xa8e8d0,
+} as const;
+
+export type ClanId = 'azure' | 'white' | 'vermilion' | 'black';
+
+export const CLAN_META: Record<ClanId, {
+  cn: string; en: string; color: number; glow: number;
+}> = {
+  azure:     { cn: '青龍', en: 'Azure Dragon',   color: CLAN.azure,     glow: CLAN.azureGlow     },
+  white:     { cn: '白虎', en: 'White Tiger',    color: CLAN.white,     glow: CLAN.whiteGlow     },
+  vermilion: { cn: '朱雀', en: 'Vermilion Bird', color: CLAN.vermilion, glow: CLAN.vermilionGlow },
+  black:     { cn: '玄武', en: 'Black Tortoise', color: CLAN.black,     glow: CLAN.blackGlow     },
+};
+
 // ─── Symbols · 轉軸符號 placeholder 配色 ─────────────────────────────────
 export const SYM = {
   low1:    0xc9a27a,
