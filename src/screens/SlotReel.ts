@@ -1,8 +1,8 @@
 import { Assets, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import * as T from '@/config/DesignTokens';
 import { SYMBOLS } from '@/config/SymbolsConfig';
+import { gemForSymbol } from '@/config/GemMapping';
 import { tween, delay, Easings } from '@/systems/tween';
-import { SpiritPortrait } from '@/components/SpiritPortrait';
 import type { WayHit } from '@/systems/SlotEngine';
 import { AudioManager } from '@/systems/AudioManager';
 
@@ -24,9 +24,9 @@ export const REEL_W = COLS * CELL_W + (COLS - 1) * CELL_GAP + FRAME_PAD * 2;
 export const REEL_H = ROWS * CELL_H + (ROWS - 1) * CELL_GAP + FRAME_PAD * 2;
 
 interface Cell {
-  container: Container;
-  portrait: SpiritPortrait;
-  overlay: Graphics;
+  container:     Container;
+  gemSprite:     Sprite;        // SOS2 gem visual (replaces SpiritPortrait)
+  overlay:       Graphics;
   currentSymbol: number;
 }
 
@@ -127,9 +127,11 @@ export class SlotReel extends Container {
           .stroke({ width: 1, color: T.SEA.rim, alpha: 0.7 });
         container.addChild(cellBg);
 
-        const portrait = new SpiritPortrait(0, 100);
-        portrait.y = 0;
-        container.addChild(portrait);
+        // Gem sprite — Texture.WHITE placeholder, overwritten by setCellSymbol()
+        const gemSprite = new Sprite(Texture.WHITE);
+        gemSprite.anchor.set(0.5);
+        gemSprite.y = 0;
+        container.addChild(gemSprite);
 
         const overlay = new Graphics()
           .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
@@ -137,7 +139,7 @@ export class SlotReel extends Container {
         overlay.alpha = 0;
         container.addChild(overlay);
 
-        colCells.push({ container, portrait, overlay, currentSymbol: -1 });
+        colCells.push({ container, gemSprite, overlay, currentSymbol: -1 });
         this.setCellSymbol(colCells[r], r % SYMBOLS.length);
       }
       this.cells.push(colCells);
@@ -147,7 +149,17 @@ export class SlotReel extends Container {
   private setCellSymbol(cell: Cell, symId: number): void {
     if (cell.currentSymbol === symId) return;
     cell.currentSymbol = symId;
-    cell.portrait.setSymbol(symId);
+    const sym     = SYMBOLS[symId];
+    const gemInfo = gemForSymbol(sym);
+    const tex     = Assets.get<Texture>(gemInfo.assetKey);
+    if (tex) {
+      cell.gemSprite.texture = tex;
+      // Scale gem to ~80% of the smaller cell dimension
+      const targetSize = Math.min(CELL_W, CELL_H) * 0.80;
+      const scale = targetSize / Math.max(tex.width, tex.height);
+      cell.gemSprite.scale.set(scale);
+    }
+    cell.gemSprite.tint = gemInfo.tint;
   }
 
   // ─── Spin ────────────────────────────────────────────────────────────────
