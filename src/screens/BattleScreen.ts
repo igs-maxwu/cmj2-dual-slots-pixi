@@ -381,8 +381,8 @@ export class BattleScreen implements Screen {
           sprite = new Sprite(tex);
           sprite.anchor.set(0.5, 1);
           sprite.scale.set(SPIRIT_H / tex.height);
-          // flip x for B-side so spirits face the centre.
-          if (side === 'B') sprite.scale.x *= -1;
+          // flip x for A-side so spirits face the centre (assets are facing-left by default).
+          if (side === 'A') sprite.scale.x *= -1;
           container.addChild(sprite);
         }
       }
