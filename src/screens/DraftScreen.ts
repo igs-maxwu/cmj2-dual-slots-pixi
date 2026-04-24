@@ -5,7 +5,7 @@ import * as T from '@/config/DesignTokens';
 import type { ClanId } from '@/config/DesignTokens';
 import {
   SYMBOLS, DEFAULT_TARGET_RTP, DEFAULT_TARGET_DMG,
-  DEFAULT_TEAM_HP, DEFAULT_BET, DEFAULT_FAIRNESS_EXP,
+  DEFAULT_UNIT_HP, DEFAULT_BET, DEFAULT_FAIRNESS_EXP,
   DEFAULT_SELECTED_A, DEFAULT_SELECTED_B,
 } from '@/config/SymbolsConfig';
 import type { SymbolDef } from '@/config/SymbolsConfig';
@@ -61,8 +61,8 @@ function spiritsByClan(): Record<ClanId, { sym: SymbolDef; idx: number }[]> {
 export interface DraftResult {
   selectedA: number[];
   selectedB: number[];
-  teamHpA: number;
-  teamHpB: number;
+  unitHpA: number;
+  unitHpB: number;
   betA: number;
   betB: number;
   coinScaleA: number;
@@ -672,7 +672,7 @@ export class DraftScreen implements Screen {
 
     this.onReady({
       selectedA, selectedB,
-      teamHpA: DEFAULT_TEAM_HP, teamHpB: DEFAULT_TEAM_HP,
+      unitHpA: DEFAULT_UNIT_HP, unitHpB: DEFAULT_UNIT_HP,
       betA: DEFAULT_BET, betB: DEFAULT_BET,
       coinScaleA: sa.coinScale, dmgScaleA: sa.dmgScale,
       coinScaleB: sb.coinScale, dmgScaleB: sb.dmgScale,
