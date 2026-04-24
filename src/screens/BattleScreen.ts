@@ -22,6 +22,7 @@ import { VsBadgeAnimator } from '@/fx/VsBadgeAnimator';
 import { goldText } from '@/components/GoldText';
 import { AmbientParticles } from '@/fx/AmbientParticles';
 import { AudioManager } from '@/systems/AudioManager';
+import { FXAtlas } from '@/fx/FXAtlas';
 
 // ─── Portrait layout 720×1280 ───────────────────────────────────────────────
 const HEADER_Y   = 14;
@@ -635,20 +636,24 @@ export class BattleScreen implements Screen {
       const eventsOnB = dmgA > 0 ? distributeDamage(this.formationB, dmgA, 'A') : [];
       const eventsOnA = dmgB > 0 ? distributeDamage(this.formationA, dmgB, 'B') : [];
 
-      // ── Vermilion Phoenix passive: +500 coin per enemy kill when own side has alive phoenix ──
+      // ── Vermilion Phoenix passive: +500 coin per enemy kill + coin burst visual ──
       const PHOENIX_COIN_PER_KILL = 500;
       if (hasAliveOfClan(this.formationA, 'vermilion')) {
-        const killsByA = eventsOnB.filter(e => e.died).length;
-        if (killsByA > 0) {
-          this.walletA += killsByA * PHOENIX_COIN_PER_KILL * (this.cfg.betA / 100);
+        const kills = eventsOnB.filter(e => e.died);
+        if (kills.length > 0) {
+          this.walletA += kills.length * PHOENIX_COIN_PER_KILL * (this.cfg.betA / 100);
           this.cascadeWallet('A');
+          const positions = kills.map(e => this.getFormationUnitWorldPos('B', e.slotIndex));
+          this.playPhoenixCoinBurst('A', positions);
         }
       }
       if (hasAliveOfClan(this.formationB, 'vermilion')) {
-        const killsByB = eventsOnA.filter(e => e.died).length;
-        if (killsByB > 0) {
-          this.walletB += killsByB * PHOENIX_COIN_PER_KILL * (this.cfg.betB / 100);
+        const kills = eventsOnA.filter(e => e.died);
+        if (kills.length > 0) {
+          this.walletB += kills.length * PHOENIX_COIN_PER_KILL * (this.cfg.betB / 100);
           this.cascadeWallet('B');
+          const positions = kills.map(e => this.getFormationUnitWorldPos('A', e.slotIndex));
+          this.playPhoenixCoinBurst('B', positions);
         }
       }
 
@@ -841,6 +846,70 @@ export class BattleScreen implements Screen {
       burst.rotation = p * 0.35;
     });
     burst.destroy();
+  }
+
+  // ─── Formation position helper ───────────────────────────────────────────
+  /** World-space {x, y} of the unit at slotIndex in the given side's staggered arena layout. */
+  private getFormationUnitWorldPos(side: 'A' | 'B', slotIndex: number): { x: number; y: number } {
+    // Delegates to the same helper used by popDamage — both use the staggered arena layout (c-02).
+    return this.slotToArenaPos(side, slotIndex);
+  }
+
+  // ─── Phoenix coin burst ───────────────────────────────────────────────────
+  /**
+   * Phoenix coin-on-kill visual feedback (fire-and-forget — do NOT await).
+   * Spawns spinning gold coins at each killed unit's world position;
+   * each coin arcs along a quadratic Bézier curve toward the attacker's wallet label.
+   */
+  private playPhoenixCoinBurst(side: 'A' | 'B', killPositions: { x: number; y: number }[]): void {
+    const wallet  = side === 'A' ? this.walletTextA : this.walletTextB;
+    const targetX = wallet.x;
+    const targetY = wallet.y;
+
+    const COINS_PER_KILL   = 5;
+    const FLIGHT_DUR       = 700;
+    const SPAWN_JITTER     = 80;
+    const ROTATION_FRAMES  = [
+      'Coin/Coin_01', 'Coin/Coin_03', 'Coin/Coin_05', 'Coin/Coin_07', 'Coin/Coin_09',
+    ] as const;
+
+    for (const pos of killPositions) {
+      for (let i = 0; i < COINS_PER_KILL; i++) {
+        const key  = ROTATION_FRAMES[i % ROTATION_FRAMES.length];
+        const coin = FXAtlas.sprite(`sos2-bigwin:${key}`);
+        coin.x = pos.x + (Math.random() - 0.5) * SPAWN_JITTER;
+        coin.y = pos.y + (Math.random() - 0.5) * SPAWN_JITTER;
+        coin.scale.set(0.35);
+        coin.alpha  = 1;
+        coin.zIndex = 500;    // above formations + HP bars
+        this.container.addChild(coin);
+
+        // Quadratic Bézier arc parameters
+        const startX = coin.x;
+        const startY = coin.y;
+        const endX   = targetX + (Math.random() - 0.5) * 30;
+        const endY   = targetY;
+        const midX   = (startX + endX) / 2;
+        const midY   = Math.min(startY, endY) - 80 - Math.random() * 60;
+
+        const delayMs = i * 40 + Math.random() * 60;   // staggered fire
+
+        // Fire-and-forget IIFE — never added to the round's fx[] array
+        void (async () => {
+          if (delayMs > 0) await delay(delayMs);
+          if (coin.destroyed) return;
+          await tween(FLIGHT_DUR, t => {
+            const inv = 1 - t;
+            coin.x = inv * inv * startX + 2 * inv * t * midX + t * t * endX;
+            coin.y = inv * inv * startY + 2 * inv * t * midY + t * t * endY;
+            coin.scale.set(0.35 + 0.35 * t);         // 0.35 → 0.70 grow while flying
+            coin.rotation += 0.25;                    // continuous tumble
+            if (t > 0.75) coin.alpha = (1 - t) * 4;  // fade in last 25% of arc
+          }, Easings.easeOut);
+          if (!coin.destroyed) coin.destroy();
+        })();
+      }
+    }
   }
 
   // ─── Damage number popups ────────────────────────────────────────────────
