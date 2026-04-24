@@ -40,8 +40,8 @@ export const DEFAULT_UNIT_HP    = 1000;     // per-spirit HP (SPEC §15.3)
 export const DEFAULT_BET        = 100;
 // Semantic target: SPEC §15.3 Base Ways = 60%.  Implementation value empirically tuned post-Wild:
 // Wild ×2 + substitute inflates realized EV ~3× vs analytical prediction → divide by 3.
-export const DEFAULT_TARGET_RTP = 20;    // m-06: empirical tune (60 / 3) post-Wild ×2 + substitute
-export const DEFAULT_TARGET_DMG = 300;   // m-06: same inflation on dmg → halve back for ~10-round match
+export const DEFAULT_TARGET_RTP = 16;    // m-08 final: Wild×2 + Streak cap × Phoenix combined realized ~6.2× analytical
+export const DEFAULT_TARGET_DMG = 210;   // m-08 final: lengthen match 7 → 10 round under current Wild+Streak dmg boost
 export const DEFAULT_FAIRNESS_EXP = 2.0;
 /** Coin-rarity exponent — matches COIN_EXPONENT_FIXED=2.0 in reference demo. */
 export const COIN_EXP = 2.0;
