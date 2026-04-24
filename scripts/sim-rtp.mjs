@@ -29,7 +29,8 @@ import { fileURLToPath } from 'url';
 
 // ── TypeScript source imports (tsx resolves @/ via tsconfig.json paths) ─────
 import { SYMBOLS, PAYOUT_BASE, DEFAULT_UNIT_HP, DEFAULT_BET,
-         DEFAULT_TARGET_RTP, DEFAULT_TARGET_DMG, DEFAULT_FAIRNESS_EXP }
+         DEFAULT_TARGET_RTP, DEFAULT_TARGET_DMG, DEFAULT_FAIRNESS_EXP,
+         streakMult }
   from '@/config/SymbolsConfig';
 import { buildFullPool, totalWeight }  from '@/systems/SymbolPool';
 import { SlotEngine }                  from '@/systems/SlotEngine';
@@ -133,6 +134,12 @@ function simRun(rng) {
   let wildBoostedWayHits  = 0;  // total way-hits where ≥1 Wild cell contributed
   let totalWayHits        = 0;  // total way-hits across all sides
 
+  // Streak counters (M3)
+  let streakA = 0, streakB = 0;
+  let totalStreakSumA = 0, totalStreakSumB = 0;
+  let maxStreakObserved = 0;
+  let streakBoostedCoin = 0;  // extra coin earned due to streak > 1
+
   // Match stats
   let drawCount   = 0;
   let winsA       = 0, winsB = 0;
@@ -157,7 +164,13 @@ function simRun(rng) {
       coinScale, dmgScale, coinScale, dmgScale, FAIRNESS, rng,
     );
 
-    totalWon += spin.sideA.coinWon + spin.sideB.coinWon;
+    // M3 Streak Multiplier applied to coin (streak from previous round)
+    const sMA = streakMult(streakA);
+    const sMB = streakMult(streakB);
+    const coinWonA = Math.floor(spin.sideA.coinWon * sMA);
+    const coinWonB = Math.floor(spin.sideB.coinWon * sMB);
+    totalWon += coinWonA + coinWonB;
+    streakBoostedCoin += (coinWonA - spin.sideA.coinWon) + (coinWonB - spin.sideB.coinWon);
 
     // ── Hit-frequency histogram (per side) ──
     for (const ways of [spin.sideA.wayHits.length, spin.sideB.wayHits.length]) {
@@ -202,6 +215,14 @@ function simRun(rng) {
       }
     }
 
+    // ── M3 Streak Multiplier on dmg (after dragon bonus, global round multiplier) ──
+    totalStreakSumA += streakA;
+    totalStreakSumB += streakB;
+    if (streakA > maxStreakObserved) maxStreakObserved = streakA;
+    if (streakB > maxStreakObserved) maxStreakObserved = streakB;
+    if (dmgA > 0) dmgA = Math.floor(dmgA * sMA);
+    if (dmgB > 0) dmgB = Math.floor(dmgB * sMB);
+
     // ── Underdog buff: ×1.3 dmg when attacker HP ratio < 0.30 ────────────
     underdogSpins++;
     const ratioA = teamHpTotal(formationA) / TEAM_HP;
@@ -225,6 +246,10 @@ function simRun(rng) {
       consecutiveMissB = 0;
       chipFloorFires++;
     }
+
+    // ── Update Streak for next round (after wayHits + chip floor known) ──
+    if (spin.sideA.wayHits.length === 0) streakA = 0; else streakA++;
+    if (spin.sideB.wayHits.length === 0) streakB = 0; else streakB++;
 
     // ── White Tiger passive tracking (inside distributeDamage) ────────────
     if (dmgA > 0) {
@@ -296,6 +321,8 @@ function simRun(rng) {
       totalMaxHp += TEAM_HP * 2;
       consecutiveMissA = 0;
       consecutiveMissB = 0;
+      streakA = 0;
+      streakB = 0;
     }
   }
 
@@ -314,6 +341,7 @@ function simRun(rng) {
     dragonBonusDmg,
     phoenixCoinTotal,
     wildBoostedWayHits, totalWayHits,
+    totalStreakSumA, totalStreakSumB, maxStreakObserved, streakBoostedCoin,
     drawCount, winsA, winsB,
     underdogFires, underdogSpins,
     chipFloorFires,
@@ -409,6 +437,12 @@ const output = {
   wild: {
     boosted_way_hits:           agg.wildBoostedWayHits,
     boosted_pct_of_all_hits:    +((agg.wildBoostedWayHits / (agg.totalWayHits || 1))).toFixed(4),
+  },
+  streak: {
+    avg_streak_A:               +(agg.totalStreakSumA / (ROUNDS * RUNS)).toFixed(4),
+    avg_streak_B:               +(agg.totalStreakSumB / (ROUNDS * RUNS)).toFixed(4),
+    max_streak:                 runResults.reduce((m, r) => Math.max(m, r.maxStreakObserved), 0),
+    streak_boosted_coin_pct:    +(agg.streakBoostedCoin / (agg.totalWon || 1)).toFixed(4),
   },
   match: {
     draw_rate:              +(agg.drawCount  / agg.totalMatches).toFixed(4),

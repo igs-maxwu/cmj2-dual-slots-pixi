@@ -48,3 +48,17 @@ export const COIN_EXP = 2.0;
 
 export const DEFAULT_SELECTED_A: number[] = [0,1,2,3,4];
 export const DEFAULT_SELECTED_B: number[] = [0,1,2,3,4];
+
+/** SPEC §15 M3 — Streak Multiplier table (consecutive non-miss spins build, miss resets). */
+export const STREAK_MULT_TABLE = [1.0, 1.0, 1.2, 1.5, 2.0] as const;
+// index 0: impossible (streak starts at 1 on first win)
+// index 1: streak=1 → ×1.0 baseline
+// index 2: streak=2 → ×1.2
+// index 3: streak=3 → ×1.5
+// index 4+: cap at ×2.0
+
+/** Look up multiplier for given streak count. Caps at 2.0 (SPEC §15 M3). */
+export function streakMult(streak: number): number {
+  const capped = Math.min(streak, STREAK_MULT_TABLE.length - 1);
+  return STREAK_MULT_TABLE[Math.max(1, capped)];
+}
