@@ -31,8 +31,8 @@ export class LoadingScreen implements Screen {
     await this.preloadUi();
     this.upgradeToDecoratedLoadingScreen();
 
-    // Now the heavy spirits
-    await this.preloadSpirits();
+    // Gem symbols (5 webp, ~9 KB total) and spirit portraits in parallel
+    await Promise.all([this.preloadGems(), this.preloadSpirits()]);
     this.onDone();
   }
 
@@ -152,6 +152,16 @@ export class LoadingScreen implements Screen {
       this.updateProgress(Math.round(p * total), total, 'Loading UI');
     });
     this.updateProgress(total, total, 'Loading UI');
+  }
+
+  private async preloadGems(): Promise<void> {
+    const base = import.meta.env.BASE_URL;
+    const GEM_SHAPES = ['triangle', 'hexagon', 'pentagon', 'square', 'diamond'] as const;
+    const assets = GEM_SHAPES.map(shape => ({
+      alias: `gem-${shape}`,
+      src:   `${base}assets/symbols/gems/gem-${shape}.webp`,
+    }));
+    await Assets.load(assets);
   }
 
   private async preloadSpirits(): Promise<void> {
