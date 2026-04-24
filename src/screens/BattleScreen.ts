@@ -539,8 +539,8 @@ export class BattleScreen implements Screen {
       const eventsOnB = dmgA > 0 ? distributeDamage(this.formationB, dmgA, 'A') : [];
       const eventsOnA = dmgB > 0 ? distributeDamage(this.formationA, dmgB, 'B') : [];
 
-      // ── Vermilion Phoenix passive: +500 coin per enemy kill + coin burst visual ──
-      const PHOENIX_COIN_PER_KILL = 500;
+      // ── Vermilion Phoenix passive: +200 coin per enemy kill + coin burst visual ──
+      const PHOENIX_COIN_PER_KILL = 200;   // m-04: tuned from 500 to bring total RTP under 100%
       if (hasAliveOfClan(this.formationA, 'vermilion')) {
         const kills = eventsOnB.filter(e => e.died);
         if (kills.length > 0) {
