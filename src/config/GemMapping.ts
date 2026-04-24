@@ -21,6 +21,7 @@ export interface GemAsset {
  *   5   珞洛          white      square          CLAN.white  (reused shape, different clan tint)
  *   6   凌羽          vermilion  diamond         CLAN.vermilion
  *   7   玄墨          black      pentagon        CLAN.black
+ *   8   神獸化身      wild       pentagon        0xffd700  (bright gold — visually distinct)
  */
 export const GEM_FOR_SYMBOL: Record<number, GemAsset> = {
   0: { assetKey: 'gem-triangle', tint: T.CLAN.white     },
@@ -31,6 +32,8 @@ export const GEM_FOR_SYMBOL: Record<number, GemAsset> = {
   5: { assetKey: 'gem-square',   tint: T.CLAN.white     },
   6: { assetKey: 'gem-diamond',  tint: T.CLAN.vermilion },
   7: { assetKey: 'gem-pentagon', tint: T.CLAN.black     },
+  // Wild: reuses gem-pentagon with bright gold tint for MVP visual distinction (m-05)
+  8: { assetKey: 'gem-pentagon', tint: 0xffd700         },
 };
 
 export function gemForSymbol(sym: SymbolDef): GemAsset {

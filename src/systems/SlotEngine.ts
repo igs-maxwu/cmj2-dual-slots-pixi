@@ -24,6 +24,8 @@ export interface WayHit {
   rawDmg:      number;
   /** true = spirit was not drafted by this side; scores at 30% (mercenary mode) */
   isMercenary: boolean;
+  /** true = at least one hit cell contained a Wild substitute (SPEC §15 M1: way ×2) */
+  wildUsed?:   boolean;
 }
 
 export interface SideResult {
@@ -116,15 +118,25 @@ export class SlotEngine {
     const isDrafted = new Set(selected);
 
     for (let symId = 0; symId < SYMBOLS.length; symId++) {
+      // Wild is a substitute only — does not score its own way
+      if (SYMBOLS[symId].isWild) continue;
+
       let matchCount = 0;
       let numWays    = 1;
       const hitCells: number[][] = [];
+      let wildUsed   = false;
 
       for (let offset = 0; offset < COLS; offset++) {
         const actualCol = anchorCol + offset * dir;
         const rowsWithSym: number[] = [];
         for (let r = 0; r < ROWS; r++) {
-          if (grid[r][actualCol] === symId) rowsWithSym.push(r);
+          const cellId = grid[r][actualCol];
+          if (cellId === symId) {
+            rowsWithSym.push(r);
+          } else if (SYMBOLS[cellId]?.isWild) {
+            rowsWithSym.push(r);
+            wildUsed = true;
+          }
         }
         if (rowsWithSym.length === 0) break;
         matchCount++;
@@ -138,10 +150,11 @@ export class SlotEngine {
       const mult            = SlotEngine.scaledMult(symId, poolTotalW, coinScale, dmgScale, fairnessExp);
       const isMercenary     = !isDrafted.has(symId);
       const mercenaryMult   = isMercenary ? 0.30 : 1.0;
-      const rawCoin         = base * numWays * mult.coinMult * mercenaryMult;
-      const rawDmg          = base * numWays * mult.dmgMult  * mercenaryMult;
+      const wildMult        = wildUsed ? 2.0 : 1.0;   // SPEC §15 M1 — way with wild ×2
+      const rawCoin         = base * numWays * mult.coinMult * mercenaryMult * wildMult;
+      const rawDmg          = base * numWays * mult.dmgMult  * mercenaryMult * wildMult;
 
-      wayHits.push({ symbolId: symId, matchCount, numWays, hitCells, rawCoin, rawDmg, isMercenary });
+      wayHits.push({ symbolId: symId, matchCount, numWays, hitCells, rawCoin, rawDmg, isMercenary, wildUsed });
       totalCoin += rawCoin;
       totalDmg  += rawDmg;
     }

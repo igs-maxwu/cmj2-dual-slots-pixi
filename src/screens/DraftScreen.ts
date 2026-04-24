@@ -50,8 +50,10 @@ function spiritsByClan(): Record<ClanId, { sym: SymbolDef; idx: number }[]> {
   const out: Record<ClanId, { sym: SymbolDef; idx: number }[]> = {
     azure: [], white: [], vermilion: [], black: [],
   };
-  SYMBOLS.forEach((sym, idx) => { out[sym.clan as ClanId].push({ sym, idx }); });
-  if (SYMBOLS.length !== 8 || CLAN_ORDER.some(c => out[c].length !== 2)) {
+  // Exclude Wild (isWild) — Wild appears in the reel pool but is not a draftable spirit.
+  const eligible = SYMBOLS.filter(s => !s.isWild);
+  eligible.forEach(sym => { out[sym.clan as ClanId].push({ sym, idx: sym.id }); });
+  if (eligible.length !== 8 || CLAN_ORDER.some(c => out[c].length !== 2)) {
     throw new Error('spiritsByClan: expected 4 clans × 2 spirits each');
   }
   return out;
@@ -528,7 +530,8 @@ export class DraftScreen implements Screen {
   }
 
   private pickRandomFive(): Set<number> {
-    const ids = [0, 1, 2, 3, 4, 5, 6, 7];
+    // Only eligible (non-Wild) spirit ids
+    const ids = SYMBOLS.filter(s => !s.isWild).map(s => s.id);
     for (let i = ids.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [ids[i], ids[j]] = [ids[j], ids[i]];
