@@ -129,6 +129,10 @@ function simRun(rng) {
   let dragonBonusDmg      = 0;
   let phoenixCoinTotal    = 0;
 
+  // Wild counters
+  let wildBoostedWayHits  = 0;  // total way-hits where ≥1 Wild cell contributed
+  let totalWayHits        = 0;  // total way-hits across all sides
+
   // Match stats
   let drawCount   = 0;
   let winsA       = 0, winsB = 0;
@@ -163,6 +167,16 @@ function simRun(rng) {
       else if (ways <= 10)   hf_4_10++;
       else if (ways <= 30)   hf_11_30++;
       else                   hf_30plus++;
+    }
+
+    // ── Wild boost tracking ────────────────────────────────────────────────
+    for (const wh of spin.sideA.wayHits) {
+      totalWayHits++;
+      if (wh.wildUsed) wildBoostedWayHits++;
+    }
+    for (const wh of spin.sideB.wayHits) {
+      totalWayHits++;
+      if (wh.wildUsed) wildBoostedWayHits++;
     }
 
     let dmgA = spin.sideA.dmgDealt;
@@ -299,6 +313,7 @@ function simRun(rng) {
     tortoiseShields,
     dragonBonusDmg,
     phoenixCoinTotal,
+    wildBoostedWayHits, totalWayHits,
     drawCount, winsA, winsB,
     underdogFires, underdogSpins,
     chipFloorFires,
@@ -390,6 +405,10 @@ const output = {
     phoenix_coin_on_kill_total:             +agg.phoenixCoinTotal.toFixed(2),
     phoenix_pct_of_total_coin:              +(agg.phoenixCoinTotal / (agg.totalWon || 1)).toFixed(4),
     chip_floor_fires_per_1k_rounds:         +(agg.chipFloorFires / (ROUNDS * RUNS) * 1000).toFixed(3),
+  },
+  wild: {
+    boosted_way_hits:           agg.wildBoostedWayHits,
+    boosted_pct_of_all_hits:    +((agg.wildBoostedWayHits / (agg.totalWayHits || 1))).toFixed(4),
   },
   match: {
     draw_rate:              +(agg.drawCount  / agg.totalMatches).toFixed(4),
