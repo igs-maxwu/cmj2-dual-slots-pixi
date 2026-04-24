@@ -379,9 +379,8 @@ export class BattleScreen implements Screen {
         if (tex) {
           sprite = new Sprite(tex);
           sprite.anchor.set(0.5, 1);
-          sprite.height = SPIRIT_H;
-          // After height is set, scale.x carries the proportional value;
-          // flip it for B-side so spirits face the centre.
+          sprite.scale.set(SPIRIT_H / tex.height);
+          // flip x for B-side so spirits face the centre.
           if (side === 'B') sprite.scale.x *= -1;
           container.addChild(sprite);
         }
