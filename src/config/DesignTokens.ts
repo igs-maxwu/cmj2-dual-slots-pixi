@@ -135,6 +135,16 @@ export const GLOW = {
   green:     { color: 0x58e090, alphaOuter: 0.60, outer: 18 },
 } as const;
 
+// ─── UI tint states — for Sprite.tint control (UiButton 等) ───────────────
+// identity = no color shift; disabled = desaturate; hover = warm gold pale;
+// pressed = darker gold-deep.  Reuse these instead of hardcoding tint literals.
+export const TINT = {
+  identity: 0xFFFFFF,   // no shift (Pixi default)
+  disabled: 0x555555,   // mid-grey, reads as desaturated
+  hover:    0xFFE8A8,   // gold pale (matches GOLD.pale)
+  pressed:  0xB88A40,   // gold shadow-deep
+} as const;
+
 // ─── Shadows — drop shadows on frames / buttons ─────────────────────────
 export const SHADOW = {
   frameOuter:  { color: 0x000000, alpha: 0.55, y: 6, blur: 14 },

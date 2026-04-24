@@ -1,4 +1,5 @@
 import { Assets, Texture, Rectangle, Sprite } from 'pixi.js';
+import { CLAN } from '@/config/DesignTokens';
 
 interface AtlasRegion {
   name:   string;
@@ -166,13 +167,12 @@ export const FXAtlas = new FXAtlasManager();
 /**
  * Per-clan tint helper.  SOS2 FX sheets are largely grayscale/white,
  * so `sprite.tint = clanTint('azure')` converts one FX into 4 clan-coloured variants.
- * Colours mirror CLAN.* in DesignTokens.ts — kept in sync manually.
  */
 export function clanTint(clan: 'azure' | 'white' | 'vermilion' | 'black'): number {
   switch (clan) {
-    case 'azure':     return 0x38b6f5;
-    case 'white':     return 0xe8c87a;
-    case 'vermilion': return 0xff6b35;
-    case 'black':     return 0x6b9e8a;
+    case 'azure':     return CLAN.azure;
+    case 'white':     return CLAN.white;
+    case 'vermilion': return CLAN.vermilion;
+    case 'black':     return CLAN.black;
   }
 }

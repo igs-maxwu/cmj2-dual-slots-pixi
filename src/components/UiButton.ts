@@ -77,7 +77,7 @@ export class UiButton extends Container {
     this.enabled = enabled;
     this.eventMode = enabled ? 'static' : 'none';
     this.cursor = enabled ? 'pointer' : 'default';
-    this.bg.tint = enabled ? 0xFFFFFF : 0x555555;
+    this.bg.tint = enabled ? T.TINT.identity : T.TINT.disabled;
     this.bg.filters = [];
     this.lbl.alpha = enabled ? 1 : 0.4;
     if (enabled) this.setState('normal');
@@ -90,17 +90,17 @@ export class UiButton extends Container {
     if (this.isOrnate) {
       switch (state) {
         case 'normal':
-          this.bg.tint = 0xFFFFFF;
+          this.bg.tint = T.TINT.identity;
           this.scale.set(1);
           this.bg.filters = [];
           break;
         case 'hover':
-          this.bg.tint = 0xFFFFFF;
+          this.bg.tint = T.TINT.identity;
           this.scale.set(1.04);
           this.bg.filters = this.glowFilter ? [this.glowFilter] : [];
           break;
         case 'pressed':
-          this.bg.tint = 0xFFE8A8;
+          this.bg.tint = T.TINT.hover;
           this.scale.set(0.97);
           this.bg.filters = [];
           break;
@@ -108,15 +108,15 @@ export class UiButton extends Container {
     } else {
       switch (state) {
         case 'normal':
-          this.bg.tint = 0xFFFFFF;
+          this.bg.tint = T.TINT.identity;
           this.scale.set(1);
           break;
         case 'hover':
-          this.bg.tint = 0xFFFFFF;
+          this.bg.tint = T.TINT.identity;
           this.scale.set(1.04);
           break;
         case 'pressed':
-          this.bg.tint = 0xB88A40;
+          this.bg.tint = T.TINT.pressed;
           this.scale.set(0.97);
           break;
       }
