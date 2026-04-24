@@ -11,7 +11,6 @@ import {
 import { distributeDamage, type DmgEvent } from '@/systems/DamageDistributor';
 import { tween, tweenValue, delay, Easings } from '@/systems/tween';
 import { SlotReel, REEL_W, REEL_H } from './SlotReel';
-import { SpiritPortrait } from '@/components/SpiritPortrait';
 import { UiButton } from '@/components/UiButton';
 import { addCornerOrnaments } from '@/components/Decorations';
 import type { DraftResult } from './DraftScreen';
@@ -34,17 +33,9 @@ const HP_BAR_H   = 18;
 const JP_AREA_Y = 138;
 const JP_AREA_H = 200;
 
-// Formations enlarged (cell 68px) — placed below JP area
-const FORMATION_CELL = 68;
-const FORMATION_GAP  = 6;
-const FORMATION_GRID = FORMATION_CELL * 3 + FORMATION_GAP * 2;               // 216
-const FORMATION_A_X  = Math.round(CANVAS_WIDTH * 0.25 - FORMATION_GRID / 2); // ~72 left column
-const FORMATION_B_X  = Math.round(CANVAS_WIDTH * 0.75 - FORMATION_GRID / 2); // ~432 right column
-const FORMATION_Y    = 360;
-
 // HP bars: A on left half, B on right half (16px side margin each)
 const HP_A_X = 16;
-const HP_B_X = CANVAS_WIDTH - 16 - HP_BAR_W;                                 // 434
+const HP_B_X = CANVAS_WIDTH - 16 - HP_BAR_W;                                  // 434
 
 // Slot reel — centred, pushed below formations
 const SLOT_X     = Math.round((CANVAS_WIDTH - REEL_W) / 2);
@@ -54,16 +45,25 @@ const SLOT_Y     = 610;
 const LOG_Y      = 1150;
 const BACK_BTN_Y = CANVAS_HEIGHT - 50;
 
-const ROUND_GAP_MS   = 500; // pause between rounds
+const ROUND_GAP_MS = 500; // pause between rounds
+
+// ─── Free-standing arena layout (replaces 3×3 cell grid; data model unchanged) ────
+// Two staggered rows: front row (3 chars, lower) + back row (2 chars, higher = further back)
+const SPIRIT_H              = 130;                          // rendered sprite height (px)
+const ARENA_Y_FRONT         = 460;                          // front-row feet baseline y
+const ARENA_Y_BACK          = ARENA_Y_FRONT - 34;           // back row 34px higher (depth)
+const ARENA_SPACING_FRONT_X = 72;                           // horiz gap between front spirits
+const ARENA_SPACING_BACK_X  = 92;                           // back spirits wider apart
+const ARENA_A_CENTER_X      = 176;                          // A-side front-row pivot x
+const ARENA_B_CENTER_X      = CANVAS_WIDTH - 176;           // B-side mirror
 
 // ─── Components for formation display ────────────────────────────────────────
 interface FormationCellRefs {
-  cell: Graphics;
-  glowRing: Graphics;
-  crossMark: Graphics;
-  label: Text;
   container: Container;
-  portrait: SpiritPortrait | null;
+  sprite:    Sprite | null;   // full-body spirit (anchor 0.5,1 = bottom-centre)
+  label:     Text;
+  glowRing:  Graphics;        // ground ellipse glow (breathes via ticker)
+  crossMark: Graphics;
 }
 
 export class BattleScreen implements Screen {
@@ -347,65 +347,97 @@ export class BattleScreen implements Screen {
     }
   }
 
+  // ─── Free-standing formation ──────────────────────────────────────────────
   private drawFormation(side: 'A' | 'B'): void {
-    const ox = side === 'A' ? FORMATION_A_X : FORMATION_B_X;
-    const grid = side === 'A' ? this.formationA : this.formationB;
-    const cells = side === 'A' ? this.cellsA : this.cellsB;
+    const grid      = side === 'A' ? this.formationA : this.formationB;
+    const cells     = side === 'A' ? this.cellsA     : this.cellsB;
     const glowColor = side === 'A' ? T.TEAM.azureGlow : T.TEAM.vermilionGlow;
 
-    for (let r = 0; r < 3; r++) {
-      for (let c = 0; c < 3; c++) {
-        const x = ox + c * (FORMATION_CELL + FORMATION_GAP);
-        const y = FORMATION_Y + r * (FORMATION_CELL + FORMATION_GAP);
-        const container = new Container();
-        container.x = x + FORMATION_CELL / 2;
-        container.y = y + FORMATION_CELL / 2;
-        this.container.addChild(container);
+    for (let slot = 0; slot < 9; slot++) {
+      const unit = grid[slot];
+      const pos  = this.slotToArenaPos(side, slot);
 
-        // A3 — breathing glow ring (behind everything, alpha driven by ticker)
-        const half = FORMATION_CELL / 2;
-        const glowRing = new Graphics()
-          .roundRect(-half - 2, -half - 2, FORMATION_CELL + 4, FORMATION_CELL + 4, T.RADIUS.sm + 2)
-          .stroke({ width: 3, color: glowColor, alpha: 1 });
-        glowRing.alpha = 0;
-        glowRing.visible = false;
-        container.addChildAt(glowRing, 0);
+      const container = new Container();
+      container.x = pos.x;
+      container.y = pos.y;
+      this.container.addChild(container);
 
-        const cell = new Graphics();
-        container.addChild(cell);
-
-        const slot = r * 3 + c;
-        const unit = grid[slot];
-        let portrait: SpiritPortrait | null = null;
-        if (unit) {
-          portrait = new SpiritPortrait(unit.symbolId, 46);
-          portrait.y = -8;
-          container.addChild(portrait);
-        }
-
-        const label = new Text({
-          text: '', style: {
-            fontFamily: T.FONT.num, fontWeight: '700', fontSize: T.FONT_SIZE.xs,
-            fill: T.FG.cream, align: 'center',
-          },
-        });
-        label.anchor.set(0.5, 0.5);
-        label.y = 22;
-        container.addChild(label);
-
-        // A3 — dead cross (✕), drawn above label so always readable
-        const margin = 10;
-        const ch = FORMATION_CELL / 2 - margin;
-        const crossMark = new Graphics()
-          .moveTo(-ch, -ch).lineTo(ch, ch)
-          .moveTo(ch, -ch).lineTo(-ch, ch)
-          .stroke({ width: 3, color: T.FG.dim, alpha: 0.85 });
-        crossMark.visible = false;
-        container.addChild(crossMark);
-
-        cells.push({ cell, glowRing, crossMark, label, container, portrait });
+      // Ground ellipse glow — breathes via ticker (visible only for alive units)
+      const glowRing = new Graphics();
+      if (unit) {
+        const ew = SPIRIT_H * 0.9;
+        glowRing.ellipse(0, 0, ew / 2, 7).fill({ color: glowColor, alpha: 1 });
       }
+      glowRing.alpha   = 0;
+      glowRing.visible = unit !== null && unit.alive;
+      container.addChildAt(glowRing, 0);
+
+      // Full-body spirit sprite: anchor (0.5, 1) = bottom-centre; A faces right, B faces left
+      let sprite: Sprite | null = null;
+      if (unit) {
+        const tex = Assets.get<Texture>(SYMBOLS[unit.symbolId]?.spiritKey ?? '');
+        if (tex) {
+          sprite = new Sprite(tex);
+          sprite.anchor.set(0.5, 1);
+          sprite.height = SPIRIT_H;
+          // After height is set, scale.x carries the proportional value;
+          // flip it for B-side so spirits face the centre.
+          if (side === 'B') sprite.scale.x *= -1;
+          container.addChild(sprite);
+        }
+      }
+
+      // HP label floats above the head (anchor bottom-centre, y relative to feet=0)
+      const label = new Text({
+        text: '',
+        style: {
+          fontFamily: T.FONT.num, fontWeight: '700', fontSize: T.FONT_SIZE.xs,
+          fill: T.FG.cream, align: 'center',
+        },
+      });
+      label.anchor.set(0.5, 1);
+      label.y = -SPIRIT_H - 8;
+      container.addChild(label);
+
+      // Death cross ✕ centred on torso (midpoint of sprite)
+      const ch    = SPIRIT_H * 0.25;
+      const midY  = -SPIRIT_H / 2;
+      const crossMark = new Graphics()
+        .moveTo(-ch, midY - ch).lineTo(ch, midY + ch)
+        .moveTo( ch, midY - ch).lineTo(-ch, midY + ch)
+        .stroke({ width: 3, color: T.FG.dim, alpha: 0.85 });
+      crossMark.visible = false;
+      container.addChild(crossMark);
+
+      cells.push({ container, sprite, label, glowRing, crossMark });
     }
+  }
+
+  /**
+   * Maps a 3×3 formation slot index to the staggered arena position.
+   * Slot layout mirrors the mockup: front row (3 chars) closer to centre VS,
+   * back row (2 chars) higher up and further from centre (depth illusion).
+   * B-side x offsets are mirrored (sprite also flipped via scale.x = -1).
+   */
+  private slotToArenaPos(side: 'A' | 'B', slot: number): { x: number; y: number } {
+    const LAYOUT: ReadonlyArray<{ row: 'front' | 'back'; xOff: number }> = [
+      { row: 'back',  xOff: -ARENA_SPACING_BACK_X   },  // slot 0
+      { row: 'front', xOff: -ARENA_SPACING_FRONT_X  },  // slot 1
+      { row: 'front', xOff:  0                      },  // slot 2
+      { row: 'back',  xOff: +ARENA_SPACING_BACK_X   },  // slot 3
+      { row: 'front', xOff: +ARENA_SPACING_FRONT_X  },  // slot 4
+      { row: 'back',  xOff: -ARENA_SPACING_BACK_X  * 1.5 }, // slot 5 (extra)
+      { row: 'front', xOff: -ARENA_SPACING_FRONT_X * 1.5 }, // slot 6 (extra)
+      { row: 'back',  xOff: +ARENA_SPACING_BACK_X  * 1.5 }, // slot 7 (extra)
+      { row: 'front', xOff: +ARENA_SPACING_FRONT_X * 1.5 }, // slot 8 (extra)
+    ];
+    const entry   = LAYOUT[slot] ?? LAYOUT[0];
+    const centerX = side === 'A' ? ARENA_A_CENTER_X : ARENA_B_CENTER_X;
+    const mirror  = side === 'B' ? -1 : 1;
+    return {
+      x: centerX + entry.xOff * mirror,
+      y: entry.row === 'front' ? ARENA_Y_FRONT : ARENA_Y_BACK,
+    };
   }
 
   private drawSlot(): void {
@@ -436,7 +468,7 @@ export class BattleScreen implements Screen {
         fill: T.FG.muted, lineHeight: 16,
       },
     });
-    this.logText.x = FORMATION_A_X;
+    this.logText.x = 16;
     this.logText.y = LOG_Y + 10;
     this.container.addChild(this.logText);
   }
@@ -485,30 +517,22 @@ export class BattleScreen implements Screen {
   }
 
   private refreshFormation(side: 'A' | 'B', grid: FormationGrid, cells: FormationCellRefs[]): void {
-    const teamColor = side === 'A' ? T.TEAM.azure : T.TEAM.vermilion;
     for (let i = 0; i < 9; i++) {
-      const ref = cells[i];
+      const ref  = cells[i];
       const unit = grid[i];
-      ref.cell.clear();
       if (!unit) {
-        ref.cell.roundRect(-FORMATION_CELL / 2, -FORMATION_CELL / 2, FORMATION_CELL, FORMATION_CELL, T.RADIUS.sm)
-          .fill({ color: T.SEA.deep, alpha: 0.45 })
-          .stroke({ width: 1, color: T.SEA.rim, alpha: 0.4 });
-        ref.label.text = '';
-        ref.glowRing.visible = false;
+        ref.glowRing.visible  = false;
         ref.crossMark.visible = false;
+        ref.label.text        = '';
         continue;
       }
-      ref.cell.roundRect(-FORMATION_CELL / 2, -FORMATION_CELL / 2, FORMATION_CELL, FORMATION_CELL, T.RADIUS.sm)
-        .fill({ color: T.SEA.deep, alpha: 0.45 })
-        .stroke({ width: 2, color: unit.alive ? teamColor : T.FG.dim, alpha: unit.alive ? 1 : 0.4 });
-      if (ref.portrait) ref.portrait.setAlive(unit.alive);
-      ref.label.text = unit.alive ? `${unit.hp}` : 'DEAD';
-      ref.label.style.fill = unit.alive ? T.FG.cream : T.FG.dim;
-      ref.label.alpha = unit.alive ? 1 : 0.6;
-      // A3 — breathing glow for alive, dead cross for fallen
-      ref.glowRing.visible = unit.alive;
+      if (ref.sprite) ref.sprite.alpha = unit.alive ? 1 : 0.4;
+      ref.label.text        = unit.alive ? `${unit.hp}` : '';
+      ref.label.alpha       = unit.alive ? 1 : 0.6;
+      ref.glowRing.visible  = unit.alive;
       ref.crossMark.visible = !unit.alive;
+
+      void side; // side unused here but kept for symmetry with call sites
     }
   }
 
@@ -828,11 +852,10 @@ export class BattleScreen implements Screen {
 
   private async popDamage(side: 'A' | 'B', slotIndex: number, amount: number): Promise<void> {
     if (amount <= 0) return;
-    const ox = side === 'A' ? FORMATION_A_X : FORMATION_B_X;
-    const col = slotIndex % 3;
-    const row = Math.floor(slotIndex / 3);
-    const cx = ox + col * (FORMATION_CELL + FORMATION_GAP) + FORMATION_CELL / 2;
-    const cy = FORMATION_Y + row * (FORMATION_CELL + FORMATION_GAP) + FORMATION_CELL / 2;
+    // Use staggered arena position: torso centre = feet y − SPIRIT_H/2
+    const pos = this.slotToArenaPos(side, slotIndex);
+    const cx  = pos.x;
+    const cy  = pos.y - SPIRIT_H / 2;
 
     const txt = new Text({
       text: `-${amount}`,
