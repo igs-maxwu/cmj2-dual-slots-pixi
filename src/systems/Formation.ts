@@ -11,9 +11,8 @@ export type FormationGrid = (GridUnit | null)[];
 
 export function createFormation(
   selectedSymbolIds: number[],   // exactly 5 IDs
-  teamHp: number,
+  unitHp: number,                // HP per spirit (SPEC §15.3 — 1000 by default)
 ): FormationGrid {
-  const unitHp = Math.floor(teamHp / 5);
   const grid: FormationGrid = Array(9).fill(null);
 
   // Fisher-Yates shuffle of slot indices [0..8]

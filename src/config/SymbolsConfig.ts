@@ -33,7 +33,7 @@ export const SYMBOLS: SymbolDef[] = [
 export const PAYOUT_BASE: Record<number,number> = { 3:5, 4:20, 5:100 };
 /** @deprecated Paylines replaced by Ways engine in P0.2; kept for grep-safety only. */
 export const LINES_COUNT = 0;
-export const DEFAULT_TEAM_HP    = 10000;
+export const DEFAULT_UNIT_HP    = 1000;     // per-spirit HP (SPEC §15.3)
 export const DEFAULT_BET        = 100;
 export const DEFAULT_TARGET_RTP = 97;
 export const DEFAULT_TARGET_DMG = 300;

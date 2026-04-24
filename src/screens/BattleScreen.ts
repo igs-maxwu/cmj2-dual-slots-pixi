@@ -26,17 +26,15 @@ import { FXAtlas } from '@/fx/FXAtlas';
 
 // ─── Portrait layout 720×1280 ───────────────────────────────────────────────
 const HEADER_Y   = 14;
-const HP_Y       = 90;
-const HP_BAR_W   = 270;
-const HP_BAR_H   = 18;
 
 // Jackpot area placeholder (y=138…338)
 const JP_AREA_Y = 138;
 const JP_AREA_H = 200;
 
-// HP bars: A on left half, B on right half (16px side margin each)
-const HP_A_X = 16;
-const HP_B_X = CANVAS_WIDTH - 16 - HP_BAR_W;                                  // 434
+// Wallet labels — centred over former team HP bar zones (freed space y=70-130)
+const WALLET_A_X = 151;   // left-side centre  (≈ CANVAS_WIDTH * 0.21)
+const WALLET_B_X = 569;   // right-side centre (≈ CANVAS_WIDTH * 0.79)
+const WALLET_Y   = 52;    // just above JP marquee area
 
 // Slot reel — centred, pushed below formations
 const SLOT_X     = Math.round((CANVAS_WIDTH - REEL_W) / 2);
@@ -58,11 +56,17 @@ const ARENA_SPACING_BACK_X  = 92;                           // back spirits wide
 const ARENA_A_CENTER_X      = 176;                          // A-side front-row pivot x
 const ARENA_B_CENTER_X      = CANVAS_WIDTH - 176;           // B-side mirror
 
+// Per-unit HP bar (inside each spirit container)
+const UNIT_HP_BAR_W     = 64;
+const UNIT_HP_BAR_H     = 6;
+const UNIT_HP_BAR_Y_OFF = -SPIRIT_H - 22;   // above the spirit head
+
 // ─── Components for formation display ────────────────────────────────────────
 interface FormationCellRefs {
   container: Container;
   sprite:    Sprite | null;   // full-body spirit (anchor 0.5,1 = bottom-centre)
-  label:     Text;
+  hpTrack:   Graphics;        // static HP bar background
+  hpFill:    Graphics;        // dynamic HP bar fill (redrawn in refreshFormation)
   glowRing:  Graphics;        // ground ellipse glow (breathes via ticker)
   crossMark: Graphics;
 }
@@ -74,17 +78,9 @@ export class BattleScreen implements Screen {
   private vsBadge!: VsBadgeAnimator;
   private container = new Container();
   private roundText!: Text;
-  private hpBarA!: Graphics;
-  private hpBarB!: Graphics;
-  private hpEdgeA!: Graphics;
-  private hpEdgeB!: Graphics;
-  private hpTextA!: Text;
-  private hpTextB!: Text;
   private _breatheTick: (() => void) | null = null;
   private cellsA: FormationCellRefs[] = [];
   private cellsB: FormationCellRefs[] = [];
-  private displayedHpA = 0;
-  private displayedHpB = 0;
   private walletA = 10000;
   private walletB = 10000;
   private displayedWalletA = 10000;
@@ -116,10 +112,8 @@ export class BattleScreen implements Screen {
     this.particles = new AmbientParticles(app);
     stage.addChild(this.particles);
     stage.addChild(this.container);
-    this.formationA = createFormation(this.cfg.selectedA, this.cfg.teamHpA);
-    this.formationB = createFormation(this.cfg.selectedB, this.cfg.teamHpB);
-    this.displayedHpA = teamHpTotal(this.formationA);
-    this.displayedHpB = teamHpTotal(this.formationB);
+    this.formationA = createFormation(this.cfg.selectedA, this.cfg.unitHpA);
+    this.formationB = createFormation(this.cfg.selectedB, this.cfg.unitHpB);
     this.walletA = this.cfg.walletA ?? 10000;
     this.walletB = this.cfg.walletB ?? 10000;
     this.displayedWalletA = this.walletA;
@@ -128,7 +122,6 @@ export class BattleScreen implements Screen {
     this.drawBackground();
     addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 130, 0.55);
     this.drawHeader();
-    this.drawHpBars();
     this.drawWallets();
     this.drawJackpotMarquee();
     this.drawFormation('A');
@@ -145,11 +138,6 @@ export class BattleScreen implements Screen {
       for (const ref of [...this.cellsA, ...this.cellsB]) {
         if (ref.glowRing.visible) ref.glowRing.alpha = breatheAlpha;
       }
-      const ratioA = this.displayedHpA / this.cfg.teamHpA;
-      const ratioB = this.displayedHpB / this.cfg.teamHpB;
-      const pulseAlpha = 0.35 + (Math.sin(t / 300) * 0.5 + 0.5) * 0.65;
-      this.hpEdgeA.alpha = ratioA < 0.30 ? pulseAlpha : 0;
-      this.hpEdgeB.alpha = ratioB < 0.30 ? pulseAlpha : 0;
     };
     this.app.ticker.add(this._breatheTick);
     void this.loop();
@@ -163,9 +151,9 @@ export class BattleScreen implements Screen {
     badge.anchor.set(0.5, 0.5);
     badge.width = size;
     badge.height = size;
-    // Sits between the two HP bars, visually connecting Player A ↔ Player B.
+    // Sits in the freed top-bar zone, connecting Player A ↔ Player B.
     badge.x = CANVAS_WIDTH / 2;
-    badge.y = HP_Y + HP_BAR_H / 2;
+    badge.y = 99;
     this.container.addChild(badge);
     this.vsBadge = new VsBadgeAnimator(badge, this.app, this.container);
   }
@@ -216,53 +204,18 @@ export class BattleScreen implements Screen {
     this.container.addChild(this.roundText);
   }
 
-  private drawHpBars(): void {
-    const ax = HP_A_X;
-    const bx = HP_B_X;
-
-    this.makeHpLabel(ax + HP_BAR_W / 2, HP_Y - 20, 'PLAYER A', T.TEAM.azure);
-    this.makeHpLabel(bx + HP_BAR_W / 2, HP_Y - 20, 'PLAYER B', T.TEAM.vermilion);
-
-    // Stack order per side: dark track → colored fill → ornate frame → A4 edge → text.
-    this.hpBarA = this.buildHpStack(ax, HP_Y, HP_BAR_W, HP_BAR_H);
-    this.hpBarB = this.buildHpStack(bx, HP_Y, HP_BAR_W, HP_BAR_H);
-
-    // A4 — low-HP pulse edge (stroke-only overlay, alpha driven by ticker)
-    this.hpEdgeA = new Graphics()
-      .roundRect(ax, HP_Y, HP_BAR_W, HP_BAR_H, HP_BAR_H / 2)
-      .stroke({ width: 3, color: T.HP.low, alpha: 1 });
-    this.hpEdgeA.alpha = 0;
-    this.container.addChild(this.hpEdgeA);
-
-    this.hpEdgeB = new Graphics()
-      .roundRect(bx, HP_Y, HP_BAR_W, HP_BAR_H, HP_BAR_H / 2)
-      .stroke({ width: 3, color: T.HP.low, alpha: 1 });
-    this.hpEdgeB.alpha = 0;
-    this.container.addChild(this.hpEdgeB);
-
-    this.hpTextA = goldText('', { fontSize: T.FONT_SIZE.md, fontWeight: '700', withShadow: true });
-    this.hpTextA.anchor.set(0.5, 0.5);
-    this.hpTextA.x = ax + HP_BAR_W / 2; this.hpTextA.y = HP_Y + HP_BAR_H / 2;
-    this.container.addChild(this.hpTextA);
-
-    this.hpTextB = goldText('', { fontSize: T.FONT_SIZE.md, fontWeight: '700', withShadow: true });
-    this.hpTextB.anchor.set(0.5, 0.5);
-    this.hpTextB.x = bx + HP_BAR_W / 2; this.hpTextB.y = HP_Y + HP_BAR_H / 2;
-    this.container.addChild(this.hpTextB);
-  }
 
   private drawWallets(): void {
-    const y = HP_Y - 38;
     this.walletTextA = goldText(this.formatWallet(this.walletA), { fontSize: 16, withShadow: true });
     this.walletTextA.anchor.set(0.5, 0);
-    this.walletTextA.x = HP_A_X + HP_BAR_W / 2;
-    this.walletTextA.y = y;
+    this.walletTextA.x = WALLET_A_X;
+    this.walletTextA.y = WALLET_Y;
     this.container.addChild(this.walletTextA);
 
     this.walletTextB = goldText(this.formatWallet(this.walletB), { fontSize: 16, withShadow: true });
     this.walletTextB.anchor.set(0.5, 0);
-    this.walletTextB.x = HP_B_X + HP_BAR_W / 2;
-    this.walletTextB.y = y;
+    this.walletTextB.x = WALLET_B_X;
+    this.walletTextB.y = WALLET_Y;
     this.container.addChild(this.walletTextB);
   }
 
@@ -283,44 +236,6 @@ export class BattleScreen implements Screen {
     }, Easings.easeOut);
   }
 
-  private makeHpLabel(cx: number, y: number, text: string, color: number): void {
-    const label = new Text({
-      text, style: { fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.sm, fill: color, letterSpacing: 3 },
-    });
-    label.anchor.set(0.5, 0);
-    label.x = cx; label.y = y;
-    this.container.addChild(label);
-  }
-
-  private buildHpStack(x: number, y: number, w: number, h: number): Graphics {
-    // 1. Dark track (empty fill)
-    const track = new Graphics()
-      .roundRect(x, y, w, h, h / 2)
-      .fill(T.HP.track);
-    this.container.addChild(track);
-
-    // 2. Colored fill — returned so caller can redraw
-    const fill = new Graphics();
-    fill.x = x; fill.y = y;
-    this.container.addChild(fill);
-
-    // 3. Ornate frame overlay (dragon-head caps hide bar ends)
-    const tex = Assets.get<Texture>('hp-frame');
-    if (tex) {
-      const bleedY = 12;
-      const frame = new Sprite(tex);
-      frame.anchor.set(0, 0.5);
-      frame.x = x - 6;
-      frame.y = y + h / 2;
-      frame.width  = w + 12;
-      frame.height = h + bleedY * 2;
-      this.container.addChild(frame);
-    } else {
-      track.stroke({ width: 1, color: T.SEA.rim, alpha: 0.8 });
-    }
-
-    return fill;
-  }
 
   // ─── Jackpot marquee ─────────────────────────────────────────────────────
   private drawJackpotMarquee(): void {
@@ -394,22 +309,15 @@ export class BattleScreen implements Screen {
         }
       }
 
-      // HP label floats above the head (anchor bottom-centre, y relative to feet=0)
-      const label = new Text({
-        text: '',
-        style: {
-          fontFamily: T.FONT.num,
-          fontWeight: '700',
-          fontSize:   T.FONT_SIZE.md,                                    // xs (11) → md (15)
-          fill:       T.FG.cream,
-          align:      'center',
-          stroke:     { color: T.SEA.abyss, width: 3 },                  // dark outline for contrast
-          dropShadow: { color: 0x000000, alpha: 0.6, blur: 4, distance: 1 },
-        },
-      });
-      label.anchor.set(0.5, 1);
-      label.y = -SPIRIT_H - 4;                                           // -8 → -4 (larger font sits closer)
-      container.addChild(label);
+      // Per-unit HP bar — track (static bg) + fill (redrawn in refreshFormation)
+      const hpTrack = new Graphics()
+        .roundRect(-UNIT_HP_BAR_W / 2, UNIT_HP_BAR_Y_OFF, UNIT_HP_BAR_W, UNIT_HP_BAR_H, UNIT_HP_BAR_H / 2)
+        .fill({ color: T.HP.track, alpha: 0.8 })
+        .stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.6 });
+      hpTrack.visible = unit !== null;
+      const hpFill = new Graphics();
+      container.addChild(hpTrack);
+      container.addChild(hpFill);
 
       // Death cross ✕ centred on torso (midpoint of sprite)
       const ch    = SPIRIT_H * 0.25;
@@ -421,7 +329,7 @@ export class BattleScreen implements Screen {
       crossMark.visible = false;
       container.addChild(crossMark);
 
-      cells.push({ container, sprite, label, glowRing, crossMark });
+      cells.push({ container, sprite, hpTrack, hpFill, glowRing, crossMark });
     }
   }
 
@@ -496,36 +404,9 @@ export class BattleScreen implements Screen {
   // ─── Frame refresh (non-animated parts) ──────────────────────────────────
   private refresh(): void {
     this.roundText.text = `ROUND ${String(this.round).padStart(2, '0')}`;
-
-    const hpA = teamHpTotal(this.formationA);
-    const hpB = teamHpTotal(this.formationB);
-    const maxA = this.cfg.teamHpA;
-    const maxB = this.cfg.teamHpB;
-
-    this.drawHpFill(this.hpBarA, this.displayedHpA / maxA, 'A');
-    this.drawHpFill(this.hpBarB, this.displayedHpB / maxB, 'B');
-    this.hpTextA.text = `${Math.round(this.displayedHpA)} / ${maxA}`;
-    this.hpTextB.text = `${Math.round(this.displayedHpB)} / ${maxB}`;
-
     this.refreshFormation('A', this.formationA, this.cellsA);
     this.refreshFormation('B', this.formationB, this.cellsB);
-
     this.logText.text = this.logLines.slice(-3).join('\n');
-
-    void hpA; void hpB;
-  }
-
-  private drawHpFill(g: Graphics, ratio: number, side: 'A' | 'B'): void {
-    const w = Math.max(0, Math.min(1, ratio)) * HP_BAR_W;
-    let color: number;
-    if (ratio < 0.25) color = T.HP.low;
-    else if (ratio < 0.55) color = T.HP.mid;
-    else color = side === 'A' ? T.TEAM.azure : T.TEAM.vermilion;
-
-    g.clear();
-    if (w > 0) {
-      g.roundRect(0, 0, w, HP_BAR_H, HP_BAR_H / 2).fill(color);
-    }
   }
 
   private refreshFormation(side: 'A' | 'B', grid: FormationGrid, cells: FormationCellRefs[]): void {
@@ -535,14 +416,24 @@ export class BattleScreen implements Screen {
       if (!unit) {
         ref.glowRing.visible  = false;
         ref.crossMark.visible = false;
-        ref.label.text        = '';
+        ref.hpFill.clear();
+        ref.hpTrack.visible = false;
         continue;
       }
       if (ref.sprite) ref.sprite.alpha = unit.alive ? 1 : 0.4;
-      ref.label.text        = unit.alive ? `${unit.hp}` : '';
-      ref.label.alpha       = unit.alive ? 1 : 0.6;
       ref.glowRing.visible  = unit.alive;
       ref.crossMark.visible = !unit.alive;
+
+      // Per-unit HP bar fill
+      ref.hpFill.clear();
+      if (unit.alive) {
+        const ratio = unit.hp / unit.maxHp;
+        const w     = UNIT_HP_BAR_W * Math.max(0, Math.min(1, ratio));
+        const color = ratio > 0.6 ? T.HP.high : ratio > 0.3 ? T.HP.mid : T.HP.low;
+        ref.hpFill
+          .roundRect(-UNIT_HP_BAR_W / 2, UNIT_HP_BAR_Y_OFF, w, UNIT_HP_BAR_H, UNIT_HP_BAR_H / 2)
+          .fill(color);
+      }
 
       void side; // side unused here but kept for symmetry with call sites
     }
@@ -620,8 +511,8 @@ export class BattleScreen implements Screen {
       }
 
       // ── Underdog boost: 1.3× damage when own HP ratio < 0.30 ──────────────
-      const ratioA = teamHpTotal(this.formationA) / this.cfg.teamHpA;
-      const ratioB = teamHpTotal(this.formationB) / this.cfg.teamHpB;
+      const ratioA = teamHpTotal(this.formationA) / (this.cfg.unitHpA * this.cfg.selectedA.length);
+      const ratioB = teamHpTotal(this.formationB) / (this.cfg.unitHpB * this.cfg.selectedB.length);
       if (ratioA < 0.30 && dmgA > 0) dmgA = Math.ceil(dmgA * 1.3);
       if (ratioB < 0.30 && dmgB > 0) dmgB = Math.ceil(dmgB * 1.3);
 
@@ -669,22 +560,9 @@ export class BattleScreen implements Screen {
         }
       }
 
-      const newHpA = teamHpTotal(this.formationA);
-      const newHpB = teamHpTotal(this.formationB);
-
       const fx: Promise<void>[] = [lineFx, jackpotFx, attackFx];
       if (eventsOnB.length) fx.push(this.playDamageEvents(eventsOnB, 'B'));
       if (eventsOnA.length) fx.push(this.playDamageEvents(eventsOnA, 'A'));
-      fx.push(tweenValue(this.displayedHpA, newHpA, 500, v => {
-        this.displayedHpA = v;
-        this.drawHpFill(this.hpBarA, v / this.cfg.teamHpA, 'A');
-        this.hpTextA.text = `${Math.round(v)} / ${this.cfg.teamHpA}`;
-      }));
-      fx.push(tweenValue(this.displayedHpB, newHpB, 500, v => {
-        this.displayedHpB = v;
-        this.drawHpFill(this.hpBarB, v / this.cfg.teamHpB, 'B');
-        this.hpTextB.text = `${Math.round(v)} / ${this.cfg.teamHpB}`;
-      }));
       await Promise.all(fx);
 
       const tagA = ratioA < 0.30 ? '↑' : '';
