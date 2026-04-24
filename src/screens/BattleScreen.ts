@@ -23,6 +23,8 @@ import { goldText } from '@/components/GoldText';
 import { AmbientParticles } from '@/fx/AmbientParticles';
 import { AudioManager } from '@/systems/AudioManager';
 import { FXAtlas } from '@/fx/FXAtlas';
+import { detectResonance, resonanceMultForClan, type ResonanceResult } from '@/systems/Resonance';
+import type { ClanId } from '@/config/DesignTokens';
 
 // ─── Portrait layout 720×1280 ───────────────────────────────────────────────
 const HEADER_Y   = 14;
@@ -102,6 +104,9 @@ export class BattleScreen implements Screen {
   /** Consecutive non-miss spin count per side — drives SPEC §15 M3 Streak Multiplier */
   private streakA = 0;
   private streakB = 0;
+  /** SPEC §15.5 M5 Resonance tier for each side (computed once at match start) */
+  private resonanceA!: ResonanceResult;
+  private resonanceB!: ResonanceResult;
 
   constructor(private cfg: DraftResult, private onExit: () => void) {}
 
@@ -117,6 +122,8 @@ export class BattleScreen implements Screen {
     stage.addChild(this.container);
     this.formationA = createFormation(this.cfg.selectedA, this.cfg.unitHpA);
     this.formationB = createFormation(this.cfg.selectedB, this.cfg.unitHpB);
+    this.resonanceA = detectResonance(this.cfg.selectedA);
+    this.resonanceB = detectResonance(this.cfg.selectedB);
     this.walletA = this.cfg.walletA ?? 10000;
     this.walletB = this.cfg.walletB ?? 10000;
     this.displayedWalletA = this.walletA;
@@ -478,14 +485,10 @@ export class BattleScreen implements Screen {
       );
       if (!this.running) return;
 
-      // Deduct bet, credit streak-boosted winnings, kick cascade animation (non-blocking)
-      // M3 Streak Multiplier applies to coin (uses streak from previous round)
-      const coinA = Math.floor(spin.sideA.coinWon * streakMult(this.streakA));
-      const coinB = Math.floor(spin.sideB.coinWon * streakMult(this.streakB));
-      this.walletA = this.walletA - this.cfg.betA + coinA;
-      this.walletB = this.walletB - this.cfg.betB + coinB;
-      this.cascadeWallet('A');
-      this.cascadeWallet('B');
+      // Mutable coin accumulators — Resonance adds extras, Streak multiplies;
+      // wallet credit and cascade happen after all multipliers (below Streak section)
+      let coinA = spin.sideA.coinWon;
+      let coinB = spin.sideB.coinWon;
 
       AudioManager.playSfx('reel-spin-loop');
       await this.reel.spin(spin.grid);
@@ -499,6 +502,25 @@ export class BattleScreen implements Screen {
 
       let dmgA = spin.sideA.dmgDealt;
       let dmgB = spin.sideB.dmgDealt;
+
+      // ── M5 Resonance: ×1.5 on wayHits whose symbol clan is in boostedClans ──
+      // Resonance first (per-wayHit clan-specific), Dragon bonus after.
+      if (this.resonanceA.tier !== 'NONE') {
+        for (const wh of spin.sideA.wayHits) {
+          if (resonanceMultForClan(this.resonanceA, SYMBOLS[wh.symbolId].clan as ClanId) > 1) {
+            coinA += Math.floor(wh.rawCoin * 0.5 * (this.cfg.betA / 100));
+            dmgA  += Math.floor(wh.rawDmg  * 0.5 * (this.cfg.betA / 100));
+          }
+        }
+      }
+      if (this.resonanceB.tier !== 'NONE') {
+        for (const wh of spin.sideB.wayHits) {
+          if (resonanceMultForClan(this.resonanceB, SYMBOLS[wh.symbolId].clan as ClanId) > 1) {
+            coinB += Math.floor(wh.rawCoin * 0.5 * (this.cfg.betB / 100));
+            dmgB  += Math.floor(wh.rawDmg  * 0.5 * (this.cfg.betB / 100));
+          }
+        }
+      }
 
       // ── Azure Dragon passive: +20% dmg on own-side 4+ match of dragon-clan symbols ──
       if (hasAliveOfClan(this.formationA, 'azure')) {
@@ -516,10 +538,16 @@ export class BattleScreen implements Screen {
         }
       }
 
-      // ── M3 Streak Multiplier: consecutive wins build ×1 → ×2 cap; miss resets ──
-      // Applied after dragon bonus (global round multiplier on top of per-wayHit bonus).
+      // ── M3 Streak Multiplier: applied after Resonance + dragon bonus ─────────
+      // Coin and dmg both scaled; wallet credited and cascade kicked here.
+      coinA = Math.floor(coinA * streakMult(this.streakA));
+      coinB = Math.floor(coinB * streakMult(this.streakB));
       if (dmgA > 0) dmgA = Math.floor(dmgA * streakMult(this.streakA));
       if (dmgB > 0) dmgB = Math.floor(dmgB * streakMult(this.streakB));
+      this.walletA = this.walletA - this.cfg.betA + coinA;
+      this.walletB = this.walletB - this.cfg.betB + coinB;
+      this.cascadeWallet('A');
+      this.cascadeWallet('B');
 
       // ── Underdog boost: 1.3× damage when own HP ratio < 0.30 ──────────────
       const ratioA = teamHpTotal(this.formationA) / (this.cfg.unitHpA * this.cfg.selectedA.length);

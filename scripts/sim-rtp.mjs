@@ -38,6 +38,7 @@ import { createFormation, isTeamAlive, teamHpTotal, hasAliveOfClan }
   from '@/systems/Formation';
 import { distributeDamage }            from '@/systems/DamageDistributor';
 import { calculateScales }             from '@/systems/ScaleCalculator';
+import { detectResonance, resonanceMultForClan } from '@/systems/Resonance';
 
 // ── CLI argument parsing ─────────────────────────────────────────────────────
 const args = process.argv.slice(2);
@@ -72,7 +73,10 @@ const DRAFT_CONFIGS = {
   black:      [2, 7, 0, 1, 3],   // 2 black + 3 others
 };
 
-const selected = DRAFT_CONFIGS[CONFIG_KEY] ?? DRAFT_CONFIGS.symmetric;
+const selected  = DRAFT_CONFIGS[CONFIG_KEY] ?? DRAFT_CONFIGS.symmetric;
+const resonance = detectResonance(selected);
+process.stderr.write(`Resonance: ${resonance.tier} boosted=${resonance.boostedClans.join('/') || 'none'}\n`);
+
 const UNIT_HP   = DEFAULT_UNIT_HP;                    // per-spirit HP (SPEC §15.3)
 const TEAM_HP   = UNIT_HP * selected.length;          // derived; 5 × 1000 = 5000
 const BET       = DEFAULT_BET;       // 100
@@ -138,7 +142,9 @@ function simRun(rng) {
   let streakA = 0, streakB = 0;
   let totalStreakSumA = 0, totalStreakSumB = 0;
   let maxStreakObserved = 0;
-  let streakBoostedCoin = 0;  // extra coin earned due to streak > 1
+  let streakBoostedCoin = 0;   // extra coin due to streak > 1 (post-Resonance base)
+  // Resonance counters (M5)
+  let resonanceBoostedCoin = 0; // extra coin earned via Resonance ×1.5
 
   // Match stats
   let drawCount   = 0;
@@ -164,13 +170,39 @@ function simRun(rng) {
       coinScale, dmgScale, coinScale, dmgScale, FAIRNESS, rng,
     );
 
-    // M3 Streak Multiplier applied to coin (streak from previous round)
+    // Streak factors (used for both coin and dmg below)
     const sMA = streakMult(streakA);
     const sMB = streakMult(streakB);
-    const coinWonA = Math.floor(spin.sideA.coinWon * sMA);
-    const coinWonB = Math.floor(spin.sideB.coinWon * sMB);
+
+    // Mutable coin accumulators — Resonance adds extras, Streak multiplies
+    let coinWonA = spin.sideA.coinWon;
+    let coinWonB = spin.sideB.coinWon;
+
+    // ── M5 Resonance: ×1.5 extra on boosted-clan wayHits (coin side) ──
+    if (resonance.tier !== 'NONE') {
+      for (const wh of spin.sideA.wayHits) {
+        if (resonanceMultForClan(resonance, SYMBOLS[wh.symbolId].clan) > 1) {
+          const extra = Math.floor(wh.rawCoin * 0.5 * (BET / 100));
+          coinWonA          += extra;
+          resonanceBoostedCoin += extra;
+        }
+      }
+      for (const wh of spin.sideB.wayHits) {
+        if (resonanceMultForClan(resonance, SYMBOLS[wh.symbolId].clan) > 1) {
+          const extra = Math.floor(wh.rawCoin * 0.5 * (BET / 100));
+          coinWonB          += extra;
+          resonanceBoostedCoin += extra;
+        }
+      }
+    }
+
+    // M3 Streak on coin (after Resonance)
+    const coinPreStreak_A = coinWonA;
+    const coinPreStreak_B = coinWonB;
+    coinWonA = Math.floor(coinWonA * sMA);
+    coinWonB = Math.floor(coinWonB * sMB);
     totalWon += coinWonA + coinWonB;
-    streakBoostedCoin += (coinWonA - spin.sideA.coinWon) + (coinWonB - spin.sideB.coinWon);
+    streakBoostedCoin += (coinWonA - coinPreStreak_A) + (coinWonB - coinPreStreak_B);
 
     // ── Hit-frequency histogram (per side) ──
     for (const ways of [spin.sideA.wayHits.length, spin.sideB.wayHits.length]) {
@@ -194,6 +226,20 @@ function simRun(rng) {
 
     let dmgA = spin.sideA.dmgDealt;
     let dmgB = spin.sideB.dmgDealt;
+
+    // ── M5 Resonance: ×1.5 on wayHits whose symbol clan is in boostedClans (dmg) ──
+    if (resonance.tier !== 'NONE') {
+      for (const wh of spin.sideA.wayHits) {
+        if (resonanceMultForClan(resonance, SYMBOLS[wh.symbolId].clan) > 1) {
+          dmgA += Math.floor(wh.rawDmg * 0.5 * (BET / 100));
+        }
+      }
+      for (const wh of spin.sideB.wayHits) {
+        if (resonanceMultForClan(resonance, SYMBOLS[wh.symbolId].clan) > 1) {
+          dmgB += Math.floor(wh.rawDmg * 0.5 * (BET / 100));
+        }
+      }
+    }
 
     // ── Azure Dragon passive: +20% dmg on own 4+ match of azure-clan symbols ──
     if (hasAliveOfClan(formationA, 'azure')) {
@@ -342,6 +388,7 @@ function simRun(rng) {
     phoenixCoinTotal,
     wildBoostedWayHits, totalWayHits,
     totalStreakSumA, totalStreakSumB, maxStreakObserved, streakBoostedCoin,
+    resonanceBoostedCoin,
     drawCount, winsA, winsB,
     underdogFires, underdogSpins,
     chipFloorFires,
@@ -443,6 +490,12 @@ const output = {
     avg_streak_B:               +(agg.totalStreakSumB / (ROUNDS * RUNS)).toFixed(4),
     max_streak:                 runResults.reduce((m, r) => Math.max(m, r.maxStreakObserved), 0),
     streak_boosted_coin_pct:    +(agg.streakBoostedCoin / (agg.totalWon || 1)).toFixed(4),
+  },
+  resonance: {
+    tier:                       resonance.tier,
+    boostedClans:               resonance.boostedClans,
+    boosted_coin_total:         +agg.resonanceBoostedCoin.toFixed(2),
+    boosted_pct_of_total_coin:  +(agg.resonanceBoostedCoin / (agg.totalWon || 1)).toFixed(4),
   },
   match: {
     draw_rate:              +(agg.drawCount  / agg.totalMatches).toFixed(4),
