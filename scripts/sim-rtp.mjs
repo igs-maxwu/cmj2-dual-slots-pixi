@@ -28,7 +28,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 // ── TypeScript source imports (tsx resolves @/ via tsconfig.json paths) ─────
-import { SYMBOLS, PAYOUT_BASE, DEFAULT_TEAM_HP, DEFAULT_BET,
+import { SYMBOLS, PAYOUT_BASE, DEFAULT_UNIT_HP, DEFAULT_BET,
          DEFAULT_TARGET_RTP, DEFAULT_TARGET_DMG, DEFAULT_FAIRNESS_EXP }
   from '@/config/SymbolsConfig';
 import { buildFullPool, totalWeight }  from '@/systems/SymbolPool';
@@ -72,7 +72,8 @@ const DRAFT_CONFIGS = {
 };
 
 const selected = DRAFT_CONFIGS[CONFIG_KEY] ?? DRAFT_CONFIGS.symmetric;
-const TEAM_HP   = DEFAULT_TEAM_HP;   // 10000
+const UNIT_HP   = DEFAULT_UNIT_HP;                    // per-spirit HP (SPEC §15.3)
+const TEAM_HP   = UNIT_HP * selected.length;          // derived; 5 × 1000 = 5000
 const BET       = DEFAULT_BET;       // 100
 const FAIRNESS  = DEFAULT_FAIRNESS_EXP; // 2.0
 const PHOENIX_COIN_PER_KILL = 500;
@@ -135,8 +136,8 @@ function simRun(rng) {
   let chipFloorFires = 0;
 
   // Current match state
-  let formationA = createFormation(selected, TEAM_HP);
-  let formationB = createFormation(selected, TEAM_HP);
+  let formationA = createFormation(selected, UNIT_HP);
+  let formationB = createFormation(selected, UNIT_HP);
   totalMaxHp += TEAM_HP * 2;  // both sides' initial HP counts toward the pool
 
   let consecutiveMissA = 0, consecutiveMissB = 0;
@@ -276,8 +277,8 @@ function simRun(rng) {
       // (already accumulated in tortoiseShields cumulatively)
 
       // Reset for next match
-      formationA = createFormation(selected, TEAM_HP);
-      formationB = createFormation(selected, TEAM_HP);
+      formationA = createFormation(selected, UNIT_HP);
+      formationB = createFormation(selected, UNIT_HP);
       totalMaxHp += TEAM_HP * 2;
       consecutiveMissA = 0;
       consecutiveMissB = 0;
@@ -371,7 +372,7 @@ const output = {
     dmgRtp:           +dmgRtp.toFixed(4),
     totalMatches:     agg.totalMatches,
     avgRoundsPerMatch: +avgRoundsPerMatch.toFixed(2),
-    analyticalEstimate: +(DEFAULT_TEAM_HP / (DEFAULT_TARGET_DMG * (BET / 100))).toFixed(1),
+    analyticalEstimate: +(TEAM_HP / (DEFAULT_TARGET_DMG * (BET / 100))).toFixed(1),
   },
   hitFreq: {
     miss:      +(agg.hf_miss   / hfDenom).toFixed(4),
@@ -420,6 +421,6 @@ writeFileSync(outFile, jsonOut + '\n', 'utf8');
 process.stderr.write(`\n── Simulation complete in ${(elapsedMs / 1000).toFixed(1)}s ──\n`);
 process.stderr.write(`Coin RTP: ${(coinRtp * 100).toFixed(2)}%  (target 60.00%, delta ${((coinRtp - 0.60) * 100).toFixed(2)}pp)\n`);
 process.stderr.write(`Hit miss: ${(agg.hf_miss / hfDenom * 100).toFixed(1)}%  (SPEC target 40%)\n`);
-process.stderr.write(`Avg rounds/match: ${avgRoundsPerMatch.toFixed(1)}  (analytical est. ${+(DEFAULT_TEAM_HP / (DEFAULT_TARGET_DMG * (BET/100))).toFixed(1)})\n`);
+process.stderr.write(`Avg rounds/match: ${avgRoundsPerMatch.toFixed(1)}  (analytical est. ${+(TEAM_HP / (DEFAULT_TARGET_DMG * (BET/100))).toFixed(1)})\n`);
 process.stderr.write(`A wins: ${(agg.winsA/agg.totalMatches*100).toFixed(1)}%  B wins: ${(agg.winsB/agg.totalMatches*100).toFixed(1)}%  draws: ${(agg.drawCount/agg.totalMatches*100).toFixed(2)}%\n`);
 process.stderr.write(`Output written to: ${outFile}\n\n`);
