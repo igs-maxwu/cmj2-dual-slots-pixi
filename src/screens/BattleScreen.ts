@@ -324,6 +324,13 @@ export class BattleScreen implements Screen {
 
   // ─── Jackpot marquee ─────────────────────────────────────────────────────
   private drawJackpotMarquee(): void {
+    // Opaque ink-wash panel behind jp-marquee PNG (prevents transparent checkerboard bleed)
+    const bgPanel = new Graphics()
+      .roundRect(16, JP_AREA_Y, CANVAS_WIDTH - 32, JP_AREA_H, T.RADIUS.lg)
+      .fill({ color: T.SEA.deep, alpha: 0.85 })
+      .stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.6 });
+    this.container.addChild(bgPanel);
+
     const tex = Assets.get<Texture>('jp-marquee') ?? Texture.WHITE;
     const marquee = new Sprite(tex);
     marquee.anchor.set(0.5, 0.5);
@@ -391,12 +398,17 @@ export class BattleScreen implements Screen {
       const label = new Text({
         text: '',
         style: {
-          fontFamily: T.FONT.num, fontWeight: '700', fontSize: T.FONT_SIZE.xs,
-          fill: T.FG.cream, align: 'center',
+          fontFamily: T.FONT.num,
+          fontWeight: '700',
+          fontSize:   T.FONT_SIZE.md,                                    // xs (11) → md (15)
+          fill:       T.FG.cream,
+          align:      'center',
+          stroke:     { color: T.SEA.abyss, width: 3 },                  // dark outline for contrast
+          dropShadow: { color: 0x000000, alpha: 0.6, blur: 4, distance: 1 },
         },
       });
       label.anchor.set(0.5, 1);
-      label.y = -SPIRIT_H - 8;
+      label.y = -SPIRIT_H - 4;                                           // -8 → -4 (larger font sits closer)
       container.addChild(label);
 
       // Death cross ✕ centred on torso (midpoint of sprite)
