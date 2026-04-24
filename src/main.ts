@@ -7,7 +7,6 @@ import { BattleScreen } from '@/screens/BattleScreen';
 import { FXPreviewScreen } from '@/screens/FXPreviewScreen';
 import { initTweenTicker } from '@/systems/tween';
 import { installFxDevHook } from '@/systems/FXDevHook';
-import { FXAtlas } from '@/fx/FXAtlas';
 
 async function main(): Promise<void> {
   const app = new Application();
@@ -29,13 +28,8 @@ async function main(): Promise<void> {
 
   document.getElementById('app')!.appendChild(app.canvas);
 
-  // Preload SOS2 FX atlas sheets before any screen renders.
-  // BASE_URL handles GitHub Pages sub-path (/cmj2-dual-slots-pixi/).
-  await FXAtlas.load([
-    { name: 'sos2-bigwin',       atlas: `${import.meta.env.BASE_URL}assets/fx/sos2-bigwin.atlas` },
-    { name: 'sos2-near-win',     atlas: `${import.meta.env.BASE_URL}assets/fx/sos2-near-win.atlas` },
-    { name: 'sos2-declare-fire', atlas: `${import.meta.env.BASE_URL}assets/fx/sos2-declare-fire.atlas` },
-  ]);
+  // FX atlas sheets (~600 KB) deferred — loaded in BattleScreen.onMount
+  // behind the '進入戰場中' overlay. DraftScreen does not use FX atlases.
 
   const sm = new ScreenManager(app);
 

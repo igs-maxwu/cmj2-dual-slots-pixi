@@ -108,13 +108,45 @@ export class BattleScreen implements Screen {
   // ─── Screen lifecycle ────────────────────────────────────────────────────
   async onMount(app: Application, stage: Container): Promise<void> {
     this.app = app;
+
+    // ── Loading overlay: visible while FX atlases download (~600 KB) ─────────
+    stage.addChild(this.container);
+    const overlay = new Graphics()
+      .rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+      .fill({ color: T.SEA.abyss });
+    const loadingText = new Text({
+      text: '進入戰場中…',
+      style: {
+        fontFamily:    T.FONT.display,
+        fontSize:      T.FONT_SIZE.h1,
+        fill:          T.GOLD.base,
+        letterSpacing: 4,
+      },
+    });
+    loadingText.anchor.set(0.5);
+    loadingText.x = CANVAS_WIDTH / 2;
+    loadingText.y = CANVAS_HEIGHT / 2;
+    this.container.addChild(overlay);
+    this.container.addChild(loadingText);
+
+    // FX atlases deferred from main.ts — FXAtlas.load() is idempotent
+    // (sheets.has() guard), so second-match entry is instant.
+    await FXAtlas.load([
+      { name: 'sos2-bigwin',       atlas: `${import.meta.env.BASE_URL}assets/fx/sos2-bigwin.atlas` },
+      { name: 'sos2-near-win',     atlas: `${import.meta.env.BASE_URL}assets/fx/sos2-near-win.atlas` },
+      { name: 'sos2-declare-fire', atlas: `${import.meta.env.BASE_URL}assets/fx/sos2-declare-fire.atlas` },
+    ]);
+
+    overlay.destroy();
+    loadingText.destroy();
+    // ─────────────────────────────────────────────────────────────────────────
+
     await AudioManager.init();
     AudioManager.playBgm('battle', true);
     this.bg = new AmbientBackground(app);
-    stage.addChild(this.bg);
+    stage.addChildAt(this.bg, 0);          // bg behind container (z: bg=0, container=1)
     this.particles = new AmbientParticles(app);
-    stage.addChild(this.particles);
-    stage.addChild(this.container);
+    stage.addChildAt(this.particles, 1);   // particles behind container (z: bg=0, particles=1, container=2)
     this.formationA = createFormation(this.cfg.selectedA, this.cfg.unitHpA);
     this.formationB = createFormation(this.cfg.selectedB, this.cfg.unitHpB);
     this.walletA = this.cfg.walletA ?? 10000;
