@@ -38,8 +38,10 @@ export const PAYOUT_BASE: Record<number,number> = { 3:5, 4:20, 5:100 };
 export const LINES_COUNT = 0;
 export const DEFAULT_UNIT_HP    = 1000;     // per-spirit HP (SPEC §15.3)
 export const DEFAULT_BET        = 100;
-export const DEFAULT_TARGET_RTP = 60;    // SPEC §15.3 Base Ways coin RTP
-export const DEFAULT_TARGET_DMG = 600;   // halve match length: ~20 round → ~10
+// Semantic target: SPEC §15.3 Base Ways = 60%.  Implementation value empirically tuned post-Wild:
+// Wild ×2 + substitute inflates realized EV ~3× vs analytical prediction → divide by 3.
+export const DEFAULT_TARGET_RTP = 20;    // m-06: empirical tune (60 / 3) post-Wild ×2 + substitute
+export const DEFAULT_TARGET_DMG = 300;   // m-06: same inflation on dmg → halve back for ~10-round match
 export const DEFAULT_FAIRNESS_EXP = 2.0;
 /** Coin-rarity exponent — matches COIN_EXPONENT_FIXED=2.0 in reference demo. */
 export const COIN_EXP = 2.0;
