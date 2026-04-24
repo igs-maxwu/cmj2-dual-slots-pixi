@@ -2,7 +2,7 @@ import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 
 import type { Screen } from './ScreenManager';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import * as T from '@/config/DesignTokens';
-import { SYMBOLS, PAYOUT_BASE } from '@/config/SymbolsConfig';
+import { SYMBOLS, PAYOUT_BASE, streakMult } from '@/config/SymbolsConfig';
 import { buildFullPool, totalWeight } from '@/systems/SymbolPool';
 import { SlotEngine } from '@/systems/SlotEngine';
 import {
@@ -99,6 +99,9 @@ export class BattleScreen implements Screen {
   /** Consecutive rounds with zero wayHits per side — triggers guaranteed way at 3 */
   private consecutiveMissA = 0;
   private consecutiveMissB = 0;
+  /** Consecutive non-miss spin count per side — drives SPEC §15 M3 Streak Multiplier */
+  private streakA = 0;
+  private streakB = 0;
 
   constructor(private cfg: DraftResult, private onExit: () => void) {}
 
@@ -475,9 +478,12 @@ export class BattleScreen implements Screen {
       );
       if (!this.running) return;
 
-      // Deduct bet, credit winnings, kick cascade animation (non-blocking)
-      this.walletA = this.walletA - this.cfg.betA + spin.sideA.coinWon;
-      this.walletB = this.walletB - this.cfg.betB + spin.sideB.coinWon;
+      // Deduct bet, credit streak-boosted winnings, kick cascade animation (non-blocking)
+      // M3 Streak Multiplier applies to coin (uses streak from previous round)
+      const coinA = Math.floor(spin.sideA.coinWon * streakMult(this.streakA));
+      const coinB = Math.floor(spin.sideB.coinWon * streakMult(this.streakB));
+      this.walletA = this.walletA - this.cfg.betA + coinA;
+      this.walletB = this.walletB - this.cfg.betB + coinB;
       this.cascadeWallet('A');
       this.cascadeWallet('B');
 
@@ -510,6 +516,11 @@ export class BattleScreen implements Screen {
         }
       }
 
+      // ── M3 Streak Multiplier: consecutive wins build ×1 → ×2 cap; miss resets ──
+      // Applied after dragon bonus (global round multiplier on top of per-wayHit bonus).
+      if (dmgA > 0) dmgA = Math.floor(dmgA * streakMult(this.streakA));
+      if (dmgB > 0) dmgB = Math.floor(dmgB * streakMult(this.streakB));
+
       // ── Underdog boost: 1.3× damage when own HP ratio < 0.30 ──────────────
       const ratioA = teamHpTotal(this.formationA) / (this.cfg.unitHpA * this.cfg.selectedA.length);
       const ratioB = teamHpTotal(this.formationB) / (this.cfg.unitHpB * this.cfg.selectedB.length);
@@ -530,6 +541,12 @@ export class BattleScreen implements Screen {
         dmgB = this.minGuaranteedDmg('B');
         this.consecutiveMissB = 0;
       }
+
+      // ── Update Streak for next round (after wayHits known) ────────────────
+      if (spin.sideA.wayHits.length === 0) this.streakA = 0;
+      else                                  this.streakA++;
+      if (spin.sideB.wayHits.length === 0) this.streakB = 0;
+      else                                  this.streakB++;
 
       // Capture pre-damage HP for overkill tiebreaker
       lastPreHpA = teamHpTotal(this.formationA);
