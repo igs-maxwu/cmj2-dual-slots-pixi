@@ -166,7 +166,7 @@ export class LoadingScreen implements Screen {
 
   private async preloadSpirits(): Promise<void> {
     const base = import.meta.env.BASE_URL;
-    const assets = SYMBOLS.map(s => ({
+    const assets = SYMBOLS.filter(s => !s.isWild).map(s => ({
       alias: s.spiritKey,
       src:   `${base}assets/spirits/${s.spiritKey}.webp`,
     }));
