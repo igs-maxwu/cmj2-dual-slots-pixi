@@ -21,10 +21,16 @@ export interface ScaleResult {
  * Ways EV per round per symbol:
  *   p        = symbol weight / poolTotalW  (per-cell probability)
  *   p_any    = 1 - (1 - p)^ROWS            (prob ≥1 in a column)
- *   E[ways]_k ≈ (ROWS × p)^k              (expected product over k cols)
- *   EV_3 = p_any^3 × (1 - p_any) × (ROWS×p)^3 × BASE[3]
- *   EV_4 = p_any^4 × (1 - p_any) × (ROWS×p)^4 × BASE[4]
- *   EV_5 = p_any^5              × (ROWS×p)^5 × BASE[5]
+ *
+ *   P(matchCount = k)            = p_any^k × (1 - p_any)   for k < COLS
+ *   P(matchCount = 5)            = p_any^5                  for k = 5
+ *   E[numWays | matchCount = k]  ≈ (p × ROWS / p_any)^k
+ *
+ *   Combining (p_any^k cancels with 1/p_any^k from E[numWays|k]):
+ *   EV_3 = (1 - p_any) × (ROWS × p)^3 × BASE[3]
+ *   EV_4 = (1 - p_any) × (ROWS × p)^4 × BASE[4]
+ *   EV_5 =              (ROWS × p)^5 × BASE[5]
+ *   Total EV per symbol = EV_3 + EV_4 + EV_5.
  *   No LINES_COUNT factor — Ways EV is absolute per round.
  */
 export function calculateScales(
@@ -52,9 +58,9 @@ export function calculateScales(
     const eWays4 = Math.pow(ROWS * prob, 4);
     const eWays5 = Math.pow(ROWS * prob, 5);
 
-    const ev = p_any ** 3 * (1 - p_any) * eWays3 * (PAYOUT_BASE[3] ?? 0)
-             + p_any ** 4 * (1 - p_any) * eWays4 * (PAYOUT_BASE[4] ?? 0)
-             + p_any ** 5               * eWays5 * (PAYOUT_BASE[5] ?? 0);
+    const ev = (1 - p_any) * eWays3 * (PAYOUT_BASE[3] ?? 0)
+             + (1 - p_any) * eWays4 * (PAYOUT_BASE[4] ?? 0)
+             +               eWays5 * (PAYOUT_BASE[5] ?? 0);
 
     rawEVCoin += ev * dynCoin;
     rawEVDmg  += ev * dynDmg;
