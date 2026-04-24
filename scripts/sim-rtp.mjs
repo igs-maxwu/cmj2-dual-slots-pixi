@@ -11,7 +11,7 @@
  *   Azure Dragon  — +20% dmg on own 4+ match of azure-clan symbols
  *   Underdog buff — ×1.3 dmg when attacker HP ratio < 0.30
  *   Chip floor    — after 3 consecutive 0-way spins inject minGuaranteedDmg
- *   Phoenix       — +500 coin per enemy kill (Vermilion clan)
+ *   Phoenix       — +200 coin per enemy kill (Vermilion clan)
  *   White Tiger   — 10% incoming-dmg reduction (inside distributeDamage)
  *   Black Tortoise— lethal-hit shield once (inside distributeDamage)
  *
@@ -76,7 +76,7 @@ const UNIT_HP   = DEFAULT_UNIT_HP;                    // per-spirit HP (SPEC §1
 const TEAM_HP   = UNIT_HP * selected.length;          // derived; 5 × 1000 = 5000
 const BET       = DEFAULT_BET;       // 100
 const FAIRNESS  = DEFAULT_FAIRNESS_EXP; // 2.0
-const PHOENIX_COIN_PER_KILL = 500;
+const PHOENIX_COIN_PER_KILL = 200;   // m-04: tuned from 500 to bring total RTP under 100%
 
 // ── Pre-compute scales (shared across all runs / matches) ────────────────────
 const pool   = buildFullPool(SYMBOLS);
@@ -240,7 +240,7 @@ function simRun(rng) {
     const actualDmgOnA = eventsOnA.reduce((s, e) => s + e.damageTaken, 0);
     totalDmgDealt += actualDmgOnA + actualDmgOnB;
 
-    // ── Vermilion Phoenix passive: +500 coin per enemy kill ───────────────
+    // ── Vermilion Phoenix passive: +200 coin per enemy kill ───────────────
     if (hasAliveOfClan(formationA, 'vermilion')) {
       const kills = eventsOnB.filter(e => e.died).length;
       const phoenixCoin = kills * PHOENIX_COIN_PER_KILL * (BET / 100);
