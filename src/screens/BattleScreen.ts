@@ -77,7 +77,7 @@ const ARENA_B_CENTER_X      = CANVAS_WIDTH - 176;           // B-side mirror
 // Per-unit HP bar (inside each spirit container)
 const UNIT_HP_BAR_W     = 64;
 const UNIT_HP_BAR_H     = 6;
-const UNIT_HP_BAR_Y_OFF = -SPIRIT_H - 22;   // above the spirit head
+const UNIT_HP_BAR_Y_OFF = -(SPIRIT_H / 2 + 8);   // p10-bug-01: back-row 426-73=353, below JP panel bottom 338
 
 // ─── Components for formation display ────────────────────────────────────────
 interface FormationCellRefs {
@@ -716,6 +716,7 @@ export class BattleScreen implements Screen {
         .stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.6 });
       hpTrack.visible = unit !== null;
       const hpFill = new Graphics();
+      hpFill.visible = unit !== null;   // p10-bug-01: hide fill for empty slots (no bleed into JP)
       container.addChild(hpTrack);
       container.addChild(hpFill);
 
