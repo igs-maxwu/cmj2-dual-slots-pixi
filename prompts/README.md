@@ -103,8 +103,8 @@ Roadmap doc: [`sprint6/ROADMAP.md`](sprint6/ROADMAP.md)
 |---|---|---|
 | [#126](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/126) j-01 JP symbol id:11 weight:1 (pool-present, non-scoring, mirrors f-01 Scatter pattern) | [`sprint6/j-01-jackpot-symbol.md`](sprint6/j-01-jackpot-symbol.md) | ✅ merged |
 | [#127](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/127) j-02 JP pool localStorage persistence + 1% accrual + 50/30/20 split (new `src/systems/JackpotPool.ts` pure module, 2 commits per discipline) | [`sprint6/j-02-jackpot-pool-persistence.md`](sprint6/j-02-jackpot-pool-persistence.md) | ✅ merged |
-| (pending) j-03 5-of-a-kind detect + tier draw (3/12/85) + Wild substitute + split 50/50 payout + pool reset + sim full integration | [`sprint6/j-03-jackpot-trigger-draw-payout.md`](sprint6/j-03-jackpot-trigger-draw-payout.md) | **ready to dispatch** — skill hints: test-driven-development, incremental-implementation, source-driven-development |
-| (roadmap) j-04 JP ceremony overlay (full-screen 天獎/地獎/人獎) + SOS2 BigWin atlas FX | — | depends on j-03 |
+| [#128](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/128) j-03 5-of-a-kind detect + tier draw (3/12/85) + Wild substitute + split 50/50 payout + pool reset + sim full integration | [`sprint6/j-03-jackpot-trigger-draw-payout.md`](sprint6/j-03-jackpot-trigger-draw-payout.md) | ✅ merged (sim: trigger 0.00024/match, RTP 109.00%) |
+| (pending) j-04 JP ceremony FX (full-screen, SOS2 BigWin atlas, 3-tier visual differentiation Minor/Major/Grand) — new `src/fx/JackpotCeremony.ts` | [`sprint6/j-04-jackpot-ceremony-fx.md`](sprint6/j-04-jackpot-ceremony-fx.md) | **ready to dispatch** — skill hints: frontend-ui-engineering, incremental-implementation, source-driven-development |
 | (roadmap) j-05 JP marquee live counter (replace hardcoded 50k/500k/5M with pool reads) | — | depends on j-02 (parallel with j-04) |
 
 ### Chore
