@@ -96,6 +96,10 @@ export class BattleScreen implements Screen {
   private walletTextA!: Text;
   private walletTextB!: Text;
   private logText!: Text;
+  /** JP marquee live counter texts (j-05) — dynamic from this.jackpotPools */
+  private jpMinorText!: Text;
+  private jpMajorText!: Text;
+  private jpGrandText!: Text;
   private fxLayer = new Container();    // damage numbers live here
   private reel!: SlotReel;
   private formationA: FormationGrid = [];
@@ -172,6 +176,7 @@ export class BattleScreen implements Screen {
       console.log('[JackpotPool] smoke check passed');
     }
     this.drawJackpotMarquee();
+    this.refreshJackpotMarquee();   // j-05: show loaded pool values immediately
     this.drawFormation('A');
     this.drawFormation('B');
     this.drawSlot();
@@ -330,18 +335,46 @@ export class BattleScreen implements Screen {
     this.container.addChild(marquee);
 
     const numY = JP_AREA_Y + JP_AREA_H / 2 + 14;
-    const tiers: [number, string][] = [
-      [CANVAS_WIDTH * 0.22, '50,000'],
-      [CANVAS_WIDTH * 0.50, '500,000'],
-      [CANVAS_WIDTH * 0.78, '5,000,000'],
-    ];
-    for (const [x, val] of tiers) {
-      const t = goldText(val, { fontSize: 22, withShadow: true });
-      t.anchor.set(0.5, 0.5);
-      t.x = x;
-      t.y = numY;
-      this.container.addChild(t);
-    }
+
+    this.jpMinorText = goldText('50,000', { fontSize: 22, withShadow: true });
+    this.jpMinorText.anchor.set(0.5, 0.5);
+    this.jpMinorText.x = CANVAS_WIDTH * 0.22;
+    this.jpMinorText.y = numY;
+    this.container.addChild(this.jpMinorText);
+
+    this.jpMajorText = goldText('500,000', { fontSize: 22, withShadow: true });
+    this.jpMajorText.anchor.set(0.5, 0.5);
+    this.jpMajorText.x = CANVAS_WIDTH * 0.50;
+    this.jpMajorText.y = numY;
+    this.container.addChild(this.jpMajorText);
+
+    this.jpGrandText = goldText('5,000,000', { fontSize: 22, withShadow: true });
+    this.jpGrandText.anchor.set(0.5, 0.5);
+    this.jpGrandText.x = CANVAS_WIDTH * 0.78;
+    this.jpGrandText.y = numY;
+    this.container.addChild(this.jpGrandText);
+  }
+
+  /**
+   * j-05: Refresh the three JP marquee texts from current jackpotPools state.
+   * Called per-spin (after accrual), on mount (after loadPools), and after JP payout reset.
+   * Text.text setter triggers internal glyph rebuild — calling once/spin is negligible.
+   */
+  private refreshJackpotMarquee(): void {
+    this.jpMinorText.text = Math.floor(this.jackpotPools.minor).toLocaleString('en-US');
+    this.jpMajorText.text = Math.floor(this.jackpotPools.major).toLocaleString('en-US');
+    this.jpGrandText.text = Math.floor(this.jackpotPools.grand).toLocaleString('en-US');
+  }
+
+  /**
+   * j-05: Brief scale pulse on a JP marquee text — 'grow' when pool accrues,
+   * 'shrink' when pool resets after jackpot payout.
+   */
+  private pulseJackpotText(text: Text, mode: 'grow' | 'shrink'): void {
+    const target = mode === 'grow' ? 1.05 : 0.85;
+    const half   = mode === 'grow' ? 60   : 100;
+    void tween(half, t => { text.scale.set(1 + (target - 1) * t); }, Easings.easeOut)
+      .then(() => tween(half, t => { text.scale.set(target - (target - 1) * t); }, Easings.easeIn));
   }
 
   // ─── Free-standing formation ──────────────────────────────────────────────
@@ -844,6 +877,9 @@ export class BattleScreen implements Screen {
       if (totalBetThisSpin > 0) {
         this.jackpotPools = accrueOnBet(this.jackpotPools, totalBetThisSpin);
         savePools(this.jackpotPools);
+        this.refreshJackpotMarquee();   // j-05: pool grew, update display
+        // Subtle grow pulse on minor text (fastest accruing tier — most visible growth)
+        this.pulseJackpotText(this.jpMinorText, 'grow');
       }
 
       // ── Underdog boost: 1.3× damage when own HP ratio < 0.30 ──────────────
@@ -1236,6 +1272,10 @@ export class BattleScreen implements Screen {
     this.walletB += halfAward;
     this.jackpotPools = resetPool(this.jackpotPools, tier);
     savePools(this.jackpotPools);
+    this.refreshJackpotMarquee();   // j-05: marquee shows reset value before ceremony
+    // Shrink pulse on the reset tier's text — visual cue that pool was "drained"
+    const tierText = { minor: this.jpMinorText, major: this.jpMajorText, grand: this.jpGrandText }[tier];
+    this.pulseJackpotText(tierText, 'shrink');
 
     if (import.meta.env.DEV) {
       console.log(`[Jackpot] TRIGGERED tier=${tier} award=${award} (each side +${halfAward})`);
