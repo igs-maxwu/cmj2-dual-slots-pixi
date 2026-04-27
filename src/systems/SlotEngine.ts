@@ -124,6 +124,8 @@ export class SlotEngine {
       if (SYMBOLS[symId].isCurse) continue;
       // Scatter does not score ways; 3+ triggers Free Spin (handled in f-02)
       if (SYMBOLS[symId].isScatter) continue;
+      // Jackpot does not score ways; 5-of-a-kind (Wild assists) triggers JP draw (j-03)
+      if (SYMBOLS[symId].isJackpot) continue;
 
       let matchCount = 0;
       let numWays    = 1;

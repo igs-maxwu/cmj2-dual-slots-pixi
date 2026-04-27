@@ -38,6 +38,8 @@ export const GEM_FOR_SYMBOL: Record<number, GemAsset> = {
   9: { assetKey: 'gem-pentagon', tint: 0x8b3aaa         },
   // Scatter: reuses gem-pentagon with hot-pink tint — does not score, 3+ triggers Free Spin (f-01)
   10: { assetKey: 'gem-pentagon', tint: 0xff3b6b        },
+  // Jackpot: gem-pentagon with pure gold tint — MVP; 5-of-a-kind triggers JP draw (j-03)
+  11: { assetKey: 'gem-pentagon', tint: 0xffd700        },
 };
 
 export function gemForSymbol(sym: SymbolDef): GemAsset {

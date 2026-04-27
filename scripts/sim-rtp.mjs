@@ -145,6 +145,10 @@ function simRun(rng) {
   let streakBoostedCoin = 0;   // extra coin due to streak > 1 (post-Resonance base)
   // Resonance counters (M5)
   let resonanceBoostedCoin = 0; // extra coin earned via Resonance ×1.5
+  // Jackpot counters (M12 — j-01 cell count; 5-of-a-kind trigger rate preview for j-03)
+  const JACKPOT_ID = SYMBOLS.findIndex(s => s.isJackpot);
+  let totalJackpotCells = 0;
+  let jackpotFiveOfAKindCount = 0;   // spins where all 5 reels contain ≥1 JP cell
   // Scatter + Free Spin counters (M10 — f-01 cell count, f-03 trigger simulation)
   const SCATTER_ID = SYMBOLS.findIndex(s => s.isScatter);
   let totalScatterCells = 0;
@@ -441,6 +445,22 @@ function simRun(rng) {
       }
     }
 
+    // ── Jackpot cell counting (M12 — j-01 stats; trigger logic in j-03) ─────
+    if (JACKPOT_ID >= 0) {
+      let jackpotThisSpin = 0;
+      const reelsWithJackpot = new Set();
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 5; c++) {
+          if (spin.grid[r][c] === JACKPOT_ID) {
+            jackpotThisSpin++;
+            reelsWithJackpot.add(c);
+          }
+        }
+      }
+      totalJackpotCells += jackpotThisSpin;
+      if (reelsWithJackpot.size === 5) jackpotFiveOfAKindCount++;
+    }
+
     // ── Match termination check ───────────────────────────────────────────
     const aAlive = isTeamAlive(formationA);
     const bAlive = isTeamAlive(formationB);
@@ -496,6 +516,7 @@ function simRun(rng) {
     wildBoostedWayHits, totalWayHits,
     totalStreakSumA, totalStreakSumB, maxStreakObserved, streakBoostedCoin,
     resonanceBoostedCoin,
+    totalJackpotCells, jackpotFiveOfAKindCount,
     totalScatterCells, scatterTriggerCount,
     freeSpinTriggerCount, freeSpinRetriggerCount, freeSpinCoinTotal, freeSpinCoinX2Bonus,
     totalCurseCellsA, totalCurseCellsB,
@@ -615,6 +636,13 @@ const output = {
     spins_with_3plus:       agg.scatterTriggerCount,
     trigger_rate:           +(agg.scatterTriggerCount / (ROUNDS * RUNS)).toFixed(4),
     per_match_estimate:     +(agg.scatterTriggerCount / (agg.totalMatches || 1)).toFixed(4),
+  },
+  jackpot: {
+    total_cells:          agg.totalJackpotCells,
+    avg_per_spin:         +(agg.totalJackpotCells / (ROUNDS * RUNS)).toFixed(4),
+    five_of_a_kind_count: agg.jackpotFiveOfAKindCount,
+    five_of_a_kind_rate:  +(agg.jackpotFiveOfAKindCount / (ROUNDS * RUNS)).toFixed(6),
+    per_match_estimate:   +(agg.jackpotFiveOfAKindCount / (agg.totalMatches || 1)).toFixed(6),
   },
   free_spin: {
     triggers:                     agg.freeSpinTriggerCount,
