@@ -149,6 +149,22 @@ Roadmap doc: [`sprint9/ROADMAP.md`](sprint9/ROADMAP.md)
 | (`docs/pitch/sprint9-closure.md` commit `30b6849`) Sprint 9 closure — 3 owner feedback items addressed (visual / pacing / result screen), session totals 20 PRs across Sprints 6-9 | — | ✅ delivered (orchestrator inline) — **Sprint 9 COMPLETE 6/6** |
 | [#141](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/141) chore: LoadingScreen stray-line bug fix (subtitle 'DUAL SLOTS BATTLE' was local var, never hidden when logo loads — Fix 1 confirmed statically) | [`chore/loadingscreen-stray-line-fix.md`](chore/loadingscreen-stray-line-fix.md) | ✅ merged |
 
+### Sprint 10 · BattleScreen Visual Polish (the-stylist audit response)
+
+Audit report: [`docs/pitch/sprint10-visual-audit.md`](../docs/pitch/sprint10-visual-audit.md) (orchestrator inline via the-stylist subagent)
+Roadmap doc: [`sprint10/ROADMAP.md`](sprint10/ROADMAP.md)
+
+**形態**：Owner Sprint 9 試玩後對視覺不滿意 → orchestrator dispatch the-stylist → 完整 audit (3 P0 bugs + 5 P1 polish gaps + 5 P2 minor) + Sprint 10 PR plan + Claude Design mockup prompts。
+
+| PR | Prompt file | Status |
+|---|---|---|
+| (pending) p10-bug-01 — 3 P0 bugs (title 切斷 / 角落白塊 / HP bar 浸 JP) + sortableChildren 啟用 (4 atomic commits) | [`sprint10/p10-bug-01-arena-bleed-asset-fix.md`](sprint10/p10-bug-01-arena-bleed-asset-fix.md) | **ready to dispatch** — skill hints: debugging-and-error-recovery, frontend-ui-engineering, incremental-implementation |
+| (roadmap) p10-v03 — Gold budget 8→3 + ROUND pill 拆字 + log contrast + button copy (parallel to mockup review) | — | depends on nothing |
+| (roadmap) p10-v01 — Layout hierarchy reset (arena panel + reel warm bed + perspective floor 限定) | — | **mockup-gated** by Claude Design variant approval |
+| (roadmap) p10-v02 — Reel cell polish (gem 0.80→0.90 + inner ring + tier pip) | — | depends on p10-v01 |
+| (roadmap) p10-v04 — 8 spirit gem custom PNG art (replace programmatic tint) | — | depends on art delivery |
+| (roadmap) sprint10 closure | — | depends on all above |
+
 ### Chore
 
 | PR | Prompt file |
