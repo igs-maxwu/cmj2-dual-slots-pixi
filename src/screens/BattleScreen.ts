@@ -430,19 +430,9 @@ export class BattleScreen implements Screen {
   }
 
   private drawHeader(): void {
-    // v-01: title downsized (24→was 32) and placed below top bar
-    const title = new Text({
-      text: '雀靈戰記 · BATTLE',
-      style: {
-        fontFamily: T.FONT.title, fontWeight: '700', fontSize: 24,
-        fill: T.GOLD.base, stroke: { color: T.GOLD.shadow, width: 2 }, letterSpacing: 2,
-      },
-    });
-    title.anchor.set(0.5, 0);
-    title.x = CANVAS_WIDTH / 2;
-    title.y = TOP_BAR_H + 4;   // directly below top bar
-    this.container.addChild(title);
-    // roundText is now created in drawTopBar() inside the ROUND pill
+    // p10-bug-01: title removed — collided with VS badge (title y=49, badge bbox y=51-147)
+    // VS badge is the primary 1v1 identity signal; ROUND counter lives in drawTopBar pill.
+    // Method kept for onMount caller compatibility.
   }
 
   // ── v-01: Top UI bar ────────────────────────────────────────────────────────
