@@ -77,7 +77,7 @@ const ARENA_B_CENTER_X      = CANVAS_WIDTH - 176;           // B-side mirror
 // Per-unit HP bar (inside each spirit container)
 const UNIT_HP_BAR_W     = 64;
 const UNIT_HP_BAR_H     = 6;
-const UNIT_HP_BAR_Y_OFF = -SPIRIT_H - 22;   // above the spirit head
+const UNIT_HP_BAR_Y_OFF = -(SPIRIT_H / 2 + 8);   // p10-bug-01: back-row 426-73=353, below JP panel bottom 338
 
 // ─── Components for formation display ────────────────────────────────────────
 interface FormationCellRefs {
@@ -234,6 +234,7 @@ export class BattleScreen implements Screen {
     this.particles = new AmbientParticles(app);
     stage.addChild(this.particles);
     stage.addChild(this.container);
+    this.container.sortableChildren = true;   // p10-bug-01: enable zIndex respect (Pixi 8 requires explicit opt-in)
     this.formationA = createFormation(this.cfg.selectedA, this.cfg.unitHpA);
     this.formationB = createFormation(this.cfg.selectedB, this.cfg.unitHpB);
     this.resonanceA = detectResonance(this.cfg.selectedA);
@@ -430,19 +431,9 @@ export class BattleScreen implements Screen {
   }
 
   private drawHeader(): void {
-    // v-01: title downsized (24→was 32) and placed below top bar
-    const title = new Text({
-      text: '雀靈戰記 · BATTLE',
-      style: {
-        fontFamily: T.FONT.title, fontWeight: '700', fontSize: 24,
-        fill: T.GOLD.base, stroke: { color: T.GOLD.shadow, width: 2 }, letterSpacing: 2,
-      },
-    });
-    title.anchor.set(0.5, 0);
-    title.x = CANVAS_WIDTH / 2;
-    title.y = TOP_BAR_H + 4;   // directly below top bar
-    this.container.addChild(title);
-    // roundText is now created in drawTopBar() inside the ROUND pill
+    // p10-bug-01: title removed — collided with VS badge (title y=49, badge bbox y=51-147)
+    // VS badge is the primary 1v1 identity signal; ROUND counter lives in drawTopBar pill.
+    // Method kept for onMount caller compatibility.
   }
 
   // ── v-01: Top UI bar ────────────────────────────────────────────────────────
@@ -726,6 +717,7 @@ export class BattleScreen implements Screen {
         .stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.6 });
       hpTrack.visible = unit !== null;
       const hpFill = new Graphics();
+      hpFill.visible = unit !== null;   // p10-bug-01: hide fill for empty slots (no bleed into JP)
       container.addChild(hpTrack);
       container.addChild(hpFill);
 
