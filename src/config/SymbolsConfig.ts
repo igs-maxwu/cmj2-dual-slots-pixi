@@ -3,7 +3,7 @@ export type Clan = 'azure' | 'vermilion' | 'white' | 'black';
 export interface SymbolDef {
   id:          number;
   name:        string;                     // legacy color name, kept for algo
-  shape:       'triangle'|'hexagon'|'square'|'cross'|'circle'|'heart'|'diamond'|'star'|'wild'|'curse'|'scatter';
+  shape:       'triangle'|'hexagon'|'square'|'cross'|'circle'|'heart'|'diamond'|'star'|'wild'|'curse'|'scatter'|'jackpot';
   color:       number;                     // 0xRRGGBB atmosphere color
   weight:      number;
   spiritKey:   string;                     // asset filename (no extension)
@@ -12,6 +12,7 @@ export interface SymbolDef {
   isWild?:     boolean;    // Wild substitutes for any spirit; does not score its own ways
   isCurse?:    boolean;    // Curse — does not score, does not substitute, blocks matches
   isScatter?:  boolean;    // Scatter — does not score ways; 3+ same spin triggers Free Spin (f-02)
+  isJackpot?:  boolean;    // JP — never scores way; 5-of-a-kind (Wild assists) triggers JP draw (j-03)
 }
 
 export const SYMBOLS: SymbolDef[] = [
@@ -37,6 +38,8 @@ export const SYMBOLS: SymbolDef[] = [
     spiritKey:'curse',         spiritName:'咒符',     clan:'black',    isCurse:true },
   { id:10, name:'Scatter', shape:'scatter', color:0xff3b6b, weight:4,    // 2→4 (f-02 preflight: sim showed 0.043/match vs SPEC target 0.15-0.30)
     spiritKey:'scatter',       spiritName:'靈脈晶',   clan:'azure',    isScatter:true },
+  { id:11, name:'Jackpot', shape:'jackpot', color:0xffd700, weight:1,   // SPEC §15.8 M12: weight=1 → JP < 0.01/match; 5-of-a-kind triggers JP draw (j-03)
+    spiritKey:'jackpot',       spiritName:'天地人獎', clan:'azure',    isJackpot:true },
 ];
 
 export const PAYOUT_BASE: Record<number,number> = { 3:5, 4:20, 5:100 };
