@@ -131,7 +131,22 @@ Roadmap doc: [`sprint8/ROADMAP.md`](sprint8/ROADMAP.md)
 | (`docs/pitch/sprint8-pitch-deck.pptx` commit `c2cbc06`) p-03 Generate `.pptx` from p-01 outline (12 slides 310KB, 4-Beast palette, pptxgenjs path) | — | ✅ delivered (orchestrator inline via anthropic-skills:pptx) |
 | (`docs/pitch/sprint8-hype-video-script.md` commit `09c9a6c`) p-04 60s hype video script (4 acts, 18 shots, full Mandarin VO + BGM curve, leverages `?demo=1` for capture) | — | ✅ delivered (orchestrator inline) |
 | (`docs/pitch/sprint8-one-pager.md` commit `6e0f19e`) p-05 A4 marketing one-pager (5-band layout + Claude Design / Midjourney prompt + Figma/Canva alternatives) | — | ✅ delivered (orchestrator inline) |
-| (`docs/pitch/sprint8-closure.md` commit pending) p-06 Sprint 8 closure — 三件套 brand consistency final check + owner action list + Sprint 9 candidate paths | — | ✅ delivered (orchestrator inline) — **Sprint 8 COMPLETE 6/6** |
+| (`docs/pitch/sprint8-closure.md` commit `7ab0424`) p-06 Sprint 8 closure — 三件套 brand consistency final check + owner action list + Sprint 9 candidate paths | — | ✅ delivered (orchestrator inline) — **Sprint 8 COMPLETE 6/6** |
+
+### Sprint 9 · Pitch Feedback Response (視覺升級 + 戰鬥節奏 + 結算畫面)
+
+Roadmap doc: [`sprint9/ROADMAP.md`](sprint9/ROADMAP.md)
+
+**形態**：Owner 試玩 + mockup review 後 3 條具體 feedback。Mockup 參考 `download_picture/high_quality_mockup.html` + `mockup_reference.jpg`。
+
+| PR | Prompt file | Status |
+|---|---|---|
+| (pending) pace-01 Sequenced reveal — 轉輪→對獎→出招→算傷害 4 段落 with configurable PACE_* delays in BattleScreen.loop() | [`sprint9/pace-01-sequenced-reveal.md`](sprint9/pace-01-sequenced-reveal.md) | **ready to dispatch** — skill hints: incremental-implementation, frontend-ui-engineering, code-simplification |
+| (roadmap) v-01 Top UI bar (menu / coin / store / round counter / player labels per mockup top section) | — | depends on nothing |
+| (roadmap) v-02 JP marquee 2-row reorganize (GRAND solo top + MEGA/MAJOR row) | — | depends on nothing |
+| (roadmap) v-03 Battle background depth (perspective floor + vignette per MG_Background_P style) | — | depends on nothing |
+| (roadmap) res-01 Result screen — win/loss banner + wallet final + dmg stats + MVP spirit + return-to-draft button | — | depends on pace-01 |
+| (roadmap) sprint9 closure | — | depends on all above |
 
 ### Chore
 
