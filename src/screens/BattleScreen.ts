@@ -328,13 +328,92 @@ export class BattleScreen implements Screen {
   }
 
   // ─── Build UI ────────────────────────────────────────────────────────────
+  // v-03: dispatches to 4 visual sub-layers
   private drawBackground(): void {
-    // Solid base is provided by AmbientBackground; only draw the grid overlay.
+    this.drawGridOverlay();
+    this.drawPerspectiveFloor();
+    this.drawEdgeVignette();
+    this.drawSpiritShadows();
+  }
+
+  /** Solid base is provided by AmbientBackground; this layer adds the water-ink grid. */
+  private drawGridOverlay(): void {
     const grid = new Graphics();
     for (let x = 0; x < CANVAS_WIDTH; x += 40) grid.moveTo(x, 0).lineTo(x, CANVAS_HEIGHT);
     for (let y = 0; y < CANVAS_HEIGHT; y += 40) grid.moveTo(0, y).lineTo(CANVAS_WIDTH, y);
     grid.stroke({ width: 1, color: T.SEA.deep, alpha: 0.25 });
     this.container.addChild(grid);
+  }
+
+  /** 8 radial lines from a vanishing point above the arena + 3 horizontal depth bands. */
+  private drawPerspectiveFloor(): void {
+    const horizonY  = ARENA_Y_FRONT - 30;
+    const vanishX   = CANVAS_WIDTH / 2;
+    const bottomY   = CANVAS_HEIGHT;
+    const goldColor = T.GOLD.shadow;
+
+    // 8 radial convergence lines
+    const floor = new Graphics();
+    for (let i = 0; i <= 8; i++) {
+      const bottomX = (CANVAS_WIDTH / 8) * i;
+      floor.moveTo(vanishX, horizonY).lineTo(bottomX, bottomY);
+    }
+    floor.stroke({ width: 1, color: goldColor, alpha: 0.15 });
+
+    // 3 horizontal depth bands (wider towards bottom = closer)
+    const hBands = new Graphics();
+    for (let i = 1; i <= 3; i++) {
+      const t        = i / 4;
+      const y        = horizonY + (bottomY - horizonY) * t;
+      const halfW    = (CANVAS_WIDTH / 2) * (0.4 + t * 0.6);
+      hBands.moveTo(vanishX - halfW, y).lineTo(vanishX + halfW, y);
+    }
+    hBands.stroke({ width: 1, color: goldColor, alpha: 0.20 });
+
+    this.container.addChild(floor);
+    this.container.addChild(hBands);
+  }
+
+  /** 4-corner concentric ellipse stack to simulate a radial edge vignette. */
+  private drawEdgeVignette(): void {
+    const cornerSize = 180;
+    const corners: Array<[number, number]> = [
+      [0, 0],
+      [CANVAS_WIDTH, 0],
+      [0, CANVAS_HEIGHT],
+      [CANVAS_WIDTH, CANVAS_HEIGHT],
+    ];
+    for (const [cx, cy] of corners) {
+      const v = new Graphics();
+      for (let i = 0; i < 6; i++) {
+        const r     = cornerSize * (i + 1) / 6;
+        const alpha = 0.06 * (6 - i);   // outer = 0.36, steps down to ~0.06 at centre
+        v.circle(cx, cy, r).fill({ color: 0x0D1421, alpha });
+      }
+      this.container.addChild(v);
+    }
+  }
+
+  /**
+   * Ellipse ground shadows beneath each spirit slot.
+   * Positions derived from slotToArenaPos (slots 0-4, both sides).
+   *   A front (slots 1,2,4): x = 104, 176, 248
+   *   A back  (slots 0,3):   x = 84,  268
+   *   B front (slots 1,2,4): x = 616, 544, 472
+   *   B back  (slots 0,3):   x = 636, 452
+   */
+  private drawSpiritShadows(): void {
+    const A_FRONT_X = [104, 176, 248];
+    const A_BACK_X  = [84,  268];
+    const B_FRONT_X = [616, 544, 472];
+    const B_BACK_X  = [636, 452];
+
+    const shadow = new Graphics();
+    for (const x of A_FRONT_X) shadow.ellipse(x, ARENA_Y_FRONT + 8, 32, 8).fill({ color: 0x000000, alpha: 0.4 });
+    for (const x of A_BACK_X)  shadow.ellipse(x, ARENA_Y_BACK  + 8, 32, 8).fill({ color: 0x000000, alpha: 0.4 });
+    for (const x of B_FRONT_X) shadow.ellipse(x, ARENA_Y_FRONT + 8, 32, 8).fill({ color: 0x000000, alpha: 0.4 });
+    for (const x of B_BACK_X)  shadow.ellipse(x, ARENA_Y_BACK  + 8, 32, 8).fill({ color: 0x000000, alpha: 0.4 });
+    this.container.addChild(shadow);
   }
 
   private drawHeader(): void {
