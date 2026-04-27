@@ -875,6 +875,31 @@ async function _sigPhoenixFlameArrow(ctx: Phase4Ctx): Promise<void> {
   // Bow fades out in background (300ms, fire-and-forget)
   void tween(300, p => { bowG.alpha = 1 - p; }).then(() => { bowG.destroy(); });
 
+  // d-04: fire trail following arrow path + ember burst on impact
+  const trail = _makeFxSprite('sos2-fire-wave', 0xff5722);
+  if (trail) {
+    trail.scale.set(0.35); trail.alpha = 0;
+    stage.addChild(trail);
+    void tween(ctx.duration * 0.7, t => {
+      trail.x = cx + (-60 + t * 120);
+      trail.y = cy - 20 + Math.sin(t * Math.PI) * 10;
+      trail.alpha = Math.min(1, t * 3) * (1 - Math.max(0, t - 0.7) * 3);
+      trail.rotation = t * 0.3;
+    });
+    setTimeout(() => trail.destroy(), ctx.duration);
+  }
+  setTimeout(() => {
+    const ember = _makeFxSprite('sos2-particles', 0xffaa00);
+    if (!ember) return;
+    ember.x = tp0.x; ember.y = tp0.y - 20;
+    ember.scale.set(0.3); ember.alpha = 1;
+    stage.addChild(ember);
+    void tween(380, t => {
+      ember.alpha = 1 - t;
+      ember.scale.set(0.3 + t * 1.0);
+    }, Easings.easeOut).then(() => ember.destroy());
+  }, ctx.duration * 0.7);
+
   const startX = bowX + 38;  // arrow tip origin
   const startY = bowY;
   const ctrlX  = (startX + tp0.x) / 2;
