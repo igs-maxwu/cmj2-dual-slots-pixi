@@ -134,6 +134,48 @@ export class BattleScreen implements Screen {
   private static readonly FREE_SPIN_WIN_MULT = 2;
   private static readonly BIGWIN_THRESHOLD_X  = 25;   // 25× bet → BigWin
   private static readonly MEGAWIN_THRESHOLD_X = 100;  // 100× bet → MegaWin
+  /** p-02: demo mode — ?demo=1 URL param enables scripted 5-spin capture sequence */
+  private demoMode = false;
+  private demoSpinIndex = 0;
+  private static readonly DEMO_SPIN_COUNT = 5;
+  /**
+   * p-02: 5 scripted grids for demo capture, in order:
+   *   spin 0: NearWin  — sym0 covers cols 0,1,2,4 (col 3 missing)
+   *   spin 1: BigWin   — sym4 5-of-a-kind numWays=8 + Wild×2 → ~34x bet
+   *   spin 2: MegaWin  — sym4 5-of-a-kind numWays=48 + Wild×2 → ~202x bet
+   *   spin 3: Jackpot  — sym11 (JP) in all 5 cols → triggers JP draw
+   *   spin 4: FreeSpin — 3× scatter (sym10) spread across cols 0,2,4
+   *
+   * Grid format: 3 rows × 5 cols. Symbol IDs per SymbolsConfig:
+   *   0-7: spirits | 8: Wild | 9: Curse | 10: Scatter | 11: Jackpot
+   * coinScale≈0.017, so rare sym4 (w=8) needs numWays boost + Wild for thresholds.
+   */
+  private static readonly DEMO_GRIDS: number[][][] = [
+    // Spin 0: NearWin — sym0 in cols 0,1,2,4 → coveredCols.size=4, missingCol=3
+    [[0, 0, 0, 5, 0],
+     [3, 1, 7, 6, 0],
+     [0, 4, 0, 2, 0]],
+
+    // Spin 1: BigWin — sym4 5-of-a-kind, numWays=8, Wild in col1 → ~34x bet
+    [[4, 8, 4, 4, 4],
+     [4, 4, 4, 1, 0],
+     [0, 0, 0, 0, 0]],
+
+    // Spin 2: MegaWin — sym4 5-of-a-kind, numWays=48, Wild in col1 → ~202x bet
+    [[4, 8, 4, 4, 4],
+     [4, 4, 4, 4, 4],
+     [4, 0, 0, 0, 0]],
+
+    // Spin 3: Jackpot — sym11 in all 5 cols → 5-of-a-kind JP trigger
+    [[11, 11, 11, 11, 11],
+     [3,   4,  5,  6,  7],
+     [2,   0,  1,  6,  3]],
+
+    // Spin 4: FreeSpin — 3 scatter (sym10) across cols 0,2,4 → free spin entry
+    [[10, 3, 10, 6, 10],
+     [4,  5,  7, 1,  2],
+     [3,  6,  4, 2,  5]],
+  ];
   /** DEV-only key handler for manual Free Spin trigger (removed on unmount) */
   private _devKeyHandler?: (e: KeyboardEvent) => void;
   /** Free Spin UI overlay (f-04) */
@@ -149,6 +191,13 @@ export class BattleScreen implements Screen {
 
   // ─── Screen lifecycle ────────────────────────────────────────────────────
   async onMount(app: Application, stage: Container): Promise<void> {
+    // p-02: demo mode — ?demo=1 enables scripted 5-spin capture sequence
+    const params = new URLSearchParams(window.location.search);
+    this.demoMode = params.get('demo') === '1';
+    if (this.demoMode) {
+      console.log('[Demo] mode active — scripted 5-spin capture sequence');
+    }
+
     this.app = app;
     await AudioManager.init();
     AudioManager.playBgm('battle', true);

@@ -74,6 +74,30 @@ export class SlotEngine {
     };
   }
 
+  /**
+   * p-02: Demo mode path — evaluate a caller-provided grid without RNG.
+   * Identical to spin() but skips spinGrid(); grid is injected directly.
+   * All ceremony triggers (BigWin, JP, FreeSpin, NearWin) work unchanged.
+   */
+  evaluateForcedGrid(
+    grid:        number[][],
+    pool:        PoolEntry[],
+    selectedA:   number[],
+    selectedB:   number[],
+    betA:        number,
+    betB:        number,
+    coinScaleA:  number = 1,
+    dmgScaleA:   number = 1,
+    coinScaleB:  number = 1,
+    dmgScaleB:   number = 1,
+    fairnessExp: number = 2.0,
+  ): SpinResult {
+    const tw = totalWeight(pool);
+    const sideA = this._evalSide(grid, 'A', selectedA, betA, tw, coinScaleA, dmgScaleA, fairnessExp);
+    const sideB = this._evalSide(grid, 'B', selectedB, betB, tw, coinScaleB, dmgScaleB, fairnessExp);
+    return { grid, sideA, sideB };
+  }
+
   spin(
     pool:        PoolEntry[],
     selectedA:   number[],
