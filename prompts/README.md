@@ -158,9 +158,9 @@ Roadmap doc: [`sprint10/ROADMAP.md`](sprint10/ROADMAP.md)
 
 | PR | Prompt file | Status |
 |---|---|---|
-| (pending) p10-bug-01 — 3 P0 bugs (title 切斷 / 角落白塊 / HP bar 浸 JP) + sortableChildren 啟用 (4 atomic commits) | [`sprint10/p10-bug-01-arena-bleed-asset-fix.md`](sprint10/p10-bug-01-arena-bleed-asset-fix.md) | **ready to dispatch** — skill hints: debugging-and-error-recovery, frontend-ui-engineering, incremental-implementation |
-| (roadmap) p10-v03 — Gold budget 8→3 + ROUND pill 拆字 + log contrast + button copy (parallel to mockup review) | — | depends on nothing |
-| (roadmap) p10-v01 — Layout hierarchy reset (arena panel + reel warm bed + perspective floor 限定) | — | **mockup-gated** by Claude Design variant approval |
+| [#142](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/142) p10-bug-01 — 3 P0 bugs (title 切斷 / 角落白塊 / HP bar 浸 JP) + sortableChildren 啟用 (4 atomic commits) | [`sprint10/p10-bug-01-arena-bleed-asset-fix.md`](sprint10/p10-bug-01-arena-bleed-asset-fix.md) | ✅ merged |
+| (pending) p10-v01 — Layout hierarchy reset (Variant B + Path 1 — battle hero arena 510px + JP thin strip 64px + compact header + perspective SVG-style + active spirit ring + 1 shared 5×3 reel preserved) | [`sprint10/p10-v01-layout-variant-b.md`](sprint10/p10-v01-layout-variant-b.md) | **ready to dispatch** — owner approved Variant B mockup + Path 1 (keep SPEC) — skill hints: frontend-ui-engineering, code-simplification, source-driven-development |
+| (roadmap) p10-v03 — Gold budget 8→3 + ROUND pill 拆字 + log contrast + button copy | — | now sub-summed into p10-v01 partially; remaining to be re-scoped |
 | (roadmap) p10-v02 — Reel cell polish (gem 0.80→0.90 + inner ring + tier pip) | — | depends on p10-v01 |
 | (roadmap) p10-v04 — 8 spirit gem custom PNG art (replace programmatic tint) | — | depends on art delivery |
 | (roadmap) sprint10 closure | — | depends on all above |
