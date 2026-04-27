@@ -105,6 +105,23 @@ export class SlotReel extends Container {
         corner.scale.y = Math.sign(sy) * Math.abs(corner.scale.y);
         this.addChild(corner);
       }
+    } else {
+      // p10-bug-01: programmatic L-bracket fallback — no white-box artifact on missing asset
+      const positions: Array<[number, number, number, number]> = [
+        [-8,          -8,          1,  1],   // top-left
+        [REEL_W + 8,  -8,         -1,  1],   // top-right
+        [-8,          REEL_H + 8,  1, -1],   // bottom-left
+        [REEL_W + 8,  REEL_H + 8, -1, -1],  // bottom-right
+      ];
+      for (const [x, y, sx, sy] of positions) {
+        const bracket = new Graphics()
+          .moveTo(0, 24).lineTo(0, 0).lineTo(24, 0)
+          .stroke({ width: 3, color: T.GOLD.shadow, alpha: 0.7 });
+        bracket.x = x;
+        bracket.y = y;
+        bracket.scale.set(sx, sy);
+        this.addChild(bracket);
+      }
     }
   }
 
