@@ -113,9 +113,9 @@ Roadmap doc: [`sprint7/ROADMAP.md`](sprint7/ROADMAP.md)
 
 | PR | Prompt file | Status |
 |---|---|---|
-| (pending) d-04 4 男性靈 signature FX upgrade — Dragon fire-wave / Tiger radial flash / Tortoise smoke plume / Phoenix fire trail (SOS2 atlas + webp additive layers, 4 commits per spirit) | [`sprint7/d-04-signature-fx-upgrade.md`](sprint7/d-04-signature-fx-upgrade.md) | **ready to dispatch** — skill hints: frontend-ui-engineering, incremental-implementation, source-driven-development |
+| [#131](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/131) d-04 4 男性靈 signature FX upgrade — Dragon fire-wave / Tiger radial flash / Tortoise smoke plume / Phoenix fire trail (SOS2 atlas + webp additive layers, 4 commits per spirit, found 3 missing webp preloads via P6 drift check) | [`sprint7/d-04-signature-fx-upgrade.md`](sprint7/d-04-signature-fx-upgrade.md) | ✅ merged |
+| (pending) d-06 Way highlight win-frame (replace Pixi Graphics 框 with sos2-win-frame.webp + GlowFilter outerStrength pulse) | [`sprint7/d-06-way-highlight-win-frame.md`](sprint7/d-06-way-highlight-win-frame.md) | **ready to dispatch** — skill hints: frontend-ui-engineering, code-simplification, source-driven-development |
 | (roadmap) d-05 Near-win gold-dust teaser (差 1 cell 湊 4-of-a-kind 時亮金粉 hint) | — | depends on nothing |
-| (roadmap) d-06 Way highlight win-frame (replace Pixi Graphics 框 with sos2-win-frame.webp + GlowFilter pulse) | — | depends on nothing |
 | (roadmap) d-07 BigWin / MegaWin ceremony for non-JP big payouts (reuse sos2-bigwin atlas) | — | depends on nothing |
 
 ### Chore
