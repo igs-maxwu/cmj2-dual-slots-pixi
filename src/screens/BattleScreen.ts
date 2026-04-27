@@ -886,16 +886,34 @@ export class BattleScreen implements Screen {
   }
 
   private drawLog(): void {
-    // Decorative divider above log
+    // p10-v01: battle log panel (dark bg, gold border) — Variant B styled panel
+    const LOG_PAD_X = 28;
+    const LOG_H     = 140;
+    const logPanel = new Graphics()
+      .roundRect(LOG_PAD_X, LOG_Y, CANVAS_WIDTH - LOG_PAD_X * 2, LOG_H, 6)
+      .fill({ color: T.SEA.deep, alpha: 0.55 })
+      .stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.3 });
+    this.container.addChild(logPanel);
+
+    // "BATTLE LOG" label
+    const logLabel = new Text({
+      text: 'BATTLE LOG',
+      style: { fontFamily: T.FONT.body, fontSize: 9, fill: T.FG.muted, letterSpacing: 4 },
+    });
+    logLabel.x = LOG_PAD_X + 12;
+    logLabel.y = LOG_Y + 8;
+    this.container.addChild(logLabel);
+
+    // Decorative divider sprite (optional — if asset loaded)
     const divTex = Assets.get<Texture>('divider');
     if (divTex) {
       const div = new Sprite(divTex);
       div.anchor.set(0.5, 0.5);
-      const w = CANVAS_WIDTH * 0.5;
+      const w = (CANVAS_WIDTH - LOG_PAD_X * 2 - 24) * 0.9;
       div.scale.set(w / divTex.width);
       div.x = CANVAS_WIDTH / 2;
-      div.y = LOG_Y - 10;
-      div.alpha = 0.75;
+      div.y = LOG_Y + 24;
+      div.alpha = 0.5;
       this.container.addChild(div);
     }
 
@@ -906,8 +924,8 @@ export class BattleScreen implements Screen {
         fill: T.FG.muted, lineHeight: 16,
       },
     });
-    this.logText.x = 16;
-    this.logText.y = LOG_Y + 10;
+    this.logText.x = LOG_PAD_X + 12;
+    this.logText.y = LOG_Y + 28;
     this.container.addChild(this.logText);
   }
 
@@ -917,7 +935,7 @@ export class BattleScreen implements Screen {
   private drawCurseHud(): void {
     // A side — bottom-left of wallet area
     this.curseHudA = new Container();
-    this.curseHudA.x = 16;  this.curseHudA.y = 130;
+    this.curseHudA.x = 16;  this.curseHudA.y = JP_STRIP_Y + JP_STRIP_H + 8;   // p10-v01: below JP strip
     const iconA = new Graphics()
       .circle(0, 0, 9).fill({ color: 0x8b3aaa, alpha: 0.85 })
       .stroke({ width: 1.5, color: 0xffaaff, alpha: 0.9 });
@@ -934,7 +952,7 @@ export class BattleScreen implements Screen {
 
     // B side mirror — bottom-right of wallet area
     this.curseHudB = new Container();
-    this.curseHudB.x = CANVAS_WIDTH - 16;  this.curseHudB.y = 130;
+    this.curseHudB.x = CANVAS_WIDTH - 16;  this.curseHudB.y = JP_STRIP_Y + JP_STRIP_H + 8;   // p10-v01: below JP strip
     const iconB = new Graphics()
       .circle(0, 0, 9).fill({ color: 0x8b3aaa, alpha: 0.85 })
       .stroke({ width: 1.5, color: 0xffaaff, alpha: 0.9 });
@@ -975,7 +993,7 @@ export class BattleScreen implements Screen {
     // Banner Container (centred at top, initially hidden)
     this.freeSpinBanner = new Container();
     this.freeSpinBanner.x = CANVAS_WIDTH / 2;
-    this.freeSpinBanner.y = 80;
+    this.freeSpinBanner.y = JP_STRIP_Y + JP_STRIP_H + 16;   // p10-v01: below JP strip
     this.freeSpinBanner.visible = false;
     this.freeSpinBanner.alpha = 0;
 
