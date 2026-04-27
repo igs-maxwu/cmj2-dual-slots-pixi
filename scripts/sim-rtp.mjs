@@ -157,6 +157,8 @@ function simRun(rng) {
   const jpTierCounts  = { grand: 0, major: 0, minor: 0 };
   const jpTierPayouts = { grand: 0, major: 0, minor: 0 };
   let jpTotalPayout = 0;
+  // d-05: near-win counter
+  let nearWinCount = 0;
   // Scatter + Free Spin counters (M10 — f-01 cell count, f-03 trigger simulation)
   const SCATTER_ID = SYMBOLS.findIndex(s => s.isScatter);
   let totalScatterCells = 0;
@@ -500,6 +502,25 @@ function simRun(rng) {
         // Reset that pool to seed
         jpPools[tier] = JACKPOT_SEEDS[tier];
       }
+
+      // d-05: near-win detection — symbol covering exactly 4 of 5 reels
+      const nonSpecialIds = SYMBOLS
+        .map((s, i) => (s.isWild || s.isCurse || s.isScatter || s.isJackpot) ? -1 : i)
+        .filter(i => i >= 0);
+      let foundNearWin = false;
+      for (const symId of nonSpecialIds) {
+        if (foundNearWin) break;
+        const coveredCols = new Set();
+        for (let r = 0; r < 3; r++) {
+          for (let c = 0; c < 5; c++) {
+            if (spin.grid[r][c] === symId) coveredCols.add(c);
+          }
+        }
+        if (coveredCols.size === 4) {
+          nearWinCount++;
+          foundNearWin = true;
+        }
+      }
     }
 
     // ── Match termination check ───────────────────────────────────────────
@@ -571,6 +592,7 @@ function simRun(rng) {
     drawCount, winsA, winsB,
     underdogFires, underdogSpins,
     chipFloorFires,
+    nearWinCount,
   };
 }
 
@@ -737,6 +759,10 @@ const output = {
     overkill_A_wins:        +(agg.winsA      / agg.totalMatches).toFixed(4),
     overkill_B_wins:        +(agg.winsB      / agg.totalMatches).toFixed(4),
     underdog_buff_fire_rate:+(agg.underdogFires / (agg.underdogSpins * 2 || 1)).toFixed(4),
+  },
+  near_win: {
+    triggers:       agg.nearWinCount,
+    rate_per_spin:  +(agg.nearWinCount / (ROUNDS * RUNS)).toFixed(4),
   },
   perRunVariance: {
     rtp_mean:      +mean(perRunRtp).toFixed(4),
