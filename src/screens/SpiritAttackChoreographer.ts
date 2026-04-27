@@ -633,6 +633,25 @@ async function _sigTigerFistCombo(ctx: Phase4Ctx): Promise<void> {
     ring.destroy();
   };
 
+  // d-04: per-punch radial flash (3 hits) — fire-and-forget, approx hit timing
+  for (let i = 0; i < 3; i++) {
+    const punchT = i * (ctx.duration / 3);
+    setTimeout(() => {
+      const flash = _makeFxSprite('sos2-radial-lights', 0xffaa44);
+      if (!flash) return;
+      flash.x = (i === 1 ? tp1.x : tp0.x) + (Math.random() - 0.5) * 80;
+      flash.y = (i === 1 ? tp1.y : tp0.y) + (Math.random() - 0.5) * 60;
+      flash.scale.set(0.3);
+      flash.alpha = 0.95;
+      stage.addChild(flash);
+      void tween(180, t => {
+        flash.alpha = 0.95 * (1 - t);
+        flash.scale.set(0.3 + t * 0.8);
+        flash.rotation = t * 0.5;
+      }, Easings.easeOut).then(() => flash.destroy());
+    }, punchT);
+  }
+
   // (b) 120–300ms: 1st heavy punch → target 0
   await doPunch(tp0, 180);
   // (c) 300–480ms: 2nd heavy punch → target 1
