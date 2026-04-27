@@ -16,6 +16,7 @@ import { UiButton } from '@/components/UiButton';
 import { addCornerOrnaments } from '@/components/Decorations';
 import { AudioManager } from '@/systems/AudioManager';
 import { goldText } from '@/components/GoldText';
+import { detectResonance, type ResonanceResult } from '@/systems/Resonance';
 
 // ─── Clan-grouped layout ────────────────────────────────────────────────────
 const CLAN_ORDER: ClanId[] = ['azure', 'white', 'vermilion', 'black'];
@@ -103,6 +104,8 @@ export class DraftScreen implements Screen {
   private pulseElapsed = 0;
   private app: Application | null = null;
   private pulseTickFn: ((ticker: { deltaMS: number }) => void) | null = null;
+  private resonanceResult: ResonanceResult = { tier: 'NONE', boostedClans: [], clanCounts: { azure:0, white:0, vermilion:0, black:0 } };
+  private clanHints: Partial<Record<ClanId, Text>> = {};
 
   constructor(private onReady: (cfg: DraftResult) => void) {}
 
@@ -295,8 +298,7 @@ export class DraftScreen implements Screen {
     en.x = dot.x + dot.width + 8; en.y = BANNER_H / 2;
     banner.addChild(en);
 
-    // Right: Sprint 5 Resonance hook placeholder
-    // RESONANCE_HOOK: Sprint 5 will replace this with pip indicator (2-pair x1.5 / 4-kind x2.0)
+    // Right: Sprint 5 Resonance pip indicator (r-03) — updated live via updateResonanceHud()
     const rightHint = new Text({
       text: '◇ RESONANCE',
       style: { fontFamily: T.FONT.num, fontSize: 9, fill: T.FG.muted, letterSpacing: 2 },
@@ -305,6 +307,8 @@ export class DraftScreen implements Screen {
     rightHint.x = CANVAS_WIDTH - 16; rightHint.y = BANNER_H / 2;
     rightHint.alpha = 0.35;
     banner.addChild(rightHint);
+    // Store ref for live Resonance HUD updates (r-03)
+    this.clanHints[clanId] = rightHint;
   }
 
   // ─── Single spirit tile ───────────────────────────────────────────────────
@@ -543,6 +547,24 @@ export class DraftScreen implements Screen {
     return this.selectedA.size === MAX_PICKS && this.selectedB.size === MAX_PICKS;
   }
 
+  // ─── Resonance HUD (r-03) ────────────────────────────────────────────────
+  private updateResonanceHud(): void {
+    this.resonanceResult = detectResonance(Array.from(this.selectedA));
+    for (const clanId of CLAN_ORDER) {
+      const hint = this.clanHints[clanId];
+      if (!hint) continue;
+      if (this.resonanceResult.boostedClans.includes(clanId)) {
+        hint.text       = '✦ ×1.5';
+        hint.style.fill = T.GOLD.glow;
+        hint.alpha      = 1.0;
+      } else {
+        hint.text       = '◇ RESONANCE';
+        hint.style.fill = T.FG.muted;
+        hint.alpha      = 0.35;
+      }
+    }
+  }
+
   // ─── Redraw ───────────────────────────────────────────────────────────────
   private refresh(): void {
     for (let i = 0; i < SYMBOLS.length; i++) this.redrawTile(i);
@@ -554,6 +576,7 @@ export class DraftScreen implements Screen {
     this.statusText.text       = `A ${a}/${MAX_PICKS}    B ${b}/${MAX_PICKS}`;
 
     this.updateClanCountReadout();
+    this.updateResonanceHud();
 
     const canGo = this.canGo();
     this.goButton.setText(canGo ? 'START BATTLE' : 'SELECT 5 EACH');
