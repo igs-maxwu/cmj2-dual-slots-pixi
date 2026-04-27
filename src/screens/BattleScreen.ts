@@ -33,6 +33,7 @@ import {
 import { playJackpotCeremony } from '@/fx/JackpotCeremony';
 import { playNearWinTeaser } from '@/fx/NearWinTeaser';
 import { playBigWinCeremony } from '@/fx/BigWinCeremony';
+import type { MatchResult, MatchOutcome } from '@/screens/ResultScreen';
 
 // ─── Portrait layout 720×1280 ───────────────────────────────────────────────
 const HEADER_Y   = 14;
@@ -207,7 +208,14 @@ export class BattleScreen implements Screen {
   /** SPEC §15.8 M12 Jackpot pools — loaded from localStorage on mount, saved each spin (j-02) */
   private jackpotPools!: JackpotPools;
 
-  constructor(private cfg: DraftResult, private onExit: () => void) {}
+  /** res-01: cumulative damage tracking */
+  private totalDmgDealtAtoB = 0;
+  private totalDmgDealtBtoA = 0;
+  private startWalletA = 0;
+  private startWalletB = 0;
+  private matchStartMs = 0;
+
+  constructor(private cfg: DraftResult, private onMatchEnd: (result?: MatchResult) => void) {}
 
   // ─── Screen lifecycle ────────────────────────────────────────────────────
   async onMount(app: Application, stage: Container): Promise<void> {
@@ -289,6 +297,11 @@ export class BattleScreen implements Screen {
       window.addEventListener('keydown', onKey);
       this._devKeyHandler = onKey;
     }
+    // res-01: capture starting wallet and match start time for ResultScreen
+    this.startWalletA = this.walletA;
+    this.startWalletB = this.walletB;
+    this.matchStartMs = performance.now();
+
     void this.loop();
   }
 
@@ -791,7 +804,7 @@ export class BattleScreen implements Screen {
   }
 
   private drawBackButton(): void {
-    const btn = new UiButton('BACK TO DRAFT', 260, 46, () => this.onExit(),
+    const btn = new UiButton('BACK TO DRAFT', 260, 46, () => this.onMatchEnd(),
       { fontSize: T.FONT_SIZE.md, variant: 'ornate' });
     btn.x = CANVAS_WIDTH / 2;
     btn.y = BACK_BTN_Y;
@@ -1229,6 +1242,10 @@ export class BattleScreen implements Screen {
       lastPreHpB = teamHpTotal(this.formationB);
       lastDmgA = dmgA; lastDmgB = dmgB;
 
+      // res-01: accumulate cumulative damage for ResultScreen stats
+      this.totalDmgDealtAtoB += Math.max(0, dmgA);
+      this.totalDmgDealtBtoA += Math.max(0, dmgB);
+
       // Pace gap — let player read the highlighted ways before attack fires
       await delay(BattleScreen.PACE_AFTER_REVEAL);
 
@@ -1388,28 +1405,42 @@ export class BattleScreen implements Screen {
 
     if (!this.running) return;
 
-    // ── Determine winner (overkill tiebreaker on double-death) ────────────────
+    // ── res-01: Determine outcome + emit MatchResult ──────────────────────────
     const aAlive = isTeamAlive(this.formationA);
     const bAlive = isTeamAlive(this.formationB);
-    let winner: string;
+    let outcome: MatchOutcome;
     if (aAlive && !bAlive) {
-      winner = 'Player A';
+      outcome = 'A_WIN';
     } else if (!aAlive && bAlive) {
-      winner = 'Player B';
+      outcome = 'B_WIN';
     } else if (!aAlive && !bAlive) {
       // Both died same round — higher overkill damage wins
       const overkillA = Math.max(0, lastDmgA - lastPreHpB);
       const overkillB = Math.max(0, lastDmgB - lastPreHpA);
-      if      (overkillA > overkillB) winner = 'Player A (OVERKILL)';
-      else if (overkillB > overkillA) winner = 'Player B (OVERKILL)';
-      else                             winner = 'DRAW';
+      if      (overkillA > overkillB) outcome = 'A_OVERKILL';
+      else if (overkillB > overkillA) outcome = 'B_OVERKILL';
+      else                             outcome = 'DRAW';
     } else {
-      winner = 'DRAW';
+      outcome = 'DRAW';
     }
 
     this.logLines.push('');
-    this.logLines.push(`>>> ${winner} WINS  <<<`);
+    this.logLines.push(`>>> ${outcome} <<<`);
     this.refresh();
+
+    const matchResult: MatchResult = {
+      outcome,
+      walletA_start: this.startWalletA,
+      walletA_end:   this.walletA,
+      walletB_start: this.startWalletB,
+      walletB_end:   this.walletB,
+      dmgDealtAtoB:  this.totalDmgDealtAtoB,
+      dmgDealtBtoA:  this.totalDmgDealtBtoA,
+      roundCount:    this.round,
+      durationMs:    performance.now() - this.matchStartMs,
+    };
+
+    this.onMatchEnd(matchResult);
   }
 
   /**

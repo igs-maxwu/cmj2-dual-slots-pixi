@@ -4,6 +4,7 @@ import { ScreenManager } from '@/screens/ScreenManager';
 import { LoadingScreen } from '@/screens/LoadingScreen';
 import { DraftScreen, type DraftResult } from '@/screens/DraftScreen';
 import { BattleScreen } from '@/screens/BattleScreen';
+import { ResultScreen, type MatchResult } from '@/screens/ResultScreen';
 import { FXPreviewScreen } from '@/screens/FXPreviewScreen';
 import { initTweenTicker } from '@/systems/tween';
 import { installFxDevHook } from '@/systems/FXDevHook';
@@ -39,9 +40,16 @@ async function main(): Promise<void> {
 
   const sm = new ScreenManager(app);
 
+  // res-01: callback chain — BattleScreen emits MatchResult; main.ts routes to ResultScreen
   const goToDraft = (): void => {
     sm.show(new DraftScreen((cfg: DraftResult) => {
-      sm.show(new BattleScreen(cfg, goToDraft));
+      sm.show(new BattleScreen(cfg, (result?: MatchResult) => {
+        if (result) {
+          sm.show(new ResultScreen(result, goToDraft));
+        } else {
+          goToDraft();   // user pressed BACK TO DRAFT mid-match
+        }
+      }));
     }));
   };
 
