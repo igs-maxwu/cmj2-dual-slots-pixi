@@ -30,6 +30,7 @@ import {
   loadPools, savePools, accrueOnBet, resetPool,
   type JackpotPools,
 } from '@/systems/JackpotPool';
+import { playJackpotCeremony } from '@/fx/JackpotCeremony';
 
 // ─── Portrait layout 720×1280 ───────────────────────────────────────────────
 const HEADER_Y   = 14;
@@ -196,6 +197,14 @@ export class BattleScreen implements Screen {
           this.inFreeSpin = true;
           this.freeSpinsRemaining = BattleScreen.FREE_SPIN_COUNT;
           console.log('[FreeSpin] DEV manual trigger — 5 spins, ×2 multiplier');
+        }
+        if (e.key === 'j' || e.key === 'J') {
+          // DEV: draw tier using j-03 weights and play ceremony (j-04)
+          const r = Math.random();
+          const tier: 'grand' | 'major' | 'minor' = r < 0.03 ? 'grand' : r < 0.15 ? 'major' : 'minor';
+          const amount = this.jackpotPools[tier];
+          console.log(`[Jackpot] DEV manual trigger — tier=${tier} amount=${amount}`);
+          void playJackpotCeremony(this.container, tier, amount);
         }
       };
       window.addEventListener('keydown', onKey);
@@ -1232,31 +1241,12 @@ export class BattleScreen implements Screen {
       console.log(`[Jackpot] TRIGGERED tier=${tier} award=${award} (each side +${halfAward})`);
     }
 
-    // Placeholder visual (j-04 will replace with full ceremony)
-    await this.showJackpotPlaceholder(tier, award);
+    // Full ceremony (j-04)
+    await playJackpotCeremony(this.container, tier, award);
 
     // Wallet text refresh
     this.cascadeWallet('A');
     this.cascadeWallet('B');
-  }
-
-  private async showJackpotPlaceholder(tier: 'grand' | 'major' | 'minor', amount: number): Promise<void> {
-    const tierLabel = { grand: '天獎 GRAND', major: '地獎 MAJOR', minor: '人獎 MINOR' }[tier];
-    const text = goldText(`★ JACKPOT ${tierLabel} ★\nNT$${Math.floor(amount).toLocaleString()}`, {
-      fontSize: T.FONT_SIZE.h1,
-      withShadow: true,
-    });
-    text.anchor.set(0.5, 0.5);
-    text.x = CANVAS_WIDTH / 2;
-    text.y = CANVAS_HEIGHT / 2;
-    text.zIndex = 2000;
-    text.alpha = 0;
-    this.container.addChild(text);
-
-    await tween(300, t => { text.alpha = t; }, Easings.easeOut);
-    await delay(1500);
-    await tween(400, t => { text.alpha = 1 - t; }, Easings.easeIn);
-    text.destroy();
   }
 
   private async popDamage(side: 'A' | 'B', slotIndex: number, amount: number): Promise<void> {
