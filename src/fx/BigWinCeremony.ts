@@ -12,6 +12,12 @@ const TIER_CONFIG = {
     coinCount: 4,
     duration:  1200,
   },
+  megawin: {
+    txtKey:    'sos2-bigwin:TXT_01_Mega',
+    flareKey:  'sos2-bigwin:FX/MegaWin_Main_light_01',
+    coinCount: 8,
+    duration:  2000,
+  },
 } as const;
 
 interface CoinState {
@@ -33,7 +39,7 @@ const COIN_FRAME_MS = 80;
  */
 export async function playBigWinCeremony(
   parent: Container,
-  tier: 'bigwin',
+  tier: 'bigwin' | 'megawin',
   amount: number,
 ): Promise<void> {
   const cfg = TIER_CONFIG[tier];
