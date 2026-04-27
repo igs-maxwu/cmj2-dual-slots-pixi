@@ -12,12 +12,29 @@
  *   Phase 4: Fire   — signature dispatch (concurrent with shake)
  *   Phase 5: Return — fly back to formation
  */
-import { Container, Graphics } from 'pixi.js';
+import { Assets, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import { tween, delay, Easings } from '@/systems/tween';
 import { SpiritPortrait } from '@/components/SpiritPortrait';
 import { applyGlow, applyBloom, applyShockwave, removeFilter } from '@/fx/GlowWrapper';
 import { AudioManager } from '@/systems/AudioManager';
+
+// ─── d-04 helper ─────────────────────────────────────────────────────────────
+
+/**
+ * d-04: Build a SOS2 single-webp FX sprite, additive-blended, anchor centered.
+ * Returns null if asset not loaded (caller null-checks + skips the FX layer).
+ * Pixi 8 blendMode uses string enum 'add' (v7 used BLEND_MODES.ADD).
+ */
+function _makeFxSprite(assetKey: string, tint: number = 0xffffff): Sprite | null {
+  const tex = Assets.get<Texture>(assetKey);
+  if (!tex || tex === Texture.EMPTY) return null;
+  const s = new Sprite(tex);
+  s.anchor.set(0.5);
+  s.tint = tint;
+  s.blendMode = 'add';
+  return s;
+}
 
 // ─── Signature types ────────────────────────────────────────────────────────
 
@@ -454,6 +471,27 @@ async function _sigDragonDualSlash(ctx: Phase4Ctx): Promise<void> {
   AudioManager.playSfx('skill-meng');
   const AZURE = 0x4a90e2, AZURE_LITE = 0xa0d8ff;
   const SWORD_W = 6, SWORD_H = 44;
+
+  // d-04: dual azure fire-wave layer (additive, concurrent with entire slash)
+  const fireA = _makeFxSprite('sos2-fire-wave', 0x6ad8ff);
+  const fireB = _makeFxSprite('sos2-fire-wave', 0x6ad8ff);
+  if (fireA && fireB) {
+    fireA.x = cx - 60; fireA.y = cy;
+    fireB.x = cx + 60; fireB.y = cy;
+    fireA.scale.set(0.5); fireB.scale.set(0.5);
+    fireA.alpha = 0;      fireB.alpha = 0;
+    stage.addChild(fireA, fireB);
+    void tween(ctx.duration, t => {
+      const a = Easings.easeOut(t);
+      fireA.alpha = (1 - t) * 0.9;
+      fireB.alpha = (1 - t) * 0.9;
+      fireA.scale.set(0.5 + a * 1.3);
+      fireB.scale.set(0.5 + a * 1.3);
+      fireA.rotation = -t * 0.4;
+      fireB.rotation = +t * 0.4;
+    });
+    setTimeout(() => { fireA.destroy(); fireB.destroy(); }, ctx.duration + 50);
+  }
 
   // (a) 0–120ms: two jade swords appear
   const drawSword = (g: Graphics) => {
