@@ -144,9 +144,9 @@ Roadmap doc: [`sprint9/ROADMAP.md`](sprint9/ROADMAP.md)
 | [#136](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/136) pace-01 Sequenced reveal — 轉輪→對獎→出招→算傷害 4 段落, PACE_* 700/400/300/300ms, +1.7s/round | [`sprint9/pace-01-sequenced-reveal.md`](sprint9/pace-01-sequenced-reveal.md) | ✅ merged |
 | [#137](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/137) v-01 Top UI bar (☰ menu / ROUND pill / 🎁 store + PLAYER A/B labels above wallets, WALLET_Y 52→78) | [`sprint9/v-01-top-ui-bar.md`](sprint9/v-01-top-ui-bar.md) | ✅ merged |
 | [#138](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/138) v-02 JP marquee 2-row reorg (GRAND 天獎 solo top 30pt + MAJOR 地獎/MINOR 人獎 split bottom 20pt + tier labels + j-05 fields preserved) | [`sprint9/v-02-jp-marquee-2row.md`](sprint9/v-02-jp-marquee-2row.md) | ✅ merged |
-| (pending) v-03 Battle background depth (8-line perspective floor + 4-corner vignette + spirit ground shadows, all pure Graphics — no new asset bloat) | [`sprint9/v-03-battle-background-depth.md`](sprint9/v-03-battle-background-depth.md) | **ready to dispatch** — skill hints: frontend-ui-engineering, code-simplification, source-driven-development |
-| (roadmap) res-01 Result screen — win/loss banner + wallet final + dmg stats + MVP spirit + return-to-draft button | — | depends on pace-01 |
-| (roadmap) sprint9 closure | — | depends on all above |
+| [#139](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/139) v-03 Battle background depth (8-line perspective floor + 4-corner vignette + spirit ground shadows, slotToArenaPos dynamic positions) | [`sprint9/v-03-battle-background-depth.md`](sprint9/v-03-battle-background-depth.md) | ✅ merged |
+| (pending) res-01 ResultScreen new file + MatchResult interface + BattleScreen tracking + main.ts callback chain — outcome banner / dual stats / return button | [`sprint9/res-01-result-screen.md`](sprint9/res-01-result-screen.md) | **ready to dispatch** — skill hints: api-and-interface-design, frontend-ui-engineering, incremental-implementation |
+| (roadmap) sprint9 closure | — | depends on res-01 |
 
 ### Chore
 
