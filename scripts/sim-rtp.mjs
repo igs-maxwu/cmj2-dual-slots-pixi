@@ -39,6 +39,7 @@ import { createFormation, isTeamAlive, teamHpTotal, hasAliveOfClan }
 import { distributeDamage }            from '@/systems/DamageDistributor';
 import { calculateScales }             from '@/systems/ScaleCalculator';
 import { detectResonance, resonanceMultForClan } from '@/systems/Resonance';
+import { JACKPOT_SEEDS, JACKPOT_POOL_WEIGHTS, JACKPOT_ACCRUAL_RATE } from '@/systems/JackpotPool';
 
 // ── CLI argument parsing ─────────────────────────────────────────────────────
 const args = process.argv.slice(2);
@@ -145,10 +146,17 @@ function simRun(rng) {
   let streakBoostedCoin = 0;   // extra coin due to streak > 1 (post-Resonance base)
   // Resonance counters (M5)
   let resonanceBoostedCoin = 0; // extra coin earned via Resonance ×1.5
-  // Jackpot counters (M12 — j-01 cell count; 5-of-a-kind trigger rate preview for j-03)
+  // Jackpot counters (M12 — j-03 full integration with Wild assist + tier draw + payout)
   const JACKPOT_ID = SYMBOLS.findIndex(s => s.isJackpot);
+  const WILD_ID    = SYMBOLS.findIndex(s => s.isWild);
   let totalJackpotCells = 0;
-  let jackpotFiveOfAKindCount = 0;   // spins where all 5 reels contain ≥1 JP cell
+  let jackpotFiveOfAKindCount = 0;   // spins where all 5 reels contain ≥1 JP cell (JP-only, legacy)
+  // j-03: per-run JP pool state (mirrors BattleScreen, resets across matches within run)
+  let jpPools = { minor: JACKPOT_SEEDS.minor, major: JACKPOT_SEEDS.major, grand: JACKPOT_SEEDS.grand };
+  let jpTriggers = 0;
+  const jpTierCounts  = { grand: 0, major: 0, minor: 0 };
+  const jpTierPayouts = { grand: 0, major: 0, minor: 0 };
+  let jpTotalPayout = 0;
   // Scatter + Free Spin counters (M10 — f-01 cell count, f-03 trigger simulation)
   const SCATTER_ID = SYMBOLS.findIndex(s => s.isScatter);
   let totalScatterCells = 0;
@@ -445,8 +453,18 @@ function simRun(rng) {
       }
     }
 
-    // ── Jackpot cell counting (M12 — j-01 stats; trigger logic in j-03) ─────
+    // ── Jackpot (M12 — j-03 full: accrual + OR-Wild detection + tier draw + payout + reset) ──
     if (JACKPOT_ID >= 0) {
+      // Accrual: 1% of total bet → split by weights (Free Spin bet=0 → no accrual, natural)
+      const totalBetThisSpin = betThisSpin * 2;  // both sides pay same bet
+      if (totalBetThisSpin > 0) {
+        const fund = totalBetThisSpin * JACKPOT_ACCRUAL_RATE;
+        jpPools.minor += fund * JACKPOT_POOL_WEIGHTS.minor;
+        jpPools.major += fund * JACKPOT_POOL_WEIGHTS.major;
+        jpPools.grand += fund * JACKPOT_POOL_WEIGHTS.grand;
+      }
+
+      // Cell counting (legacy j-01 stats — JP cells only)
       let jackpotThisSpin = 0;
       const reelsWithJackpot = new Set();
       for (let r = 0; r < 3; r++) {
@@ -459,6 +477,29 @@ function simRun(rng) {
       }
       totalJackpotCells += jackpotThisSpin;
       if (reelsWithJackpot.size === 5) jackpotFiveOfAKindCount++;
+
+      // 5-of-a-kind detection: each reel must have ≥1 JP-or-Wild cell (j-03 Wild assist)
+      const reelsCovered = new Set();
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 5; c++) {
+          const id = spin.grid[r][c];
+          if (id === JACKPOT_ID || (WILD_ID >= 0 && id === WILD_ID)) reelsCovered.add(c);
+        }
+      }
+      if (reelsCovered.size === 5) {
+        jpTriggers++;
+        // Tier draw: 3% Grand / 12% Major / 85% Minor (same as BattleScreen)
+        const draw = Math.random();
+        const tier = draw < 0.03 ? 'grand' : draw < 0.15 ? 'major' : 'minor';
+        jpTierCounts[tier]++;
+        const award = jpPools[tier];
+        jpTierPayouts[tier] += award;
+        jpTotalPayout += award;
+        // Both sides win half; combined RTP impact = full award once
+        totalWon += award;
+        // Reset that pool to seed
+        jpPools[tier] = JACKPOT_SEEDS[tier];
+      }
     }
 
     // ── Match termination check ───────────────────────────────────────────
@@ -517,6 +558,11 @@ function simRun(rng) {
     totalStreakSumA, totalStreakSumB, maxStreakObserved, streakBoostedCoin,
     resonanceBoostedCoin,
     totalJackpotCells, jackpotFiveOfAKindCount,
+    jpTriggers,
+    jpTierGrand: jpTierCounts.grand, jpTierMajor: jpTierCounts.major, jpTierMinor: jpTierCounts.minor,
+    jpPayGrand: jpTierPayouts.grand, jpPayMajor: jpTierPayouts.major, jpPayMinor: jpTierPayouts.minor,
+    jpTotalPayout,
+    jpFinalMinor: jpPools.minor, jpFinalMajor: jpPools.major, jpFinalGrand: jpPools.grand,
     totalScatterCells, scatterTriggerCount,
     freeSpinTriggerCount, freeSpinRetriggerCount, freeSpinCoinTotal, freeSpinCoinX2Bonus,
     totalCurseCellsA, totalCurseCellsB,
@@ -643,6 +689,26 @@ const output = {
     five_of_a_kind_count: agg.jackpotFiveOfAKindCount,
     five_of_a_kind_rate:  +(agg.jackpotFiveOfAKindCount / (ROUNDS * RUNS)).toFixed(6),
     per_match_estimate:   +(agg.jackpotFiveOfAKindCount / (agg.totalMatches || 1)).toFixed(6),
+    // j-03 full trigger stats (JP OR Wild, tier draw, payout, pool)
+    triggers:                   agg.jpTriggers,
+    trigger_rate_per_spin:      +(agg.jpTriggers / (ROUNDS * RUNS)).toFixed(6),
+    trigger_rate_per_match:     +(agg.jpTriggers / (agg.totalMatches || 1)).toFixed(6),
+    tier_counts: {
+      grand: agg.jpTierGrand,
+      major: agg.jpTierMajor,
+      minor: agg.jpTierMinor,
+    },
+    tier_payouts: {
+      grand: +agg.jpPayGrand.toFixed(2),
+      major: +agg.jpPayMajor.toFixed(2),
+      minor: +agg.jpPayMinor.toFixed(2),
+    },
+    total_payout:           +agg.jpTotalPayout.toFixed(2),
+    rtp_contribution:       +(agg.jpTotalPayout / (agg.totalBet || 1)).toFixed(6),
+    // Final pool steady-state across all runs (avg per run — sanity check)
+    final_pool_minor_avg:   +(agg.jpFinalMinor / RUNS).toFixed(2),
+    final_pool_major_avg:   +(agg.jpFinalMajor / RUNS).toFixed(2),
+    final_pool_grand_avg:   +(agg.jpFinalGrand / RUNS).toFixed(2),
   },
   free_spin: {
     triggers:                     agg.freeSpinTriggerCount,
