@@ -116,7 +116,22 @@ Roadmap doc: [`sprint7/ROADMAP.md`](sprint7/ROADMAP.md)
 | [#131](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/131) d-04 4 男性靈 signature FX upgrade — Dragon fire-wave / Tiger radial flash / Tortoise smoke plume / Phoenix fire trail (SOS2 atlas + webp additive layers, 4 commits per spirit, found 3 missing webp preloads via P6 drift check) | [`sprint7/d-04-signature-fx-upgrade.md`](sprint7/d-04-signature-fx-upgrade.md) | ✅ merged |
 | [#132](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/132) d-06 Way highlight win-frame (replace Pixi Graphics 框 with sos2-win-frame.webp + GlowFilter outerStrength pulse, per-pulse shared filter for O(1) hot-path updates) | [`sprint7/d-06-way-highlight-win-frame.md`](sprint7/d-06-way-highlight-win-frame.md) | ✅ merged |
 | [#133](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/133) d-05 Near-win gold-dust teaser (4-of-5 reels covered → missing col Sand cycle particles, sim rate 36% accepted as-is per orchestrator decision — slot-juice frequency) | [`sprint7/d-05-near-win-gold-dust-teaser.md`](sprint7/d-05-near-win-gold-dust-teaser.md) | ✅ merged |
-| (pending) d-07 BigWin / MegaWin ceremony for non-JP big payouts — new `src/fx/BigWinCeremony.ts`, reuses sos2-bigwin atlas, 25× / 100× bet thresholds, distinct from JP ceremony (no dim BG, shorter, upper position) — **Sprint 7 closure PR** | [`sprint7/d-07-bigwin-megawin-ceremony.md`](sprint7/d-07-bigwin-megawin-ceremony.md) | **ready to dispatch** — skill hints: frontend-ui-engineering, incremental-implementation, source-driven-development |
+| [#134](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/134) d-07 BigWin / MegaWin ceremony for non-JP big payouts — new `src/fx/BigWinCeremony.ts`, reuses sos2-bigwin atlas, 25× / 100× bet thresholds, distinct from JP ceremony (no dim BG, shorter, upper position) — **Sprint 7 closure PR** | [`sprint7/d-07-bigwin-megawin-ceremony.md`](sprint7/d-07-bigwin-megawin-ceremony.md) | ✅ merged — **Sprint 7 COMPLETE: Demo Polish 4/4** |
+
+### Sprint 8 · P — Pitch Prep Package (IGS RD5 demo deliverables)
+
+Roadmap doc: [`sprint8/ROADMAP.md`](sprint8/ROADMAP.md)
+
+**形態差異**：本 sprint 多 orchestrator-driven（content / deck / video），少 executor code work。
+
+| PR | Prompt file | Status |
+|---|---|---|
+| (pending) p-01 Pitch deck content outline (8-12 slides 中英雙語 narrative + speaker notes + 視覺暗示, foundation for p-03/p-04/p-05) | [`sprint8/p-01-pitch-deck-content-outline.md`](sprint8/p-01-pitch-deck-content-outline.md) | **ready to execute** — skill hints: spec-driven-development, documentation-and-adrs, idea-refine |
+| (roadmap) p-02 Demo mode (`?demo=1` URL param, scripted spin sequence guarantees BigWin/MegaWin/JP/FreeSpin/NearWin capture) | — | only executor PR in Sprint 8 |
+| (roadmap) p-03 Generate `.pptx` from p-01 outline (uses anthropic-skills:pptx) | — | depends on p-01 + p-02 (screenshots) |
+| (roadmap) p-04 60s hype video script + storyboard + shot list | — | depends on p-01 |
+| (roadmap) p-05 Marketing one-pager content + Claude Design mockup prompt | — | depends on p-01 |
+| (roadmap) p-06 Sprint 8 closure — 三件套整合 + final review | — | depends on p-03/p-04/p-05 |
 
 ### Chore
 
