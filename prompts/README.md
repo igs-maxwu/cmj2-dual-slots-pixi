@@ -146,7 +146,8 @@ Roadmap doc: [`sprint9/ROADMAP.md`](sprint9/ROADMAP.md)
 | [#138](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/138) v-02 JP marquee 2-row reorg (GRAND 天獎 solo top 30pt + MAJOR 地獎/MINOR 人獎 split bottom 20pt + tier labels + j-05 fields preserved) | [`sprint9/v-02-jp-marquee-2row.md`](sprint9/v-02-jp-marquee-2row.md) | ✅ merged |
 | [#139](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/139) v-03 Battle background depth (8-line perspective floor + 4-corner vignette + spirit ground shadows, slotToArenaPos dynamic positions) | [`sprint9/v-03-battle-background-depth.md`](sprint9/v-03-battle-background-depth.md) | ✅ merged |
 | [#140](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/140) res-01 ResultScreen new file + MatchResult interface + BattleScreen tracking + main.ts callback chain (3 atomic commits, 5 outcome variants, dual-side stats panel, return-to-Draft button) | [`sprint9/res-01-result-screen.md`](sprint9/res-01-result-screen.md) | ✅ merged |
-| (`docs/pitch/sprint9-closure.md` commit pending) Sprint 9 closure — 3 owner feedback items addressed (visual / pacing / result screen), session totals 20 PRs across Sprints 6-9 | — | ✅ delivered (orchestrator inline) — **Sprint 9 COMPLETE 6/6** |
+| (`docs/pitch/sprint9-closure.md` commit `30b6849`) Sprint 9 closure — 3 owner feedback items addressed (visual / pacing / result screen), session totals 20 PRs across Sprints 6-9 | — | ✅ delivered (orchestrator inline) — **Sprint 9 COMPLETE 6/6** |
+| [#141](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/141) chore: LoadingScreen stray-line bug fix (subtitle 'DUAL SLOTS BATTLE' was local var, never hidden when logo loads — Fix 1 confirmed statically) | [`chore/loadingscreen-stray-line-fix.md`](chore/loadingscreen-stray-line-fix.md) | ✅ merged |
 
 ### Chore
 
