@@ -159,6 +159,7 @@ export class BattleScreen implements Screen {
       }
     };
     this.app.ticker.add(this._breatheTick);
+    void this.playResonanceBanner();  // fire-and-forget — BGM starts immediately, banner floats independently
     void this.loop();
   }
 
@@ -467,6 +468,37 @@ export class BattleScreen implements Screen {
     hud.visible = true;
     text.text   = `×${stack}`;
     hud.alpha   = stack >= 2 ? 1.0 : 0.7;
+  }
+
+  // ─── Resonance banner (r-04) — fire-and-forget at match start ───────────
+  private async playResonanceBanner(): Promise<void> {
+    if (this.resonanceA.tier === 'NONE') return;
+
+    const meta = T.CLAN_META;
+    let bannerText: string;
+    if (this.resonanceA.tier === 'SOLO') {
+      const clan = this.resonanceA.boostedClans[0];
+      bannerText = `♪ ${meta[clan].cn} 共鳴  ×1.5`;
+    } else {
+      // DUAL
+      const c1 = this.resonanceA.boostedClans[0];
+      const c2 = this.resonanceA.boostedClans[1];
+      bannerText = `♪ ${meta[c1].cn} × ${meta[c2].cn}  雙重共鳴  ×1.5`;
+    }
+
+    const banner = goldText(bannerText, { fontSize: T.FONT_SIZE.h2, withShadow: true });
+    banner.anchor.set(0.5, 0.5);
+    banner.x = CANVAS_WIDTH / 2;
+    banner.y = 380;
+    banner.alpha = 0;
+    banner.zIndex = 1000;
+    this.container.addChild(banner);
+
+    await tween(200, t => { banner.alpha = t; }, Easings.easeOut);
+    await delay(1000);
+    await tween(300, t => { banner.alpha = 1 - t; }, Easings.easeIn);
+
+    banner.destroy();
   }
 
   // ─── Frame refresh (non-animated parts) ──────────────────────────────────
