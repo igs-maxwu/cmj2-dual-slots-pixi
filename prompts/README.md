@@ -85,6 +85,18 @@ Roadmap doc: [`sprint3/D-ROADMAP.md`](sprint3/D-ROADMAP.md)
 | [#55](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/55) b-03 青龍 4+ match +20% dmg | [`sprint3/b-03-dragon-4match-bonus.md`](sprint3/b-03-dragon-4match-bonus.md) | ✅ merged |
 | [#57](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/57) b-04 朱雀 coin-on-kill | [`sprint3/b-04-phoenix-coin-on-kill.md`](sprint3/b-04-phoenix-coin-on-kill.md) | ✅ merged |
 
+### Sprint 6 · F — Free Spin (M10)
+
+Roadmap doc: [`sprint6/ROADMAP.md`](sprint6/ROADMAP.md)
+
+| PR | Prompt file | Status |
+|---|---|---|
+| [#121](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/121) f-01 Scatter symbol id:10 (pool-present, non-scoring) | [`sprint6/f-01-scatter-symbol.md`](sprint6/f-01-scatter-symbol.md) | ✅ merged |
+| (pending) f-02 Free Spin mode state (`inFreeSpin` / `freeSpinsRemaining` / win ×2) + scatter weight 2→4 | [`sprint6/f-02-free-spin-mode-state.md`](sprint6/f-02-free-spin-mode-state.md) | **ready to dispatch** |
+| (roadmap) f-03 trigger detection (≥3 scatter → enter mode) | — | depends on f-02 |
+| (roadmap) f-04 UI overlay (`FREE SPINS N/5` banner, gold tint) | — | depends on f-02 |
+| (roadmap) f-05 sim verify trigger ~0.2/match + RTP impact | — | depends on f-03 |
+
 ### Chore
 
 | PR | Prompt file |
