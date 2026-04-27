@@ -1,4 +1,5 @@
 import { Assets, Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { GlowFilter } from 'pixi-filters';
 import * as T from '@/config/DesignTokens';
 import { SYMBOLS } from '@/config/SymbolsConfig';
 import { gemForSymbol } from '@/config/GemMapping';
@@ -326,23 +327,54 @@ export class SlotReel extends Container {
       }
     }
 
+    // Existing overlay tint — kept for backwards-compat with other systems
     for (const cell of targets) {
       cell.overlay.clear()
         .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
         .fill(tint);
     }
 
+    // d-06: win-frame sprite on each hit cell with shared GlowFilter pulse
+    // One GlowFilter per pulseWay call; shared across frames in this wave —
+    // multiple concurrent pulseWay calls each have their own isolated glow instance.
+    const tex = Assets.get<Texture>('sos2-win-frame');
+    const frames: Sprite[] = [];
+    let glow: GlowFilter | null = null;
+    if (tex && tex !== Texture.EMPTY) {
+      glow = new GlowFilter({
+        color: tint, distance: 8, outerStrength: 0, innerStrength: 0.3, quality: 0.4,
+      });
+      for (const cell of targets) {
+        const f = new Sprite(tex);
+        f.anchor.set(0.5);
+        f.tint = tint;
+        f.width  = CELL_W + 8;   // slight visual padding beyond cell boundary
+        f.height = CELL_H + 8;
+        f.alpha = 0;
+        f.filters = [glow];       // share one filter instance — no per-frame rebuild
+        cell.container.addChild(f);
+        frames.push(f);
+      }
+    }
+
+    // Pulse: overlay alpha + frame alpha + glow outerStrength all driven by Easings.pulse
     await tween(330, p => {
-      const a = Easings.pulse(p) * 0.7;
-      for (const cell of targets) cell.overlay.alpha = a;
+      const a = Easings.pulse(p);
+      for (const cell of targets) cell.overlay.alpha = a * 0.7;
+      if (glow && frames.length) {
+        glow.outerStrength = a * 3.5;
+        for (const f of frames) f.alpha = a;
+      }
     });
 
+    // Cleanup: restore overlay; destroy all frame sprites (unrefs glow filter)
     for (const cell of targets) {
       cell.overlay.alpha = 0;
       cell.overlay.clear()
         .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
         .fill(0xffffff);
     }
+    for (const f of frames) f.destroy();
   }
 
   // ─── Jackpot particles ───────────────────────────────────────────────────
