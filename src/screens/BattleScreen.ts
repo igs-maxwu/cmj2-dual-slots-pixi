@@ -635,6 +635,28 @@ export class BattleScreen implements Screen {
       if (eventsOnA.length) fx.push(this.playDamageEvents(eventsOnA, 'A'));
       await Promise.all(fx);
 
+      // ── M6 Curse proc: 3+ stack → 500 HP flat damage to that side ──────────
+      const CURSE_PROC_DMG = 500;
+      const curseEventsOnA: DmgEvent[] = [];
+      const curseEventsOnB: DmgEvent[] = [];
+
+      if (this.curseStackA >= 3) {
+        curseEventsOnA.push(...distributeDamage(this.formationA, CURSE_PROC_DMG, 'B'));
+        this.curseStackA = 0;
+      }
+      if (this.curseStackB >= 3) {
+        curseEventsOnB.push(...distributeDamage(this.formationB, CURSE_PROC_DMG, 'A'));
+        this.curseStackB = 0;
+      }
+      if (curseEventsOnA.length > 0) {
+        this.logLines.push(`R${this.round.toString().padStart(2, '0')}  ⚡ Curse proc A −${CURSE_PROC_DMG}`);
+        await this.playDamageEvents(curseEventsOnA, 'A');
+      }
+      if (curseEventsOnB.length > 0) {
+        this.logLines.push(`R${this.round.toString().padStart(2, '0')}  ⚡ Curse proc B −${CURSE_PROC_DMG}`);
+        await this.playDamageEvents(curseEventsOnB, 'B');
+      }
+
       const tagA = ratioA < 0.30 ? '↑' : '';
       const tagB = ratioB < 0.30 ? '↑' : '';
       this.logLines.push(
