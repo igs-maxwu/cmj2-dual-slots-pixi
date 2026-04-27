@@ -25,6 +25,7 @@ import { AudioManager } from '@/systems/AudioManager';
 import { FXAtlas } from '@/fx/FXAtlas';
 import { detectResonance, resonanceMultForClan, type ResonanceResult } from '@/systems/Resonance';
 import type { ClanId } from '@/config/DesignTokens';
+import { GlowFilter } from 'pixi-filters';
 
 // ─── Portrait layout 720×1280 ───────────────────────────────────────────────
 const HEADER_Y   = 14;
@@ -122,6 +123,12 @@ export class BattleScreen implements Screen {
   private static readonly FREE_SPIN_WIN_MULT = 2;
   /** DEV-only key handler for manual Free Spin trigger (removed on unmount) */
   private _devKeyHandler?: (e: KeyboardEvent) => void;
+  /** Free Spin UI overlay (f-04) */
+  private freeSpinBanner?: Container;
+  private freeSpinBannerText?: Text;
+  private freeSpinTint?: Graphics;
+  private wasInFreeSpin = false;          // edge detector: enter / exit transitions
+  private prevFreeSpinsRemaining = 0;     // detect retrigger jumps (freeSpinsRemaining went UP)
 
   constructor(private cfg: DraftResult, private onExit: () => void) {}
 
@@ -156,6 +163,7 @@ export class BattleScreen implements Screen {
     this.drawLog();
     this.drawBackButton();
     this.drawCurseHud();
+    this.drawFreeSpinOverlay();
     this.container.addChild(this.fxLayer);  // fx on top
     this.refresh();
     this._breatheTick = () => {
@@ -492,6 +500,89 @@ export class BattleScreen implements Screen {
     hud.alpha   = stack >= 2 ? 1.0 : 0.7;
   }
 
+  // ─── Free Spin overlay (f-04) — persistent banner + gold tint ───────────
+  private drawFreeSpinOverlay(): void {
+    // Full-screen gold tint — visible during free spin, initially hidden
+    this.freeSpinTint = new Graphics()
+      .rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+      .fill({ color: 0xFFD37A, alpha: 0.08 });
+    this.freeSpinTint.visible = false;
+    this.freeSpinTint.zIndex = 50;   // above reel (~10), below HUD (~1000)
+    this.container.addChild(this.freeSpinTint);
+
+    // Banner Container (centred at top, initially hidden)
+    this.freeSpinBanner = new Container();
+    this.freeSpinBanner.x = CANVAS_WIDTH / 2;
+    this.freeSpinBanner.y = 80;
+    this.freeSpinBanner.visible = false;
+    this.freeSpinBanner.alpha = 0;
+
+    this.freeSpinBannerText = goldText(`FREE SPINS  0 / ${BattleScreen.FREE_SPIN_COUNT}`, {
+      fontSize: T.FONT_SIZE.h1,
+      withShadow: true,
+    });
+    this.freeSpinBannerText.anchor.set(0.5, 0.5);
+    this.freeSpinBannerText.filters = [new GlowFilter({
+      color: 0xFFD37A,
+      distance: 14,
+      outerStrength: 2.2,
+      innerStrength: 0.4,
+      quality: 0.4,
+    })];
+    this.freeSpinBanner.addChild(this.freeSpinBannerText);
+    this.container.addChild(this.freeSpinBanner);
+  }
+
+  /** Called twice per round: once after trigger detection, once after decrement.
+   *  Handles enter / update / retrigger-pulse / exit transitions. */
+  private refreshFreeSpinOverlay(): void {
+    if (!this.freeSpinBanner || !this.freeSpinBannerText || !this.freeSpinTint) return;
+
+    const isIn  = this.inFreeSpin;
+    const wasIn = this.wasInFreeSpin;
+
+    // Update text whenever in free spin mode
+    if (isIn) {
+      this.freeSpinBannerText.text = `FREE SPINS  ${this.freeSpinsRemaining} / ${BattleScreen.FREE_SPIN_COUNT}`;
+    }
+
+    // Transition: not-in → in (enter animation: scale 0.7→1.0 + alpha 0→1)
+    if (isIn && !wasIn) {
+      this.freeSpinBanner.visible = true;
+      this.freeSpinTint.visible   = true;
+      this.freeSpinBanner.alpha   = 0;
+      this.freeSpinBanner.scale.set(0.7);
+      void tween(220, t => {
+        this.freeSpinBanner!.alpha = t;
+        this.freeSpinBanner!.scale.set(0.7 + 0.3 * t);
+      }, Easings.easeOut);
+    }
+
+    // Transition: in → not-in (exit fade-out: alpha 1→0, tint fades too)
+    if (!isIn && wasIn) {
+      void tween(300, t => {
+        this.freeSpinBanner!.alpha = 1 - t;
+        this.freeSpinTint!.alpha   = 0.08 * (1 - t);
+      }, Easings.easeIn).then(() => {
+        this.freeSpinBanner!.visible = false;
+        this.freeSpinTint!.visible   = false;
+        this.freeSpinTint!.alpha     = 0.08;   // restore for next entry
+      });
+    }
+
+    // Retrigger pulse: freeSpinsRemaining jumped UP (not decremented)
+    if (isIn && this.freeSpinsRemaining > this.prevFreeSpinsRemaining) {
+      void tween(250, t => {
+        const s = 1 + 0.25 * Math.sin(Math.PI * t);   // 1.0 → 1.25 → 1.0
+        this.freeSpinBanner!.scale.set(s);
+      }, Easings.easeOut);
+    }
+
+    // Update edge detectors for next call
+    this.wasInFreeSpin          = isIn;
+    this.prevFreeSpinsRemaining = this.freeSpinsRemaining;
+  }
+
   // ─── Resonance banner (r-04) — fire-and-forget at match start ───────────
   private async playResonanceBanner(): Promise<void> {
     if (this.resonanceA.tier === 'NONE') return;
@@ -644,6 +735,8 @@ export class BattleScreen implements Screen {
           }
         }
       }
+
+      this.refreshFreeSpinOverlay();   // enter / retrigger edge — banner shows before coin calcs
 
       // Mutable coin accumulators — Resonance adds extras, Streak multiplies;
       // wallet credit and cascade happen after all multipliers (below Streak section)
@@ -839,6 +932,7 @@ export class BattleScreen implements Screen {
           if (import.meta.env.DEV) console.log('[FreeSpin] mode ended');
         }
       }
+      this.refreshFreeSpinOverlay();   // count update or exit fade-out
 
       if (!this.running) return;
       await delay(ROUND_GAP_MS);
