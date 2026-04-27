@@ -101,8 +101,8 @@ Roadmap doc: [`sprint6/ROADMAP.md`](sprint6/ROADMAP.md)
 
 | PR | Prompt file | Status |
 |---|---|---|
-| (pending) j-01 JP symbol id:11 weight:1 (pool-present, non-scoring, mirrors f-01 Scatter pattern) | [`sprint6/j-01-jackpot-symbol.md`](sprint6/j-01-jackpot-symbol.md) | **ready to dispatch** — skill hints: incremental-implementation, source-driven-development |
-| (roadmap) j-02 JP pool localStorage persistence + 1% accrual per bet | — | depends on j-01 |
+| [#126](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/126) j-01 JP symbol id:11 weight:1 (pool-present, non-scoring, mirrors f-01 Scatter pattern) | [`sprint6/j-01-jackpot-symbol.md`](sprint6/j-01-jackpot-symbol.md) | ✅ merged |
+| (pending) j-02 JP pool localStorage persistence + 1% accrual + 50/30/20 split (new `src/systems/JackpotPool.ts` pure module) | [`sprint6/j-02-jackpot-pool-persistence.md`](sprint6/j-02-jackpot-pool-persistence.md) | **ready to dispatch** — skill hints: api-and-interface-design, security-and-hardening, incremental-implementation, source-driven-development |
 | (roadmap) j-03 5-of-a-kind detection + tier draw (3% Grand / 12% Major / 85% Minor) + Wild substitute | — | depends on j-02 |
 | (roadmap) j-04 JP ceremony overlay (full-screen 天獎/地獎/人獎) + SOS2 BigWin atlas FX | — | depends on j-03 |
 | (roadmap) j-05 JP marquee live counter (replace hardcoded 50k/500k/5M with pool reads) | — | depends on j-02 (parallel with j-04) |
