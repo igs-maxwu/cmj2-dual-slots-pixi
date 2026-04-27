@@ -145,6 +145,10 @@ function simRun(rng) {
   let streakBoostedCoin = 0;   // extra coin due to streak > 1 (post-Resonance base)
   // Resonance counters (M5)
   let resonanceBoostedCoin = 0; // extra coin earned via Resonance ×1.5
+  // Scatter counters (M10 Free Spin — f-01 stats only; trigger logic in f-02)
+  const SCATTER_ID = SYMBOLS.findIndex(s => s.isScatter);
+  let totalScatterCells = 0;
+  let scatterTriggerCount = 0;  // spins where ≥3 scatter cells appeared
   // Curse counters (M6) — upgraded in k-02 to true stack tracking
   const CURSE_ID = SYMBOLS.findIndex(s => s.isCurse);
   let totalCurseCellsA = 0, totalCurseCellsB = 0; // cells on A-side / B-side of shared grid
@@ -347,6 +351,18 @@ function simRun(rng) {
       totalWon         += phoenixCoin;
     }
 
+    // ── Scatter cell counting (M10 Free Spin — f-01 stats) ───────────────
+    if (SCATTER_ID >= 0) {
+      let scatterThisSpin = 0;
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 5; c++) {
+          if (spin.grid[r][c] === SCATTER_ID) scatterThisSpin++;
+        }
+      }
+      totalScatterCells += scatterThisSpin;
+      if (scatterThisSpin >= 3) scatterTriggerCount++;
+    }
+
     // ── Curse cell counting + stack tracking (M6 — k-02) ─────────────────
     if (CURSE_ID >= 0) {
       let curseLandingOnA = 0, curseLandingOnB = 0;
@@ -435,6 +451,7 @@ function simRun(rng) {
     wildBoostedWayHits, totalWayHits,
     totalStreakSumA, totalStreakSumB, maxStreakObserved, streakBoostedCoin,
     resonanceBoostedCoin,
+    totalScatterCells, scatterTriggerCount,
     totalCurseCellsA, totalCurseCellsB,
     totalCurseStackPeak, totalStackEndA, totalStackEndB,
     totalCurseProcsA, totalCurseProcsB, totalCurseProcDmgDealt,
@@ -545,6 +562,13 @@ const output = {
     boostedClans:               resonance.boostedClans,
     boosted_coin_total:         +agg.resonanceBoostedCoin.toFixed(2),
     boosted_pct_of_total_coin:  +(agg.resonanceBoostedCoin / (agg.totalWon || 1)).toFixed(4),
+  },
+  scatter: {
+    total_cells:            agg.totalScatterCells,
+    avg_per_spin:           +(agg.totalScatterCells / (ROUNDS * RUNS)).toFixed(4),
+    spins_with_3plus:       agg.scatterTriggerCount,
+    trigger_rate:           +(agg.scatterTriggerCount / (ROUNDS * RUNS)).toFixed(4),
+    per_match_estimate:     +(agg.scatterTriggerCount / (agg.totalMatches || 1)).toFixed(4),
   },
   curse: {
     total_cells_on_A_side:          agg.totalCurseCellsA,

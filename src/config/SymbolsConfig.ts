@@ -3,7 +3,7 @@ export type Clan = 'azure' | 'vermilion' | 'white' | 'black';
 export interface SymbolDef {
   id:          number;
   name:        string;                     // legacy color name, kept for algo
-  shape:       'triangle'|'hexagon'|'square'|'cross'|'circle'|'heart'|'diamond'|'star'|'wild'|'curse';
+  shape:       'triangle'|'hexagon'|'square'|'cross'|'circle'|'heart'|'diamond'|'star'|'wild'|'curse'|'scatter';
   color:       number;                     // 0xRRGGBB atmosphere color
   weight:      number;
   spiritKey:   string;                     // asset filename (no extension)
@@ -11,6 +11,7 @@ export interface SymbolDef {
   clan:        Clan;
   isWild?:     boolean;    // Wild substitutes for any spirit; does not score its own ways
   isCurse?:    boolean;    // Curse — does not score, does not substitute, blocks matches
+  isScatter?:  boolean;    // Scatter — does not score ways; 3+ same spin triggers Free Spin (f-02)
 }
 
 export const SYMBOLS: SymbolDef[] = [
@@ -34,6 +35,8 @@ export const SYMBOLS: SymbolDef[] = [
     spiritKey:'wild',          spiritName:'神獸化身', clan:'azure',    isWild:true },
   { id:9, name:'Curse',  shape:'curse',    color:0x8b3aaa, weight:3,
     spiritKey:'curse',         spiritName:'咒符',     clan:'black',    isCurse:true },
+  { id:10, name:'Scatter', shape:'scatter', color:0xff3b6b, weight:2,
+    spiritKey:'scatter',       spiritName:'靈脈晶',   clan:'azure',    isScatter:true },
 ];
 
 export const PAYOUT_BASE: Record<number,number> = { 3:5, 4:20, 5:100 };

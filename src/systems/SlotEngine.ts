@@ -122,6 +122,8 @@ export class SlotEngine {
       if (SYMBOLS[symId].isWild) continue;
       // Curse is a blocker only — does not score, does not substitute
       if (SYMBOLS[symId].isCurse) continue;
+      // Scatter does not score ways; 3+ triggers Free Spin (handled in f-02)
+      if (SYMBOLS[symId].isScatter) continue;
 
       let matchCount = 0;
       let numWays    = 1;
