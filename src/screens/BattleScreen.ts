@@ -134,6 +134,11 @@ export class BattleScreen implements Screen {
   private static readonly FREE_SPIN_WIN_MULT = 2;
   private static readonly BIGWIN_THRESHOLD_X  = 25;   // 25× bet → BigWin
   private static readonly MEGAWIN_THRESHOLD_X = 100;  // 100× bet → MegaWin
+  // ── pace-01: Sequenced reveal timing (轉輪 → 對獎 → 出招 → 算傷害) ──────
+  private static readonly PACE_AFTER_REEL_STOP = 700;  // 轉輪停 → 對獎
+  private static readonly PACE_AFTER_REVEAL    = 400;  // 對獎 → 出招
+  private static readonly PACE_AFTER_ATTACK    = 300;  // 出招 → 傷害
+  private static readonly PACE_AFTER_DAMAGE    = 300;  // 傷害 → 下一回合
   /** p-02: demo mode — ?demo=1 URL param enables scripted 5-spin capture sequence */
   private demoMode = false;
   private demoSpinIndex = 0;
@@ -874,12 +879,20 @@ export class BattleScreen implements Screen {
       await this.reel.spin(spin.grid);
       if (!this.running) return;
 
+      // ── pace-01 Stage 1: 轉輪 SPIN — sfx fires as reel stops ────────────────
       this.playWinTierSfx(spin.sideA.wayHits, spin.sideB.wayHits);
-      const lineFx = this.reel.highlightWays(spin.sideA.wayHits, spin.sideB.wayHits);
-      const jackpotFx = this.fireJackpots(spin.sideA.wayHits, spin.sideB.wayHits);
-      // Spirit attack choreography (concurrent with way highlights)
-      const attackFx = this.playAttackAnimations(spin.sideA.wayHits, spin.sideB.wayHits);
 
+      // Pace gap — let player see the stopped reel before highlights appear
+      await delay(BattleScreen.PACE_AFTER_REEL_STOP);
+
+      // ── pace-01 Stage 2: 對獎 REVEAL — wayHit highlight + JP particle burst ──
+      // (parallel — same conceptual stage; both are visual results-of-spin)
+      await Promise.all([
+        this.reel.highlightWays(spin.sideA.wayHits, spin.sideB.wayHits),
+        this.fireJackpots(spin.sideA.wayHits, spin.sideB.wayHits),
+      ]);
+
+      // ── Computation block (pure numerics — no awaiting, runs between stages) ──
       let dmgA = spin.sideA.dmgDealt;
       let dmgB = spin.sideB.dmgDealt;
 
@@ -979,11 +992,21 @@ export class BattleScreen implements Screen {
       if (spin.sideB.wayHits.length === 0) this.streakB = 0;
       else                                  this.streakB++;
 
-      // Capture pre-damage HP for overkill tiebreaker
+      // Capture pre-damage HP for overkill tiebreaker (must be before distributeDamage)
       lastPreHpA = teamHpTotal(this.formationA);
       lastPreHpB = teamHpTotal(this.formationB);
       lastDmgA = dmgA; lastDmgB = dmgB;
 
+      // Pace gap — let player read the highlighted ways before attack fires
+      await delay(BattleScreen.PACE_AFTER_REVEAL);
+
+      // ── pace-01 Stage 3: 出招 ATTACK — spirit signature animations ────────
+      await this.playAttackAnimations(spin.sideA.wayHits, spin.sideB.wayHits);
+
+      // Pace gap — let FX residue settle before HP drain
+      await delay(BattleScreen.PACE_AFTER_ATTACK);
+
+      // ── pace-01 Stage 4: 算傷害 DAMAGE — distribute + HP drain animations ──
       const eventsOnB = dmgA > 0 ? distributeDamage(this.formationB, dmgA, 'A') : [];
       const eventsOnA = dmgB > 0 ? distributeDamage(this.formationA, dmgB, 'B') : [];
 
@@ -1008,10 +1031,13 @@ export class BattleScreen implements Screen {
         }
       }
 
-      const fx: Promise<void>[] = [lineFx, jackpotFx, attackFx];
-      if (eventsOnB.length) fx.push(this.playDamageEvents(eventsOnB, 'B'));
-      if (eventsOnA.length) fx.push(this.playDamageEvents(eventsOnA, 'A'));
-      await Promise.all(fx);
+      const dmgFx: Promise<void>[] = [];
+      if (eventsOnB.length) dmgFx.push(this.playDamageEvents(eventsOnB, 'B'));
+      if (eventsOnA.length) dmgFx.push(this.playDamageEvents(eventsOnA, 'A'));
+      await Promise.all(dmgFx);
+
+      // Pace gap — 0.3s breath before JP / Curse / BigWin / next round
+      await delay(BattleScreen.PACE_AFTER_DAMAGE);
 
       // ── M12 Jackpot trigger (j-03): detect 5-reel JP/Wild, draw tier, pay, reset ──
       await this.detectAndAwardJackpot(spin.grid);
