@@ -115,8 +115,8 @@ Roadmap doc: [`sprint7/ROADMAP.md`](sprint7/ROADMAP.md)
 |---|---|---|
 | [#131](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/131) d-04 4 男性靈 signature FX upgrade — Dragon fire-wave / Tiger radial flash / Tortoise smoke plume / Phoenix fire trail (SOS2 atlas + webp additive layers, 4 commits per spirit, found 3 missing webp preloads via P6 drift check) | [`sprint7/d-04-signature-fx-upgrade.md`](sprint7/d-04-signature-fx-upgrade.md) | ✅ merged |
 | [#132](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/132) d-06 Way highlight win-frame (replace Pixi Graphics 框 with sos2-win-frame.webp + GlowFilter outerStrength pulse, per-pulse shared filter for O(1) hot-path updates) | [`sprint7/d-06-way-highlight-win-frame.md`](sprint7/d-06-way-highlight-win-frame.md) | ✅ merged |
-| (pending) d-05 Near-win gold-dust teaser (4-of-5 reels covered → missing col 浮現 sos2-near-win Sand cycle particles fire-and-forget) | [`sprint7/d-05-near-win-gold-dust-teaser.md`](sprint7/d-05-near-win-gold-dust-teaser.md) | **ready to dispatch** — skill hints: frontend-ui-engineering, incremental-implementation, test-driven-development |
-| (roadmap) d-07 BigWin / MegaWin ceremony for non-JP big payouts (reuse sos2-bigwin atlas) | — | depends on nothing |
+| [#133](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/133) d-05 Near-win gold-dust teaser (4-of-5 reels covered → missing col Sand cycle particles, sim rate 36% accepted as-is per orchestrator decision — slot-juice frequency) | [`sprint7/d-05-near-win-gold-dust-teaser.md`](sprint7/d-05-near-win-gold-dust-teaser.md) | ✅ merged |
+| (pending) d-07 BigWin / MegaWin ceremony for non-JP big payouts — new `src/fx/BigWinCeremony.ts`, reuses sos2-bigwin atlas, 25× / 100× bet thresholds, distinct from JP ceremony (no dim BG, shorter, upper position) — **Sprint 7 closure PR** | [`sprint7/d-07-bigwin-megawin-ceremony.md`](sprint7/d-07-bigwin-megawin-ceremony.md) | **ready to dispatch** — skill hints: frontend-ui-engineering, incremental-implementation, source-driven-development |
 
 ### Chore
 
