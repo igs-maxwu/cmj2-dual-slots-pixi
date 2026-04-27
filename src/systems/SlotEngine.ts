@@ -120,6 +120,8 @@ export class SlotEngine {
     for (let symId = 0; symId < SYMBOLS.length; symId++) {
       // Wild is a substitute only — does not score its own way
       if (SYMBOLS[symId].isWild) continue;
+      // Curse is a blocker only — does not score, does not substitute
+      if (SYMBOLS[symId].isCurse) continue;
 
       let matchCount = 0;
       let numWays    = 1;

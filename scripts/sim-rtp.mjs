@@ -145,6 +145,9 @@ function simRun(rng) {
   let streakBoostedCoin = 0;   // extra coin due to streak > 1 (post-Resonance base)
   // Resonance counters (M5)
   let resonanceBoostedCoin = 0; // extra coin earned via Resonance ×1.5
+  // Curse counters (M6)
+  const CURSE_ID = SYMBOLS.findIndex(s => s.isCurse);
+  let totalCurseCellsA = 0, totalCurseCellsB = 0; // cells on A-side / B-side of shared grid
 
   // Match stats
   let drawCount   = 0;
@@ -339,6 +342,19 @@ function simRun(rng) {
       totalWon         += phoenixCoin;
     }
 
+    // ── Curse cell counting (M6 — k-01 stats only; stacking handled in k-02) ──
+    if (CURSE_ID >= 0) {
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 5; c++) {
+          if (spin.grid[r][c] === CURSE_ID) {
+            // Cols 0-1 = A-side, col 2 = neutral, cols 3-4 = B-side
+            if (c < 2)      totalCurseCellsA++;
+            else if (c > 2) totalCurseCellsB++;
+          }
+        }
+      }
+    }
+
     // ── Match termination check ───────────────────────────────────────────
     const aAlive = isTeamAlive(formationA);
     const bAlive = isTeamAlive(formationB);
@@ -389,6 +405,7 @@ function simRun(rng) {
     wildBoostedWayHits, totalWayHits,
     totalStreakSumA, totalStreakSumB, maxStreakObserved, streakBoostedCoin,
     resonanceBoostedCoin,
+    totalCurseCellsA, totalCurseCellsB,
     drawCount, winsA, winsB,
     underdogFires, underdogSpins,
     chipFloorFires,
@@ -496,6 +513,11 @@ const output = {
     boostedClans:               resonance.boostedClans,
     boosted_coin_total:         +agg.resonanceBoostedCoin.toFixed(2),
     boosted_pct_of_total_coin:  +(agg.resonanceBoostedCoin / (agg.totalWon || 1)).toFixed(4),
+  },
+  curse: {
+    total_cells_on_A_side:  agg.totalCurseCellsA,
+    total_cells_on_B_side:  agg.totalCurseCellsB,
+    avg_cells_per_round:    +((agg.totalCurseCellsA + agg.totalCurseCellsB) / (ROUNDS * RUNS * 2)).toFixed(4),
   },
   match: {
     draw_rate:              +(agg.drawCount  / agg.totalMatches).toFixed(4),

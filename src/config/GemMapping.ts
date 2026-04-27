@@ -34,6 +34,8 @@ export const GEM_FOR_SYMBOL: Record<number, GemAsset> = {
   7: { assetKey: 'gem-pentagon', tint: T.CLAN.black     },
   // Wild: reuses gem-pentagon with bright gold tint for MVP visual distinction (m-05)
   8: { assetKey: 'gem-pentagon', tint: 0xffd700         },
+  // Curse: reuses gem-pentagon with dark purple tint — blocker, does not score (k-01)
+  9: { assetKey: 'gem-pentagon', tint: 0x8b3aaa         },
 };
 
 export function gemForSymbol(sym: SymbolDef): GemAsset {
