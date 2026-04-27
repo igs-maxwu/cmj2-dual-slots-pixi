@@ -12,12 +12,29 @@
  *   Phase 4: Fire   — signature dispatch (concurrent with shake)
  *   Phase 5: Return — fly back to formation
  */
-import { Container, Graphics } from 'pixi.js';
+import { Assets, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import { tween, delay, Easings } from '@/systems/tween';
 import { SpiritPortrait } from '@/components/SpiritPortrait';
 import { applyGlow, applyBloom, applyShockwave, removeFilter } from '@/fx/GlowWrapper';
 import { AudioManager } from '@/systems/AudioManager';
+
+// ─── d-04 helper ─────────────────────────────────────────────────────────────
+
+/**
+ * d-04: Build a SOS2 single-webp FX sprite, additive-blended, anchor centered.
+ * Returns null if asset not loaded (caller null-checks + skips the FX layer).
+ * Pixi 8 blendMode uses string enum 'add' (v7 used BLEND_MODES.ADD).
+ */
+function _makeFxSprite(assetKey: string, tint: number = 0xffffff): Sprite | null {
+  const tex = Assets.get<Texture>(assetKey);
+  if (!tex || tex === Texture.EMPTY) return null;
+  const s = new Sprite(tex);
+  s.anchor.set(0.5);
+  s.tint = tint;
+  s.blendMode = 'add';
+  return s;
+}
 
 // ─── Signature types ────────────────────────────────────────────────────────
 
@@ -455,6 +472,27 @@ async function _sigDragonDualSlash(ctx: Phase4Ctx): Promise<void> {
   const AZURE = 0x4a90e2, AZURE_LITE = 0xa0d8ff;
   const SWORD_W = 6, SWORD_H = 44;
 
+  // d-04: dual azure fire-wave layer (additive, concurrent with entire slash)
+  const fireA = _makeFxSprite('sos2-fire-wave', 0x6ad8ff);
+  const fireB = _makeFxSprite('sos2-fire-wave', 0x6ad8ff);
+  if (fireA && fireB) {
+    fireA.x = cx - 60; fireA.y = cy;
+    fireB.x = cx + 60; fireB.y = cy;
+    fireA.scale.set(0.5); fireB.scale.set(0.5);
+    fireA.alpha = 0;      fireB.alpha = 0;
+    stage.addChild(fireA, fireB);
+    void tween(ctx.duration, t => {
+      const a = Easings.easeOut(t);
+      fireA.alpha = (1 - t) * 0.9;
+      fireB.alpha = (1 - t) * 0.9;
+      fireA.scale.set(0.5 + a * 1.3);
+      fireB.scale.set(0.5 + a * 1.3);
+      fireA.rotation = -t * 0.4;
+      fireB.rotation = +t * 0.4;
+    });
+    setTimeout(() => { fireA.destroy(); fireB.destroy(); }, ctx.duration + 50);
+  }
+
   // (a) 0–120ms: two jade swords appear
   const drawSword = (g: Graphics) => {
     g.clear();
@@ -595,6 +633,25 @@ async function _sigTigerFistCombo(ctx: Phase4Ctx): Promise<void> {
     ring.destroy();
   };
 
+  // d-04: per-punch radial flash (3 hits) — fire-and-forget, approx hit timing
+  for (let i = 0; i < 3; i++) {
+    const punchT = i * (ctx.duration / 3);
+    setTimeout(() => {
+      const flash = _makeFxSprite('sos2-radial-lights', 0xffaa44);
+      if (!flash) return;
+      flash.x = (i === 1 ? tp1.x : tp0.x) + (Math.random() - 0.5) * 80;
+      flash.y = (i === 1 ? tp1.y : tp0.y) + (Math.random() - 0.5) * 60;
+      flash.scale.set(0.3);
+      flash.alpha = 0.95;
+      stage.addChild(flash);
+      void tween(180, t => {
+        flash.alpha = 0.95 * (1 - t);
+        flash.scale.set(0.3 + t * 0.8);
+        flash.rotation = t * 0.5;
+      }, Easings.easeOut).then(() => flash.destroy());
+    }, punchT);
+  }
+
   // (b) 120–300ms: 1st heavy punch → target 0
   await doPunch(tp0, 180);
   // (c) 300–480ms: 2nd heavy punch → target 1
@@ -686,6 +743,29 @@ async function _sigTortoiseHammerSmash(ctx: Phase4Ctx): Promise<void> {
   AudioManager.playSfx('hit-heavy');
   const swPromise = applyShockwave(stage, tp0.x, tp0.y, 120, 150);
   void _screenShake(stage, ctx.shakeIntensity);
+
+  // d-04: ground impact — smoke plume (grey particles) + radial glow
+  const smoke = _makeFxSprite('sos2-particles', 0xc0c0d0);
+  const impactGlow = _makeFxSprite('sos2-radial-lights', 0xffaa44);
+  if (smoke) {
+    smoke.x = tp0.x; smoke.y = tp0.y + 40;
+    smoke.scale.set(0.4); smoke.alpha = 0.85;
+    stage.addChild(smoke);
+    void tween(700, t => {
+      smoke.alpha = 0.85 * (1 - t);
+      smoke.scale.set(0.4 + t * 1.4);
+      smoke.y = tp0.y + 40 - t * 60;
+    }, Easings.easeOut).then(() => smoke.destroy());
+  }
+  if (impactGlow) {
+    impactGlow.x = tp0.x; impactGlow.y = tp0.y + 60;
+    impactGlow.scale.set(0.2); impactGlow.alpha = 1;
+    stage.addChild(impactGlow);
+    void tween(450, t => {
+      impactGlow.alpha = 1 - t;
+      impactGlow.scale.set(0.2 + t * 1.6);
+    }, Easings.easeOut).then(() => impactGlow.destroy());
+  }
 
   const flash = new Graphics()
     .rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
@@ -794,6 +874,31 @@ async function _sigPhoenixFlameArrow(ctx: Phase4Ctx): Promise<void> {
   // (c) 280–480ms: arrow flight along quadratic bezier + orange flame trail
   // Bow fades out in background (300ms, fire-and-forget)
   void tween(300, p => { bowG.alpha = 1 - p; }).then(() => { bowG.destroy(); });
+
+  // d-04: fire trail following arrow path + ember burst on impact
+  const trail = _makeFxSprite('sos2-fire-wave', 0xff5722);
+  if (trail) {
+    trail.scale.set(0.35); trail.alpha = 0;
+    stage.addChild(trail);
+    void tween(ctx.duration * 0.7, t => {
+      trail.x = cx + (-60 + t * 120);
+      trail.y = cy - 20 + Math.sin(t * Math.PI) * 10;
+      trail.alpha = Math.min(1, t * 3) * (1 - Math.max(0, t - 0.7) * 3);
+      trail.rotation = t * 0.3;
+    });
+    setTimeout(() => trail.destroy(), ctx.duration);
+  }
+  setTimeout(() => {
+    const ember = _makeFxSprite('sos2-particles', 0xffaa00);
+    if (!ember) return;
+    ember.x = tp0.x; ember.y = tp0.y - 20;
+    ember.scale.set(0.3); ember.alpha = 1;
+    stage.addChild(ember);
+    void tween(380, t => {
+      ember.alpha = 1 - t;
+      ember.scale.set(0.3 + t * 1.0);
+    }, Easings.easeOut).then(() => ember.destroy());
+  }, ctx.duration * 0.7);
 
   const startX = bowX + 38;  // arrow tip origin
   const startY = bowY;

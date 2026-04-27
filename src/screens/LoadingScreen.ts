@@ -32,7 +32,8 @@ export class LoadingScreen implements Screen {
     this.upgradeToDecoratedLoadingScreen();
 
     // Gem symbols (5 webp, ~9 KB total) and spirit portraits in parallel
-    await Promise.all([this.preloadGems(), this.preloadSpirits()]);
+    // Also preload SOS2 FX webps needed by SpiritAttackChoreographer (d-04)
+    await Promise.all([this.preloadGems(), this.preloadSpirits(), this.preloadFx()]);
     this.onDone();
   }
 
@@ -176,6 +177,16 @@ export class LoadingScreen implements Screen {
       this.updateProgress(Math.round(p * total), total, 'Loading spirits');
     });
     this.updateProgress(total, total, 'Loading spirits');
+  }
+
+  /** d-04: SOS2 single-webp FX sheets used by SpiritAttackChoreographer */
+  private async preloadFx(): Promise<void> {
+    const base = import.meta.env.BASE_URL;
+    await Assets.load([
+      { alias: 'sos2-fire-wave',     src: `${base}assets/fx/sos2-fire-wave.webp` },
+      { alias: 'sos2-particles',     src: `${base}assets/fx/sos2-particles.webp` },
+      { alias: 'sos2-radial-lights', src: `${base}assets/fx/sos2-radial-lights.webp` },
+    ]);
   }
 
   private updateProgress(loaded: number, total: number, label: string): void {
