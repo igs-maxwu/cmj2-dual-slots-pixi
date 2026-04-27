@@ -95,7 +95,17 @@ Roadmap doc: [`sprint6/ROADMAP.md`](sprint6/ROADMAP.md)
 | [#122](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/122) f-02 Free Spin mode state (`inFreeSpin` / `freeSpinsRemaining` / win ×2) + scatter weight 2→4 | [`sprint6/f-02-free-spin-mode-state.md`](sprint6/f-02-free-spin-mode-state.md) | ✅ merged |
 | [#123](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/123) f-03 trigger detection (≥3 scatter → enter mode, retrigger +5 cap 50) + sim free spin model | [`sprint6/f-03-free-spin-trigger.md`](sprint6/f-03-free-spin-trigger.md) | ✅ merged |
 | [#124](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/124) f-04 UI overlay (`FREE SPINS N/5` banner, gold tint, retrigger pulse) | [`sprint6/f-04-free-spin-ui-overlay.md`](sprint6/f-04-free-spin-ui-overlay.md) | ✅ merged (skill hints validated — `source-driven-development` triggered API cross-reference in PR body) |
-| (pending) f-05 sim verify + **RTP rebalance** to 95-110% (Sprint 6 Track F closure) | [`sprint6/f-05-sim-verify-rtp-rebalance.md`](sprint6/f-05-sim-verify-rtp-rebalance.md) | **ready to dispatch** — skill hints: test-driven-development, performance-optimization, incremental-implementation |
+| [#125](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/125) f-05 sim verify + **RTP rebalance** to 95-110% — `DEFAULT_TARGET_RTP` 16→12, coin_rtp 108.74% (Sprint 6 Track F **CLOSED 5/5**) | [`sprint6/f-05-sim-verify-rtp-rebalance.md`](sprint6/f-05-sim-verify-rtp-rebalance.md) | ✅ merged |
+
+### Sprint 6 · J — Progressive Jackpot (M12)
+
+| PR | Prompt file | Status |
+|---|---|---|
+| (pending) j-01 JP symbol id:11 weight:1 (pool-present, non-scoring, mirrors f-01 Scatter pattern) | [`sprint6/j-01-jackpot-symbol.md`](sprint6/j-01-jackpot-symbol.md) | **ready to dispatch** — skill hints: incremental-implementation, source-driven-development |
+| (roadmap) j-02 JP pool localStorage persistence + 1% accrual per bet | — | depends on j-01 |
+| (roadmap) j-03 5-of-a-kind detection + tier draw (3% Grand / 12% Major / 85% Minor) + Wild substitute | — | depends on j-02 |
+| (roadmap) j-04 JP ceremony overlay (full-screen 天獎/地獎/人獎) + SOS2 BigWin atlas FX | — | depends on j-03 |
+| (roadmap) j-05 JP marquee live counter (replace hardcoded 50k/500k/5M with pool reads) | — | depends on j-02 (parallel with j-04) |
 
 ### Chore
 
