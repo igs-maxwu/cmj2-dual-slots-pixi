@@ -145,10 +145,20 @@ function simRun(rng) {
   let streakBoostedCoin = 0;   // extra coin due to streak > 1 (post-Resonance base)
   // Resonance counters (M5)
   let resonanceBoostedCoin = 0; // extra coin earned via Resonance ×1.5
-  // Scatter counters (M10 Free Spin — f-01 stats only; trigger logic in f-02)
+  // Scatter + Free Spin counters (M10 — f-01 cell count, f-03 trigger simulation)
   const SCATTER_ID = SYMBOLS.findIndex(s => s.isScatter);
   let totalScatterCells = 0;
   let scatterTriggerCount = 0;  // spins where ≥3 scatter cells appeared
+  // Free Spin state (M10 — triggered by ≥3 scatter; f-03)
+  let inFreeSpin = false;
+  let freeSpinsRemaining = 0;
+  let freeSpinTriggerCount = 0;
+  let freeSpinRetriggerCount = 0;
+  let freeSpinCoinTotal = 0;    // coin (post-Streak, pre-×2) won during free spin rounds
+  let freeSpinCoinX2Bonus = 0;  // extra coin from ×2 multiplier (same value — doubles base)
+  const FREE_SPIN_COUNT = 5;
+  const FREE_SPIN_WIN_MULT = 2;
+  const FREE_SPIN_CAP = 50;
   // Curse counters (M6) — upgraded in k-02 to true stack tracking
   const CURSE_ID = SYMBOLS.findIndex(s => s.isCurse);
   let totalCurseCellsA = 0, totalCurseCellsB = 0; // cells on A-side / B-side of shared grid
@@ -175,7 +185,8 @@ function simRun(rng) {
   let lastDmgA = 0, lastDmgB = 0;
 
   for (let round = 0; round < ROUNDS; round++) {
-    totalBet += BET * 2;  // both sides bet each round
+    const betThisSpin = inFreeSpin ? 0 : BET;   // M10: bet=0 during free spin
+    totalBet += betThisSpin * 2;                 // both sides bet each round
 
     const spin = engine.spin(
       pool, selected, selected, BET, BET,
@@ -185,6 +196,29 @@ function simRun(rng) {
     // Streak factors (used for both coin and dmg below)
     const sMA = streakMult(streakA);
     const sMB = streakMult(streakB);
+
+    // ── M10 Free Spin trigger: ≥3 scatter cells → enter / retrigger free spin ─
+    // Runs before coin/dmg accumulators so the triggering spin itself gets ×2.
+    if (SCATTER_ID >= 0) {
+      let scatterThisSpin = 0;
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 5; c++) {
+          if (spin.grid[r][c] === SCATTER_ID) scatterThisSpin++;
+        }
+      }
+      totalScatterCells += scatterThisSpin;
+      if (scatterThisSpin >= 3) {
+        scatterTriggerCount++;
+        if (!inFreeSpin) {
+          inFreeSpin = true;
+          freeSpinsRemaining = FREE_SPIN_COUNT;
+          freeSpinTriggerCount++;
+        } else {
+          freeSpinsRemaining = Math.min(FREE_SPIN_CAP, freeSpinsRemaining + FREE_SPIN_COUNT);
+          freeSpinRetriggerCount++;
+        }
+      }
+    }
 
     // Mutable coin accumulators — Resonance adds extras, Streak multiplies
     let coinWonA = spin.sideA.coinWon;
@@ -213,8 +247,15 @@ function simRun(rng) {
     const coinPreStreak_B = coinWonB;
     coinWonA = Math.floor(coinWonA * sMA);
     coinWonB = Math.floor(coinWonB * sMB);
-    totalWon += coinWonA + coinWonB;
     streakBoostedCoin += (coinWonA - coinPreStreak_A) + (coinWonB - coinPreStreak_B);
+    // ── M10 Free Spin: ×2 win multiplier on coin (after Streak, mirrors BattleScreen) ──
+    if (inFreeSpin) {
+      freeSpinCoinTotal   += coinWonA + coinWonB;
+      freeSpinCoinX2Bonus += coinWonA + coinWonB;  // extra = 1× base (×2 total − 1× base)
+      coinWonA = Math.floor(coinWonA * FREE_SPIN_WIN_MULT);
+      coinWonB = Math.floor(coinWonB * FREE_SPIN_WIN_MULT);
+    }
+    totalWon += coinWonA + coinWonB;
 
     // ── Hit-frequency histogram (per side) ──
     for (const ways of [spin.sideA.wayHits.length, spin.sideB.wayHits.length]) {
@@ -280,6 +321,11 @@ function simRun(rng) {
     if (streakB > maxStreakObserved) maxStreakObserved = streakB;
     if (dmgA > 0) dmgA = Math.floor(dmgA * sMA);
     if (dmgB > 0) dmgB = Math.floor(dmgB * sMB);
+    // ── M10 Free Spin: ×2 on dmg (after Streak, before distributeDamage) ─────
+    if (inFreeSpin) {
+      if (dmgA > 0) dmgA = Math.floor(dmgA * FREE_SPIN_WIN_MULT);
+      if (dmgB > 0) dmgB = Math.floor(dmgB * FREE_SPIN_WIN_MULT);
+    }
 
     // ── Underdog buff: ×1.3 dmg when attacker HP ratio < 0.30 ────────────
     underdogSpins++;
@@ -351,17 +397,7 @@ function simRun(rng) {
       totalWon         += phoenixCoin;
     }
 
-    // ── Scatter cell counting (M10 Free Spin — f-01 stats) ───────────────
-    if (SCATTER_ID >= 0) {
-      let scatterThisSpin = 0;
-      for (let r = 0; r < 3; r++) {
-        for (let c = 0; c < 5; c++) {
-          if (spin.grid[r][c] === SCATTER_ID) scatterThisSpin++;
-        }
-      }
-      totalScatterCells += scatterThisSpin;
-      if (scatterThisSpin >= 3) scatterTriggerCount++;
-    }
+    // (Scatter cell counting + Free Spin trigger detection moved above coin accumulators — f-03)
 
     // ── Curse cell counting + stack tracking (M6 — k-02) ─────────────────
     if (CURSE_ID >= 0) {
@@ -394,6 +430,15 @@ function simRun(rng) {
       totalCurseProcsB++;
       totalCurseProcDmgDealt += CURSE_PROC_DMG;
       curseStackB = 0;
+    }
+
+    // ── M10 Free Spin decrement at round end ─────────────────────────────────
+    if (inFreeSpin) {
+      freeSpinsRemaining--;
+      if (freeSpinsRemaining <= 0) {
+        inFreeSpin = false;
+        freeSpinsRemaining = 0;
+      }
     }
 
     // ── Match termination check ───────────────────────────────────────────
@@ -452,6 +497,7 @@ function simRun(rng) {
     totalStreakSumA, totalStreakSumB, maxStreakObserved, streakBoostedCoin,
     resonanceBoostedCoin,
     totalScatterCells, scatterTriggerCount,
+    freeSpinTriggerCount, freeSpinRetriggerCount, freeSpinCoinTotal, freeSpinCoinX2Bonus,
     totalCurseCellsA, totalCurseCellsB,
     totalCurseStackPeak, totalStackEndA, totalStackEndB,
     totalCurseProcsA, totalCurseProcsB, totalCurseProcDmgDealt,
@@ -569,6 +615,15 @@ const output = {
     spins_with_3plus:       agg.scatterTriggerCount,
     trigger_rate:           +(agg.scatterTriggerCount / (ROUNDS * RUNS)).toFixed(4),
     per_match_estimate:     +(agg.scatterTriggerCount / (agg.totalMatches || 1)).toFixed(4),
+  },
+  free_spin: {
+    triggers:                     agg.freeSpinTriggerCount,
+    retriggers:                   agg.freeSpinRetriggerCount,
+    trigger_rate_per_spin:        +(agg.freeSpinTriggerCount / (ROUNDS * RUNS)).toFixed(4),
+    trigger_rate_per_match:       +(agg.freeSpinTriggerCount / (agg.totalMatches || 1)).toFixed(4),
+    coin_in_freespin:             +agg.freeSpinCoinTotal.toFixed(2),
+    coin_x2_bonus:                +agg.freeSpinCoinX2Bonus.toFixed(2),
+    pct_of_total_coin_from_freespin: +((agg.freeSpinCoinTotal + agg.freeSpinCoinX2Bonus) / (agg.totalWon || 1)).toFixed(4),
   },
   curse: {
     total_cells_on_A_side:          agg.totalCurseCellsA,

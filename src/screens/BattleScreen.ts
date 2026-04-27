@@ -621,6 +621,30 @@ export class BattleScreen implements Screen {
         }
       }
 
+      // ── M10 Free Spin trigger: ≥3 scatter cells on shared 5×3 grid ──────────
+      // Trigger detection runs before coin/dmg accumulators so this spin gets ×2.
+      const SCATTER_ID = SYMBOLS.findIndex(s => s.isScatter);
+      if (SCATTER_ID >= 0) {
+        let scatterThisSpin = 0;
+        for (let r = 0; r < 3; r++) {
+          for (let c = 0; c < 5; c++) {
+            if (spin.grid[r][c] === SCATTER_ID) scatterThisSpin++;
+          }
+        }
+        if (scatterThisSpin >= 3) {
+          if (!this.inFreeSpin) {
+            // Fresh trigger — this spin and next 4 are free + ×2
+            this.inFreeSpin = true;
+            this.freeSpinsRemaining = BattleScreen.FREE_SPIN_COUNT;
+            if (import.meta.env.DEV) console.log(`[FreeSpin] TRIGGERED — ${scatterThisSpin} scatters → 5 spins`);
+          } else {
+            // Retrigger during free spin — add 5 more, cap 50
+            this.freeSpinsRemaining = Math.min(50, this.freeSpinsRemaining + BattleScreen.FREE_SPIN_COUNT);
+            if (import.meta.env.DEV) console.log(`[FreeSpin] RETRIGGER — ${scatterThisSpin} scatters → +5 (now ${this.freeSpinsRemaining})`);
+          }
+        }
+      }
+
       // Mutable coin accumulators — Resonance adds extras, Streak multiplies;
       // wallet credit and cascade happen after all multipliers (below Streak section)
       let coinA = spin.sideA.coinWon;
