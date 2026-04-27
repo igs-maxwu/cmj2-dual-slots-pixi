@@ -127,11 +127,11 @@ Roadmap doc: [`sprint8/ROADMAP.md`](sprint8/ROADMAP.md)
 | PR | Prompt file | Status |
 |---|---|---|
 | ([`docs/pitch/sprint8-deck-outline.md`](../docs/pitch/sprint8-deck-outline.md) push commit `fe60bb4`) p-01 Pitch deck content outline (12 slides bilingual narrative + speaker notes + 視覺暗示, all facts cited from MemPalace drawers) | [`sprint8/p-01-pitch-deck-content-outline.md`](sprint8/p-01-pitch-deck-content-outline.md) | ✅ delivered (orchestrator inline, no PR) |
-| (pending) p-02 Demo mode (`?demo=1` URL param, scripted 5-spin sequence guarantees NearWin/BigWin/MegaWin/JP/FreeSpin capture) — only executor code PR in Sprint 8 | [`sprint8/p-02-demo-mode-scripted-capture.md`](sprint8/p-02-demo-mode-scripted-capture.md) | **ready to dispatch** — skill hints: incremental-implementation, source-driven-development, frontend-ui-engineering |
-| (roadmap) p-03 Generate `.pptx` from p-01 outline (uses anthropic-skills:pptx) | — | depends on p-01 + p-02 (screenshots) |
-| (roadmap) p-04 60s hype video script + storyboard + shot list | — | depends on p-01 |
-| (roadmap) p-05 Marketing one-pager content + Claude Design mockup prompt | — | depends on p-01 |
-| (roadmap) p-06 Sprint 8 closure — 三件套整合 + final review | — | depends on p-03/p-04/p-05 |
+| [#135](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/135) p-02 Demo mode (`?demo=1` URL param, 5-spin scripted: NearWin→BigWin 33.7×→MegaWin 202×→JP→FreeSpin) | [`sprint8/p-02-demo-mode-scripted-capture.md`](sprint8/p-02-demo-mode-scripted-capture.md) | ✅ merged |
+| (`docs/pitch/sprint8-pitch-deck.pptx` commit `c2cbc06`) p-03 Generate `.pptx` from p-01 outline (12 slides 310KB, 4-Beast palette, pptxgenjs path) | — | ✅ delivered (orchestrator inline via anthropic-skills:pptx) |
+| (`docs/pitch/sprint8-hype-video-script.md` commit `09c9a6c`) p-04 60s hype video script (4 acts, 18 shots, full Mandarin VO + BGM curve, leverages `?demo=1` for capture) | — | ✅ delivered (orchestrator inline) |
+| (`docs/pitch/sprint8-one-pager.md` commit `6e0f19e`) p-05 A4 marketing one-pager (5-band layout + Claude Design / Midjourney prompt + Figma/Canva alternatives) | — | ✅ delivered (orchestrator inline) |
+| (`docs/pitch/sprint8-closure.md` commit pending) p-06 Sprint 8 closure — 三件套 brand consistency final check + owner action list + Sprint 9 candidate paths | — | ✅ delivered (orchestrator inline) — **Sprint 8 COMPLETE 6/6** |
 
 ### Chore
 
