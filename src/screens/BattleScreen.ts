@@ -110,6 +110,11 @@ export class BattleScreen implements Screen {
   /** SPEC §15.6 M6 Curse — accumulated stacks per side (reset on match end in k-03) */
   private curseStackA = 0;
   private curseStackB = 0;
+  /** Curse stack HUD containers (k-04) */
+  private curseHudA!: Container;
+  private curseHudAText!: Text;
+  private curseHudB!: Container;
+  private curseHudBText!: Text;
 
   constructor(private cfg: DraftResult, private onExit: () => void) {}
 
@@ -143,6 +148,7 @@ export class BattleScreen implements Screen {
     this.drawVsBadge();
     this.drawLog();
     this.drawBackButton();
+    this.drawCurseHud();
     this.container.addChild(this.fxLayer);  // fx on top
     this.refresh();
     this._breatheTick = () => {
@@ -414,12 +420,63 @@ export class BattleScreen implements Screen {
     this.container.addChild(btn);
   }
 
+  // ─── Curse stack HUD (k-04) ──────────────────────────────────────────────
+  private drawCurseHud(): void {
+    // A side — bottom-left of wallet area
+    this.curseHudA = new Container();
+    this.curseHudA.x = 16;  this.curseHudA.y = 130;
+    const iconA = new Graphics()
+      .circle(0, 0, 9).fill({ color: 0x8b3aaa, alpha: 0.85 })
+      .stroke({ width: 1.5, color: 0xffaaff, alpha: 0.9 });
+    this.curseHudA.addChild(iconA);
+    this.curseHudAText = new Text({
+      text: '×0',
+      style: { fontFamily: T.FONT.num, fontSize: 12, fontWeight: '700', fill: 0xffaaff, letterSpacing: 1 },
+    });
+    this.curseHudAText.anchor.set(0, 0.5);
+    this.curseHudAText.x = 14;  this.curseHudAText.y = 0;
+    this.curseHudA.addChild(this.curseHudAText);
+    this.curseHudA.visible = false;
+    this.container.addChild(this.curseHudA);
+
+    // B side mirror — bottom-right of wallet area
+    this.curseHudB = new Container();
+    this.curseHudB.x = CANVAS_WIDTH - 16;  this.curseHudB.y = 130;
+    const iconB = new Graphics()
+      .circle(0, 0, 9).fill({ color: 0x8b3aaa, alpha: 0.85 })
+      .stroke({ width: 1.5, color: 0xffaaff, alpha: 0.9 });
+    this.curseHudB.addChild(iconB);
+    this.curseHudBText = new Text({
+      text: '×0',
+      style: { fontFamily: T.FONT.num, fontSize: 12, fontWeight: '700', fill: 0xffaaff, letterSpacing: 1 },
+    });
+    this.curseHudBText.anchor.set(1, 0.5);
+    this.curseHudBText.x = -14;  this.curseHudBText.y = 0;
+    this.curseHudB.addChild(this.curseHudBText);
+    this.curseHudB.visible = false;
+    this.container.addChild(this.curseHudB);
+  }
+
+  private updateCurseHud(side: 'A' | 'B', stack: number): void {
+    const hud  = side === 'A' ? this.curseHudA     : this.curseHudB;
+    const text = side === 'A' ? this.curseHudAText : this.curseHudBText;
+    if (stack <= 0) {
+      hud.visible = false;
+      return;
+    }
+    hud.visible = true;
+    text.text   = `×${stack}`;
+    hud.alpha   = stack >= 2 ? 1.0 : 0.7;
+  }
+
   // ─── Frame refresh (non-animated parts) ──────────────────────────────────
   private refresh(): void {
     this.roundText.text = `ROUND ${String(this.round).padStart(2, '0')}`;
     this.refreshFormation('A', this.formationA, this.cellsA);
     this.refreshFormation('B', this.formationB, this.cellsB);
     this.logText.text = this.logLines.slice(-3).join('\n');
+    this.updateCurseHud('A', this.curseStackA);
+    this.updateCurseHud('B', this.curseStackB);
   }
 
   private refreshFormation(side: 'A' | 'B', grid: FormationGrid, cells: FormationCellRefs[]): void {
@@ -642,10 +699,27 @@ export class BattleScreen implements Screen {
 
       if (this.curseStackA >= 3) {
         curseEventsOnA.push(...distributeDamage(this.formationA, CURSE_PROC_DMG, 'B'));
+        // Flash HUD before reset (fire-and-forget — does not block combat flow)
+        this.curseHudA.visible = true;
+        this.curseHudA.scale.set(1.3);
+        tween(250, t => {
+          this.curseHudA.scale.set(1.3 - 0.3 * t);
+          this.curseHudA.alpha = 1 - t;
+        }, Easings.easeOut).then(() => {
+          this.curseHudA.scale.set(1); this.curseHudA.alpha = 1; this.curseHudA.visible = false;
+        });
         this.curseStackA = 0;
       }
       if (this.curseStackB >= 3) {
         curseEventsOnB.push(...distributeDamage(this.formationB, CURSE_PROC_DMG, 'A'));
+        this.curseHudB.visible = true;
+        this.curseHudB.scale.set(1.3);
+        tween(250, t => {
+          this.curseHudB.scale.set(1.3 - 0.3 * t);
+          this.curseHudB.alpha = 1 - t;
+        }, Easings.easeOut).then(() => {
+          this.curseHudB.scale.set(1); this.curseHudB.alpha = 1; this.curseHudB.visible = false;
+        });
         this.curseStackB = 0;
       }
       if (curseEventsOnA.length > 0) {
