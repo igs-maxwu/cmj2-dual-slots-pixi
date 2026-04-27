@@ -32,6 +32,7 @@ import {
 } from '@/systems/JackpotPool';
 import { playJackpotCeremony } from '@/fx/JackpotCeremony';
 import { playNearWinTeaser } from '@/fx/NearWinTeaser';
+import { playBigWinCeremony } from '@/fx/BigWinCeremony';
 
 // ─── Portrait layout 720×1280 ───────────────────────────────────────────────
 const HEADER_Y   = 14;
@@ -131,6 +132,8 @@ export class BattleScreen implements Screen {
   private freeSpinsRemaining = 0;
   private static readonly FREE_SPIN_COUNT = 5;
   private static readonly FREE_SPIN_WIN_MULT = 2;
+  private static readonly BIGWIN_THRESHOLD_X  = 25;   // 25× bet → BigWin
+  private static readonly MEGAWIN_THRESHOLD_X = 100;  // 100× bet → MegaWin
   /** DEV-only key handler for manual Free Spin trigger (removed on unmount) */
   private _devKeyHandler?: (e: KeyboardEvent) => void;
   /** Free Spin UI overlay (f-04) */
@@ -982,6 +985,20 @@ export class BattleScreen implements Screen {
         }
       }
 
+      // ── d-07: Non-JP BigWin / MegaWin overlay (after wayHit + JP fx) ──────
+      {
+        const bigwinTierA = this._classifyBigWinTier(coinA, this.cfg.betA);
+        const bigwinTierB = this._classifyBigWinTier(coinB, this.cfg.betB);
+        const bigwinTier =
+          (bigwinTierA === 'megawin' || bigwinTierB === 'megawin') ? 'megawin' :
+          (bigwinTierA === 'bigwin'  || bigwinTierB === 'bigwin')  ? 'bigwin'  : null;
+        if (bigwinTier) {
+          const amount = Math.max(coinA, coinB);
+          await playBigWinCeremony(this.container, bigwinTier, amount);
+          if (import.meta.env.DEV) console.log(`[BigWin] tier=${bigwinTier} amount=${amount}`);
+        }
+      }
+
       // ── M6 Curse proc: 3+ stack → 500 HP flat damage to that side ──────────
       const CURSE_PROC_DMG = 500;
       const curseEventsOnA: DmgEvent[] = [];
@@ -1273,6 +1290,16 @@ export class BattleScreen implements Screen {
   private async playDamageEvents(events: DmgEvent[], targetSide: 'A' | 'B'): Promise<void> {
     const pops = events.map(e => this.popDamage(targetSide, e.slotIndex, e.damageTaken));
     await Promise.all(pops);
+  }
+
+  // ─── d-07: BigWin / MegaWin threshold helper ────────────────────────────
+
+  private _classifyBigWinTier(coin: number, bet: number): 'bigwin' | 'megawin' | null {
+    if (bet <= 0) return null;
+    const x = coin / bet;
+    if (x >= BattleScreen.MEGAWIN_THRESHOLD_X) return 'megawin';
+    if (x >= BattleScreen.BIGWIN_THRESHOLD_X)  return 'bigwin';
+    return null;
   }
 
   // ─── M12 Jackpot trigger (j-03) ─────────────────────────────────────────
