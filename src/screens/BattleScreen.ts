@@ -44,6 +44,9 @@ const TOP_BAR_Y = 0;
 // Jackpot area placeholder (y=138…338)
 const JP_AREA_Y = 138;
 const JP_AREA_H = 200;
+// v-02: 2-row marquee split
+const JP_GRAND_H  = 70;                       // upper row — GRAND
+const JP_BOTTOM_H = JP_AREA_H - JP_GRAND_H;   // lower row — MAJOR + MINOR (130)
 
 // Wallet labels — centred over former team HP bar zones (freed space y=70-130)
 const WALLET_A_X = 151;   // left-side centre  (≈ CANVAS_WIDTH * 0.21)
@@ -474,41 +477,93 @@ export class BattleScreen implements Screen {
 
   // ─── Jackpot marquee ─────────────────────────────────────────────────────
   private drawJackpotMarquee(): void {
-    // Opaque ink-wash panel behind jp-marquee PNG (prevents transparent checkerboard bleed)
+    // v-02: 2-row layout — GRAND full-width top, MAJOR + MINOR side-by-side bottom
+
+    // Background panel — gold-bordered dark panel (jp-marquee PNG removed)
     const bgPanel = new Graphics()
       .roundRect(16, JP_AREA_Y, CANVAS_WIDTH - 32, JP_AREA_H, T.RADIUS.lg)
       .fill({ color: T.SEA.deep, alpha: 0.85 })
-      .stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.6 });
+      .stroke({ width: 1.5, color: T.GOLD.shadow, alpha: 0.7 });
     this.container.addChild(bgPanel);
 
-    const tex = Assets.get<Texture>('jp-marquee') ?? Texture.WHITE;
-    const marquee = new Sprite(tex);
-    marquee.anchor.set(0.5, 0.5);
-    marquee.width  = CANVAS_WIDTH - 32;
-    marquee.height = JP_AREA_H;
-    marquee.x = CANVAS_WIDTH / 2;
-    marquee.y = JP_AREA_Y + JP_AREA_H / 2;
-    this.container.addChild(marquee);
+    // Horizontal hairline separator between row 1 (GRAND) and row 2 (MAJOR + MINOR)
+    const sepY = JP_AREA_Y + JP_GRAND_H;
+    const separator = new Graphics()
+      .rect(40, sepY, CANVAS_WIDTH - 80, 1)
+      .fill({ color: T.GOLD.shadow, alpha: 0.3 });
+    this.container.addChild(separator);
 
-    const numY = JP_AREA_Y + JP_AREA_H / 2 + 14;
+    // Vertical hairline separator between MAJOR and MINOR in row 2
+    const vSepX = CANVAS_WIDTH / 2;
+    const vSeparator = new Graphics()
+      .rect(vSepX, sepY + 12, 1, JP_BOTTOM_H - 24)
+      .fill({ color: T.GOLD.shadow, alpha: 0.3 });
+    this.container.addChild(vSeparator);
 
-    this.jpMinorText = goldText('50,000', { fontSize: 22, withShadow: true });
-    this.jpMinorText.anchor.set(0.5, 0.5);
-    this.jpMinorText.x = CANVAS_WIDTH * 0.22;
-    this.jpMinorText.y = numY;
-    this.container.addChild(this.jpMinorText);
+    // ── Row 1: GRAND 天獎 (full-width, large) ──────────────────────────────
+    const grandRowCenterY = JP_AREA_Y + JP_GRAND_H / 2;
 
-    this.jpMajorText = goldText('500,000', { fontSize: 22, withShadow: true });
+    const grandLabel = new Text({
+      text: '天獎  GRAND',
+      style: {
+        fontFamily: T.FONT.body, fontWeight: '700',
+        fontSize: 11, fill: T.GOLD.shadow, letterSpacing: 4,
+      },
+    });
+    grandLabel.anchor.set(0.5, 0.5);
+    grandLabel.x = CANVAS_WIDTH / 2;
+    grandLabel.y = grandRowCenterY - 14;
+    this.container.addChild(grandLabel);
+
+    this.jpGrandText = goldText('5,000,000', { fontSize: 30, withShadow: true });
+    this.jpGrandText.anchor.set(0.5, 0.5);
+    this.jpGrandText.x = CANVAS_WIDTH / 2;
+    this.jpGrandText.y = grandRowCenterY + 12;
+    this.jpGrandText.filters = [new GlowFilter({
+      color: 0xFFD37A, distance: 14, outerStrength: 2.5, innerStrength: 0.5, quality: 0.4,
+    })];
+    this.container.addChild(this.jpGrandText);
+
+    // ── Row 2: MAJOR 地獎 (left half) + MINOR 人獎 (right half) ───────────
+    const bottomRowCenterY = sepY + JP_BOTTOM_H / 2;
+    const majorX = CANVAS_WIDTH * 0.25;
+    const minorX = CANVAS_WIDTH * 0.75;
+
+    const majorLabel = new Text({
+      text: '地獎  MAJOR',
+      style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 10, fill: T.GOLD.shadow, letterSpacing: 3 },
+    });
+    majorLabel.anchor.set(0.5, 0.5);
+    majorLabel.x = majorX;
+    majorLabel.y = bottomRowCenterY - 12;
+    this.container.addChild(majorLabel);
+
+    this.jpMajorText = goldText('500,000', { fontSize: 20, withShadow: true });
     this.jpMajorText.anchor.set(0.5, 0.5);
-    this.jpMajorText.x = CANVAS_WIDTH * 0.50;
-    this.jpMajorText.y = numY;
+    this.jpMajorText.x = majorX;
+    this.jpMajorText.y = bottomRowCenterY + 10;
+    this.jpMajorText.filters = [new GlowFilter({
+      color: 0xC9A961, distance: 10, outerStrength: 1.5, innerStrength: 0.4, quality: 0.4,
+    })];
     this.container.addChild(this.jpMajorText);
 
-    this.jpGrandText = goldText('5,000,000', { fontSize: 22, withShadow: true });
-    this.jpGrandText.anchor.set(0.5, 0.5);
-    this.jpGrandText.x = CANVAS_WIDTH * 0.78;
-    this.jpGrandText.y = numY;
-    this.container.addChild(this.jpGrandText);
+    const minorLabel = new Text({
+      text: '人獎  MINOR',
+      style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 10, fill: T.GOLD.shadow, letterSpacing: 3 },
+    });
+    minorLabel.anchor.set(0.5, 0.5);
+    minorLabel.x = minorX;
+    minorLabel.y = bottomRowCenterY - 12;
+    this.container.addChild(minorLabel);
+
+    this.jpMinorText = goldText('50,000', { fontSize: 20, withShadow: true });
+    this.jpMinorText.anchor.set(0.5, 0.5);
+    this.jpMinorText.x = minorX;
+    this.jpMinorText.y = bottomRowCenterY + 10;
+    this.jpMinorText.filters = [new GlowFilter({
+      color: 0xC9A961, distance: 10, outerStrength: 1.5, innerStrength: 0.4, quality: 0.4,
+    })];
+    this.container.addChild(this.jpMinorText);
   }
 
   /**
