@@ -744,6 +744,29 @@ async function _sigTortoiseHammerSmash(ctx: Phase4Ctx): Promise<void> {
   const swPromise = applyShockwave(stage, tp0.x, tp0.y, 120, 150);
   void _screenShake(stage, ctx.shakeIntensity);
 
+  // d-04: ground impact — smoke plume (grey particles) + radial glow
+  const smoke = _makeFxSprite('sos2-particles', 0xc0c0d0);
+  const impactGlow = _makeFxSprite('sos2-radial-lights', 0xffaa44);
+  if (smoke) {
+    smoke.x = tp0.x; smoke.y = tp0.y + 40;
+    smoke.scale.set(0.4); smoke.alpha = 0.85;
+    stage.addChild(smoke);
+    void tween(700, t => {
+      smoke.alpha = 0.85 * (1 - t);
+      smoke.scale.set(0.4 + t * 1.4);
+      smoke.y = tp0.y + 40 - t * 60;
+    }, Easings.easeOut).then(() => smoke.destroy());
+  }
+  if (impactGlow) {
+    impactGlow.x = tp0.x; impactGlow.y = tp0.y + 60;
+    impactGlow.scale.set(0.2); impactGlow.alpha = 1;
+    stage.addChild(impactGlow);
+    void tween(450, t => {
+      impactGlow.alpha = 1 - t;
+      impactGlow.scale.set(0.2 + t * 1.6);
+    }, Easings.easeOut).then(() => impactGlow.destroy());
+  }
+
   const flash = new Graphics()
     .rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
     .fill({ color: 0xffffff, alpha: 0.5 });
