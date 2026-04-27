@@ -234,6 +234,7 @@ export class BattleScreen implements Screen {
     this.particles = new AmbientParticles(app);
     stage.addChild(this.particles);
     stage.addChild(this.container);
+    this.container.sortableChildren = true;   // p10-bug-01: enable zIndex respect (Pixi 8 requires explicit opt-in)
     this.formationA = createFormation(this.cfg.selectedA, this.cfg.unitHpA);
     this.formationB = createFormation(this.cfg.selectedB, this.cfg.unitHpB);
     this.resonanceA = detectResonance(this.cfg.selectedA);
