@@ -3,13 +3,14 @@ export type Clan = 'azure' | 'vermilion' | 'white' | 'black';
 export interface SymbolDef {
   id:          number;
   name:        string;                     // legacy color name, kept for algo
-  shape:       'triangle'|'hexagon'|'square'|'cross'|'circle'|'heart'|'diamond'|'star'|'wild';
+  shape:       'triangle'|'hexagon'|'square'|'cross'|'circle'|'heart'|'diamond'|'star'|'wild'|'curse';
   color:       number;                     // 0xRRGGBB atmosphere color
   weight:      number;
   spiritKey:   string;                     // asset filename (no extension)
   spiritName:  string;                     // 中文顯示名
   clan:        Clan;
   isWild?:     boolean;    // Wild substitutes for any spirit; does not score its own ways
+  isCurse?:    boolean;    // Curse — does not score, does not substitute, blocks matches
 }
 
 export const SYMBOLS: SymbolDef[] = [
@@ -31,6 +32,8 @@ export const SYMBOLS: SymbolDef[] = [
     spiritKey:'xuanmo',        spiritName:'玄墨',     clan:'black'     },
   { id:8, name:'Wild',   shape:'wild',     color:0xffd700, weight:3,
     spiritKey:'wild',          spiritName:'神獸化身', clan:'azure',    isWild:true },
+  { id:9, name:'Curse',  shape:'curse',    color:0x8b3aaa, weight:3,
+    spiritKey:'curse',         spiritName:'咒符',     clan:'black',    isCurse:true },
 ];
 
 export const PAYOUT_BASE: Record<number,number> = { 3:5, 4:20, 5:100 };
