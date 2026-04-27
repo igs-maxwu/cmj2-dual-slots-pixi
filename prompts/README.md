@@ -94,8 +94,8 @@ Roadmap doc: [`sprint6/ROADMAP.md`](sprint6/ROADMAP.md)
 | [#121](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/121) f-01 Scatter symbol id:10 (pool-present, non-scoring) | [`sprint6/f-01-scatter-symbol.md`](sprint6/f-01-scatter-symbol.md) | ✅ merged |
 | [#122](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/122) f-02 Free Spin mode state (`inFreeSpin` / `freeSpinsRemaining` / win ×2) + scatter weight 2→4 | [`sprint6/f-02-free-spin-mode-state.md`](sprint6/f-02-free-spin-mode-state.md) | ✅ merged |
 | [#123](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/123) f-03 trigger detection (≥3 scatter → enter mode, retrigger +5 cap 50) + sim free spin model | [`sprint6/f-03-free-spin-trigger.md`](sprint6/f-03-free-spin-trigger.md) | ✅ merged |
-| (pending) f-04 UI overlay (`FREE SPINS N/5` banner, gold tint, retrigger pulse) | [`sprint6/f-04-free-spin-ui-overlay.md`](sprint6/f-04-free-spin-ui-overlay.md) | **ready to dispatch** (1st PR with skill hints — frontend-ui-engineering, incremental-implementation, source-driven-development) |
-| (roadmap) f-05 sim verify trigger ~0.2/match + **RTP rebalance** (f-03 RTP=133.45% > 130% threshold) | — | depends on f-04 |
+| [#124](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/124) f-04 UI overlay (`FREE SPINS N/5` banner, gold tint, retrigger pulse) | [`sprint6/f-04-free-spin-ui-overlay.md`](sprint6/f-04-free-spin-ui-overlay.md) | ✅ merged (skill hints validated — `source-driven-development` triggered API cross-reference in PR body) |
+| (pending) f-05 sim verify + **RTP rebalance** to 95-110% (Sprint 6 Track F closure) | [`sprint6/f-05-sim-verify-rtp-rebalance.md`](sprint6/f-05-sim-verify-rtp-rebalance.md) | **ready to dispatch** — skill hints: test-driven-development, performance-optimization, incremental-implementation |
 
 ### Chore
 
