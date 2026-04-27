@@ -126,8 +126,8 @@ Roadmap doc: [`sprint8/ROADMAP.md`](sprint8/ROADMAP.md)
 
 | PR | Prompt file | Status |
 |---|---|---|
-| (pending) p-01 Pitch deck content outline (8-12 slides 中英雙語 narrative + speaker notes + 視覺暗示, foundation for p-03/p-04/p-05) | [`sprint8/p-01-pitch-deck-content-outline.md`](sprint8/p-01-pitch-deck-content-outline.md) | **ready to execute** — skill hints: spec-driven-development, documentation-and-adrs, idea-refine |
-| (roadmap) p-02 Demo mode (`?demo=1` URL param, scripted spin sequence guarantees BigWin/MegaWin/JP/FreeSpin/NearWin capture) | — | only executor PR in Sprint 8 |
+| ([`docs/pitch/sprint8-deck-outline.md`](../docs/pitch/sprint8-deck-outline.md) push commit `fe60bb4`) p-01 Pitch deck content outline (12 slides bilingual narrative + speaker notes + 視覺暗示, all facts cited from MemPalace drawers) | [`sprint8/p-01-pitch-deck-content-outline.md`](sprint8/p-01-pitch-deck-content-outline.md) | ✅ delivered (orchestrator inline, no PR) |
+| (pending) p-02 Demo mode (`?demo=1` URL param, scripted 5-spin sequence guarantees NearWin/BigWin/MegaWin/JP/FreeSpin capture) — only executor code PR in Sprint 8 | [`sprint8/p-02-demo-mode-scripted-capture.md`](sprint8/p-02-demo-mode-scripted-capture.md) | **ready to dispatch** — skill hints: incremental-implementation, source-driven-development, frontend-ui-engineering |
 | (roadmap) p-03 Generate `.pptx` from p-01 outline (uses anthropic-skills:pptx) | — | depends on p-01 + p-02 (screenshots) |
 | (roadmap) p-04 60s hype video script + storyboard + shot list | — | depends on p-01 |
 | (roadmap) p-05 Marketing one-pager content + Claude Design mockup prompt | — | depends on p-01 |
