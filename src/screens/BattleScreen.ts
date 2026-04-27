@@ -37,6 +37,10 @@ import { playBigWinCeremony } from '@/fx/BigWinCeremony';
 // ─── Portrait layout 720×1280 ───────────────────────────────────────────────
 const HEADER_Y   = 14;
 
+// ── v-01: Top UI bar ────────────────────────────────────────────────────────
+const TOP_BAR_H = 45;
+const TOP_BAR_Y = 0;
+
 // Jackpot area placeholder (y=138…338)
 const JP_AREA_Y = 138;
 const JP_AREA_H = 200;
@@ -44,7 +48,7 @@ const JP_AREA_H = 200;
 // Wallet labels — centred over former team HP bar zones (freed space y=70-130)
 const WALLET_A_X = 151;   // left-side centre  (≈ CANVAS_WIDTH * 0.21)
 const WALLET_B_X = 569;   // right-side centre (≈ CANVAS_WIDTH * 0.79)
-const WALLET_Y   = 52;    // just above JP marquee area
+const WALLET_Y   = 78;    // v-01: raised from 52 → 78 to clear top bar + title
 
 // Slot reel — centred, pushed below formations
 const SLOT_X     = Math.round((CANVAS_WIDTH - REEL_W) / 2);
@@ -88,6 +92,14 @@ export class BattleScreen implements Screen {
   private vsBadge!: VsBadgeAnimator;
   private container = new Container();
   private roundText!: Text;
+  /** v-01: Top UI bar (menu / round pill / store) */
+  private topBar!: Container;
+  private menuIcon!: Text;
+  private storeIcon!: Text;
+  private roundPill!: Container;
+  /** v-01: Player A/B labels above wallet text */
+  private playerLabelA!: Text;
+  private playerLabelB!: Text;
   private _breatheTick: (() => void) | null = null;
   private cellsA: FormationCellRefs[] = [];
   private cellsB: FormationCellRefs[] = [];
@@ -222,6 +234,7 @@ export class BattleScreen implements Screen {
 
     this.drawBackground();
     addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 130, 0.55);
+    this.drawTopBar();     // v-01: top bar first so header title sits below it
     this.drawHeader();
     this.drawWallets();
     this.jackpotPools = loadPools();
@@ -322,27 +335,112 @@ export class BattleScreen implements Screen {
   }
 
   private drawHeader(): void {
+    // v-01: title downsized (24→was 32) and placed below top bar
     const title = new Text({
       text: '雀靈戰記 · BATTLE',
       style: {
-        fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.h1,
-        fill: T.GOLD.base, stroke: { color: T.GOLD.shadow, width: 3 }, letterSpacing: 2,
+        fontFamily: T.FONT.title, fontWeight: '700', fontSize: 24,
+        fill: T.GOLD.base, stroke: { color: T.GOLD.shadow, width: 2 }, letterSpacing: 2,
       },
     });
     title.anchor.set(0.5, 0);
-    title.x = CANVAS_WIDTH / 2; title.y = HEADER_Y;
+    title.x = CANVAS_WIDTH / 2;
+    title.y = TOP_BAR_H + 4;   // directly below top bar
     this.container.addChild(title);
+    // roundText is now created in drawTopBar() inside the ROUND pill
+  }
 
-    this.roundText = goldText('ROUND 00', { fontSize: 32, withShadow: true });
-    this.roundText.style.letterSpacing = 2;
-    this.roundText.anchor.set(0.5, 0);
-    this.roundText.x = CANVAS_WIDTH / 2;
-    this.roundText.y = HEADER_Y + T.FONT_SIZE.h1 + 4;
-    this.container.addChild(this.roundText);
+  // ── v-01: Top UI bar ────────────────────────────────────────────────────────
+  private drawTopBar(): void {
+    this.topBar = new Container();
+    this.topBar.zIndex = 80;   // annotation; actual order = addChild sequence
+
+    // Background — two Graphics layers simulate gradient (Pixi 8 has no native gradient fill)
+    const bgTop = new Graphics()
+      .rect(TOP_BAR_Y, 0, CANVAS_WIDTH, TOP_BAR_H * 0.5)
+      .fill({ color: 0x003264, alpha: 0.95 });
+    const bgBot = new Graphics()
+      .rect(0, TOP_BAR_H * 0.5, CANVAS_WIDTH, TOP_BAR_H * 0.5)
+      .fill({ color: 0x001E3C, alpha: 0.70 });
+    // Bottom border — cyan accent line
+    const border = new Graphics()
+      .rect(0, TOP_BAR_H - 1.5, CANVAS_WIDTH, 1.5)
+      .fill({ color: 0x00FFFF, alpha: 0.3 });
+
+    this.topBar.addChild(bgTop);
+    this.topBar.addChild(bgBot);
+    this.topBar.addChild(border);
+
+    // Left: menu icon (☰ placeholder — onClick wired in Phase 2)
+    this.menuIcon = new Text({
+      text: '☰',
+      style: { fontFamily: T.FONT.body, fontSize: 28, fill: 0xFFFFFF },
+    });
+    this.menuIcon.anchor.set(0, 0.5);
+    this.menuIcon.x = 14;
+    this.menuIcon.y = TOP_BAR_H / 2;
+    this.topBar.addChild(this.menuIcon);
+
+    // Center: ROUND pill
+    this.roundPill = new Container();
+    this.roundPill.x = CANVAS_WIDTH / 2;
+    this.roundPill.y = TOP_BAR_H / 2;
+
+    const pillBg = new Graphics()
+      .roundRect(-70, -16, 140, 32, 16)
+      .fill({ color: 0x000000, alpha: 0.4 })
+      .stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.6 });
+    this.roundPill.addChild(pillBg);
+
+    // ROUND text — replaces the old drawHeader roundText; same this.roundText ref
+    this.roundText = goldText('ROUND 00', { fontSize: 16, withShadow: true });
+    this.roundText.anchor.set(0.5, 0.5);
+    this.roundText.style.letterSpacing = 3;
+    this.roundPill.addChild(this.roundText);
+    this.topBar.addChild(this.roundPill);
+
+    // Right: store icon (🎁 placeholder — onClick wired in Phase 2)
+    this.storeIcon = new Text({
+      text: '🎁',
+      style: { fontFamily: T.FONT.body, fontSize: 22 },
+    });
+    this.storeIcon.anchor.set(1, 0.5);
+    this.storeIcon.x = CANVAS_WIDTH - 14;
+    this.storeIcon.y = TOP_BAR_H / 2;
+    this.topBar.addChild(this.storeIcon);
+
+    this.container.addChild(this.topBar);
   }
 
 
   private drawWallets(): void {
+    // v-01: PLAYER A/B labels — placed above wallet text
+    this.playerLabelA = new Text({
+      text: 'PLAYER A',
+      style: {
+        fontFamily: T.FONT.body, fontWeight: '700',
+        fontSize: 11, fill: T.CLAN.azureGlow,
+        letterSpacing: 3,
+      },
+    });
+    this.playerLabelA.anchor.set(0.5, 0);
+    this.playerLabelA.x = WALLET_A_X;
+    this.playerLabelA.y = WALLET_Y - 16;
+    this.container.addChild(this.playerLabelA);
+
+    this.playerLabelB = new Text({
+      text: 'PLAYER B',
+      style: {
+        fontFamily: T.FONT.body, fontWeight: '700',
+        fontSize: 11, fill: T.CLAN.vermilionGlow,
+        letterSpacing: 3,
+      },
+    });
+    this.playerLabelB.anchor.set(0.5, 0);
+    this.playerLabelB.x = WALLET_B_X;
+    this.playerLabelB.y = WALLET_Y - 16;
+    this.container.addChild(this.playerLabelB);
+
     this.walletTextA = goldText(this.formatWallet(this.walletA), { fontSize: 16, withShadow: true });
     this.walletTextA.anchor.set(0.5, 0);
     this.walletTextA.x = WALLET_A_X;
