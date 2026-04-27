@@ -15,7 +15,7 @@ import { UiButton } from '@/components/UiButton';
 import { addCornerOrnaments } from '@/components/Decorations';
 import type { DraftResult } from './DraftScreen';
 import { attackTimeline } from './SpiritAttackChoreographer';
-import type { WayHit } from '@/systems/SlotEngine';
+import type { WayHit, SpinResult } from '@/systems/SlotEngine';
 import { mercenaryWeakFx } from '@/fx/MercenaryFx';
 import { AmbientBackground } from './AmbientBackground';
 import { VsBadgeAnimator } from '@/fx/VsBadgeAnimator';
@@ -790,14 +790,31 @@ export class BattleScreen implements Screen {
       this.vsBadge.pulse();
       this.refresh();
 
-      const spin = this.engine.spin(
-        pool,
-        this.cfg.selectedA, this.cfg.selectedB,
-        this.cfg.betA, this.cfg.betB,
-        this.cfg.coinScaleA, this.cfg.dmgScaleA,
-        this.cfg.coinScaleB, this.cfg.dmgScaleB,
-        this.cfg.fairnessExp,
-      );
+      // p-02: demo mode — use scripted grid for the first DEMO_SPIN_COUNT spins
+      let spin: SpinResult;
+      if (this.demoMode && this.demoSpinIndex < BattleScreen.DEMO_SPIN_COUNT) {
+        const forcedGrid = BattleScreen.DEMO_GRIDS[this.demoSpinIndex];
+        spin = this.engine.evaluateForcedGrid(
+          forcedGrid, pool,
+          this.cfg.selectedA, this.cfg.selectedB,
+          this.cfg.betA, this.cfg.betB,
+          this.cfg.coinScaleA, this.cfg.dmgScaleA,
+          this.cfg.coinScaleB, this.cfg.dmgScaleB,
+          this.cfg.fairnessExp,
+        );
+        const labels = ['NEAR_WIN', 'BIG_WIN', 'MEGA_WIN', 'JACKPOT', 'FREE_SPIN'];
+        console.log(`[Demo] spin ${this.demoSpinIndex + 1}/5: ${labels[this.demoSpinIndex]}`);
+        this.demoSpinIndex++;
+      } else {
+        spin = this.engine.spin(
+          pool,
+          this.cfg.selectedA, this.cfg.selectedB,
+          this.cfg.betA, this.cfg.betB,
+          this.cfg.coinScaleA, this.cfg.dmgScaleA,
+          this.cfg.coinScaleB, this.cfg.dmgScaleB,
+          this.cfg.fairnessExp,
+        );
+      }
       if (!this.running) return;
 
       // ── M6 Curse cell counting per spin (k-02) ───────────────────────────
