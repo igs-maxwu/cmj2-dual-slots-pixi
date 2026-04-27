@@ -141,8 +141,8 @@ Roadmap doc: [`sprint9/ROADMAP.md`](sprint9/ROADMAP.md)
 
 | PR | Prompt file | Status |
 |---|---|---|
-| (pending) pace-01 Sequenced reveal — 轉輪→對獎→出招→算傷害 4 段落 with configurable PACE_* delays in BattleScreen.loop() | [`sprint9/pace-01-sequenced-reveal.md`](sprint9/pace-01-sequenced-reveal.md) | **ready to dispatch** — skill hints: incremental-implementation, frontend-ui-engineering, code-simplification |
-| (roadmap) v-01 Top UI bar (menu / coin / store / round counter / player labels per mockup top section) | — | depends on nothing |
+| [#136](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/136) pace-01 Sequenced reveal — 轉輪→對獎→出招→算傷害 4 段落, PACE_* 700/400/300/300ms, +1.7s/round | [`sprint9/pace-01-sequenced-reveal.md`](sprint9/pace-01-sequenced-reveal.md) | ✅ merged |
+| (pending) v-01 Top UI bar (☰ menu / ROUND pill / 🎁 store + PLAYER A/B labels above wallets, gradient bg, mockup-aligned) | [`sprint9/v-01-top-ui-bar.md`](sprint9/v-01-top-ui-bar.md) | **ready to dispatch** — skill hints: frontend-ui-engineering, code-simplification, source-driven-development |
 | (roadmap) v-02 JP marquee 2-row reorganize (GRAND solo top + MEGA/MAJOR row) | — | depends on nothing |
 | (roadmap) v-03 Battle background depth (perspective floor + vignette per MG_Background_P style) | — | depends on nothing |
 | (roadmap) res-01 Result screen — win/loss banner + wallet final + dmg stats + MVP spirit + return-to-draft button | — | depends on pace-01 |
