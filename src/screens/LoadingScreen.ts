@@ -17,6 +17,7 @@ export class LoadingScreen implements Screen {
   private trackY = 0;
   private logo: Sprite | null = null;
   private titleText: Text | null = null;
+  private subText: Text | null = null;
 
   constructor(private onDone: () => void) {}
 
@@ -68,17 +69,17 @@ export class LoadingScreen implements Screen {
     this.titleText.y = CANVAS_HEIGHT / 2 - 70;
     this.container.addChild(this.titleText);
 
-    const sub = new Text({
+    this.subText = new Text({
       text: 'DUAL SLOTS BATTLE',
       style: {
         fontFamily: T.FONT.title, fontWeight: '700', fontSize: T.FONT_SIZE.md,
         fill: T.FG.muted, letterSpacing: 12,
       },
     });
-    sub.anchor.set(0.5, 0.5);
-    sub.x = CANVAS_WIDTH / 2;
-    sub.y = CANVAS_HEIGHT / 2 - 10;
-    this.container.addChild(sub);
+    this.subText.anchor.set(0.5, 0.5);
+    this.subText.x = CANVAS_WIDTH / 2;
+    this.subText.y = CANVAS_HEIGHT / 2 - 10;
+    this.container.addChild(this.subText);
   }
 
   private drawProgress(): void {
@@ -125,6 +126,7 @@ export class LoadingScreen implements Screen {
       this.logo.y = CANVAS_HEIGHT / 2 - 90;
       this.container.addChild(this.logo);
       if (this.titleText) this.titleText.visible = false;
+      if (this.subText)   this.subText.visible   = false;
     }
 
     // Divider under subtitle
