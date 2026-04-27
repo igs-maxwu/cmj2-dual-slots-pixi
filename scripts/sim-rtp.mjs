@@ -151,6 +151,8 @@ function simRun(rng) {
   let curseStackA = 0, curseStackB = 0;            // live stacks (reset each match)
   let totalCurseStackPeak = 0;                     // max stack seen across all rounds
   let totalStackEndA = 0, totalStackEndB = 0;      // sum of stacks at each match end (for avg)
+  let totalCurseProcsA = 0, totalCurseProcsB = 0; // proc count (k-03)
+  let totalCurseProcDmgDealt = 0;                  // flat dmg from procs (500 per proc)
 
   // Match stats
   let drawCount   = 0;
@@ -363,6 +365,21 @@ function simRun(rng) {
       totalCurseStackPeak = Math.max(totalCurseStackPeak, curseStackA, curseStackB);
     }
 
+    // ── M6 Curse proc: 3+ stack → 500 HP flat damage, stack reset (k-03) ──
+    const CURSE_PROC_DMG = 500;
+    if (curseStackA >= 3) {
+      distributeDamage(formationA, CURSE_PROC_DMG, 'B');
+      totalCurseProcsA++;
+      totalCurseProcDmgDealt += CURSE_PROC_DMG;
+      curseStackA = 0;
+    }
+    if (curseStackB >= 3) {
+      distributeDamage(formationB, CURSE_PROC_DMG, 'A');
+      totalCurseProcsB++;
+      totalCurseProcDmgDealt += CURSE_PROC_DMG;
+      curseStackB = 0;
+    }
+
     // ── Match termination check ───────────────────────────────────────────
     const aAlive = isTeamAlive(formationA);
     const bAlive = isTeamAlive(formationB);
@@ -420,6 +437,7 @@ function simRun(rng) {
     resonanceBoostedCoin,
     totalCurseCellsA, totalCurseCellsB,
     totalCurseStackPeak, totalStackEndA, totalStackEndB,
+    totalCurseProcsA, totalCurseProcsB, totalCurseProcDmgDealt,
     drawCount, winsA, winsB,
     underdogFires, underdogSpins,
     chipFloorFires,
@@ -529,12 +547,17 @@ const output = {
     boosted_pct_of_total_coin:  +(agg.resonanceBoostedCoin / (agg.totalWon || 1)).toFixed(4),
   },
   curse: {
-    total_cells_on_A_side:      agg.totalCurseCellsA,
-    total_cells_on_B_side:      agg.totalCurseCellsB,
-    avg_cells_per_round:        +((agg.totalCurseCellsA + agg.totalCurseCellsB) / (ROUNDS * RUNS * 2)).toFixed(4),
-    peak_stack_observed:        runResults.reduce((m, r) => Math.max(m, r.totalCurseStackPeak), 0),
-    avg_stack_at_match_end_A:   +(agg.totalStackEndA / (agg.totalMatches || 1)).toFixed(4),
-    avg_stack_at_match_end_B:   +(agg.totalStackEndB / (agg.totalMatches || 1)).toFixed(4),
+    total_cells_on_A_side:          agg.totalCurseCellsA,
+    total_cells_on_B_side:          agg.totalCurseCellsB,
+    avg_cells_per_round:            +((agg.totalCurseCellsA + agg.totalCurseCellsB) / (ROUNDS * RUNS * 2)).toFixed(4),
+    peak_stack_observed:            runResults.reduce((m, r) => Math.max(m, r.totalCurseStackPeak), 0),
+    avg_stack_at_match_end_A:       +(agg.totalStackEndA / (agg.totalMatches || 1)).toFixed(4),
+    avg_stack_at_match_end_B:       +(agg.totalStackEndB / (agg.totalMatches || 1)).toFixed(4),
+    total_procs_A:                  agg.totalCurseProcsA,
+    total_procs_B:                  agg.totalCurseProcsB,
+    procs_per_match:                +((agg.totalCurseProcsA + agg.totalCurseProcsB) / (agg.totalMatches || 1)).toFixed(4),
+    curse_dmg_total:                agg.totalCurseProcDmgDealt,
+    curse_dmg_pct_of_total_dmg:     +(agg.totalCurseProcDmgDealt / (agg.totalDmgDealt || 1)).toFixed(4),
   },
   match: {
     draw_rate:              +(agg.drawCount  / agg.totalMatches).toFixed(4),
