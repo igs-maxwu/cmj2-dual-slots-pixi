@@ -107,6 +107,9 @@ export class BattleScreen implements Screen {
   /** SPEC §15.5 M5 Resonance tier for each side (computed once at match start) */
   private resonanceA!: ResonanceResult;
   private resonanceB!: ResonanceResult;
+  /** SPEC §15.6 M6 Curse — accumulated stacks per side (reset on match end in k-03) */
+  private curseStackA = 0;
+  private curseStackB = 0;
 
   constructor(private cfg: DraftResult, private onExit: () => void) {}
 
@@ -484,6 +487,28 @@ export class BattleScreen implements Screen {
         this.cfg.fairnessExp,
       );
       if (!this.running) return;
+
+      // ── M6 Curse cell counting per spin (k-02) ───────────────────────────
+      // Curse on YOUR half of the grid charges OPPONENT's stack.
+      // col 0-1 = A side → curse charges B; col 3-4 = B side → curse charges A.
+      // col 2 = neutral (ignored). Stack proc happens in k-03.
+      const CURSE_ID = SYMBOLS.findIndex(s => s.isCurse);
+      if (CURSE_ID >= 0) {
+        let curseLandingOnA = 0, curseLandingOnB = 0;
+        for (let r = 0; r < 3; r++) {
+          for (let c = 0; c < 5; c++) {
+            if (spin.grid[r][c] === CURSE_ID) {
+              if (c < 2)      curseLandingOnA++;
+              else if (c > 2) curseLandingOnB++;
+            }
+          }
+        }
+        this.curseStackB += curseLandingOnA;  // curse on A side → charges B
+        this.curseStackA += curseLandingOnB;  // curse on B side → charges A
+        if (import.meta.env.DEV && (curseLandingOnA + curseLandingOnB > 0)) {
+          console.log(`[Curse] A side ${curseLandingOnA} → B stack=${this.curseStackB}, B side ${curseLandingOnB} → A stack=${this.curseStackA}`);
+        }
+      }
 
       // Mutable coin accumulators — Resonance adds extras, Streak multiplies;
       // wallet credit and cascade happen after all multipliers (below Streak section)

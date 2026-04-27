@@ -145,9 +145,12 @@ function simRun(rng) {
   let streakBoostedCoin = 0;   // extra coin due to streak > 1 (post-Resonance base)
   // Resonance counters (M5)
   let resonanceBoostedCoin = 0; // extra coin earned via Resonance ×1.5
-  // Curse counters (M6)
+  // Curse counters (M6) — upgraded in k-02 to true stack tracking
   const CURSE_ID = SYMBOLS.findIndex(s => s.isCurse);
   let totalCurseCellsA = 0, totalCurseCellsB = 0; // cells on A-side / B-side of shared grid
+  let curseStackA = 0, curseStackB = 0;            // live stacks (reset each match)
+  let totalCurseStackPeak = 0;                     // max stack seen across all rounds
+  let totalStackEndA = 0, totalStackEndB = 0;      // sum of stacks at each match end (for avg)
 
   // Match stats
   let drawCount   = 0;
@@ -342,17 +345,22 @@ function simRun(rng) {
       totalWon         += phoenixCoin;
     }
 
-    // ── Curse cell counting (M6 — k-01 stats only; stacking handled in k-02) ──
+    // ── Curse cell counting + stack tracking (M6 — k-02) ─────────────────
     if (CURSE_ID >= 0) {
+      let curseLandingOnA = 0, curseLandingOnB = 0;
       for (let r = 0; r < 3; r++) {
         for (let c = 0; c < 5; c++) {
           if (spin.grid[r][c] === CURSE_ID) {
             // Cols 0-1 = A-side, col 2 = neutral, cols 3-4 = B-side
-            if (c < 2)      totalCurseCellsA++;
-            else if (c > 2) totalCurseCellsB++;
+            if (c < 2) { totalCurseCellsA++; curseLandingOnA++; }
+            else if (c > 2) { totalCurseCellsB++; curseLandingOnB++; }
           }
         }
       }
+      // Curse on A side charges B's stack, and vice versa (mirrors BattleScreen)
+      curseStackB += curseLandingOnA;
+      curseStackA += curseLandingOnB;
+      totalCurseStackPeak = Math.max(totalCurseStackPeak, curseStackA, curseStackB);
     }
 
     // ── Match termination check ───────────────────────────────────────────
@@ -385,6 +393,11 @@ function simRun(rng) {
       consecutiveMissB = 0;
       streakA = 0;
       streakB = 0;
+      // Snapshot curse stacks at match end, then reset (k-02)
+      totalStackEndA += curseStackA;
+      totalStackEndB += curseStackB;
+      curseStackA = 0;
+      curseStackB = 0;
     }
   }
 
@@ -406,6 +419,7 @@ function simRun(rng) {
     totalStreakSumA, totalStreakSumB, maxStreakObserved, streakBoostedCoin,
     resonanceBoostedCoin,
     totalCurseCellsA, totalCurseCellsB,
+    totalCurseStackPeak, totalStackEndA, totalStackEndB,
     drawCount, winsA, winsB,
     underdogFires, underdogSpins,
     chipFloorFires,
@@ -515,9 +529,12 @@ const output = {
     boosted_pct_of_total_coin:  +(agg.resonanceBoostedCoin / (agg.totalWon || 1)).toFixed(4),
   },
   curse: {
-    total_cells_on_A_side:  agg.totalCurseCellsA,
-    total_cells_on_B_side:  agg.totalCurseCellsB,
-    avg_cells_per_round:    +((agg.totalCurseCellsA + agg.totalCurseCellsB) / (ROUNDS * RUNS * 2)).toFixed(4),
+    total_cells_on_A_side:      agg.totalCurseCellsA,
+    total_cells_on_B_side:      agg.totalCurseCellsB,
+    avg_cells_per_round:        +((agg.totalCurseCellsA + agg.totalCurseCellsB) / (ROUNDS * RUNS * 2)).toFixed(4),
+    peak_stack_observed:        runResults.reduce((m, r) => Math.max(m, r.totalCurseStackPeak), 0),
+    avg_stack_at_match_end_A:   +(agg.totalStackEndA / (agg.totalMatches || 1)).toFixed(4),
+    avg_stack_at_match_end_B:   +(agg.totalStackEndB / (agg.totalMatches || 1)).toFixed(4),
   },
   match: {
     draw_rate:              +(agg.drawCount  / agg.totalMatches).toFixed(4),
