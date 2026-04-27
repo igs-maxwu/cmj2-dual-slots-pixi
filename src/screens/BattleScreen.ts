@@ -27,7 +27,7 @@ import { detectResonance, resonanceMultForClan, type ResonanceResult } from '@/s
 import type { ClanId } from '@/config/DesignTokens';
 import { GlowFilter } from 'pixi-filters';
 import {
-  loadPools, savePools, accrueOnBet,
+  loadPools, savePools, accrueOnBet, resetPool,
   type JackpotPools,
 } from '@/systems/JackpotPool';
 
@@ -898,6 +898,9 @@ export class BattleScreen implements Screen {
       if (eventsOnA.length) fx.push(this.playDamageEvents(eventsOnA, 'A'));
       await Promise.all(fx);
 
+      // ── M12 Jackpot trigger (j-03): detect 5-reel JP/Wild, draw tier, pay, reset ──
+      await this.detectAndAwardJackpot(spin.grid);
+
       // ── M6 Curse proc: 3+ stack → 500 HP flat damage to that side ──────────
       const CURSE_PROC_DMG = 500;
       const curseEventsOnA: DmgEvent[] = [];
@@ -1189,6 +1192,71 @@ export class BattleScreen implements Screen {
   private async playDamageEvents(events: DmgEvent[], targetSide: 'A' | 'B'): Promise<void> {
     const pops = events.map(e => this.popDamage(targetSide, e.slotIndex, e.damageTaken));
     await Promise.all(pops);
+  }
+
+  // ─── M12 Jackpot trigger (j-03) ─────────────────────────────────────────
+
+  /**
+   * j-03: Detect 5-of-a-kind JP/Wild on shared grid. On hit:
+   * (1) draw tier (3/12/85 weighted), (2) split pool 50/50 to both wallets,
+   * (3) reset that pool to seed, (4) persist, (5) play placeholder visual.
+   */
+  private async detectAndAwardJackpot(grid: number[][]): Promise<void> {
+    const JP_ID   = SYMBOLS.findIndex(s => s.isJackpot);
+    const WILD_ID = SYMBOLS.findIndex(s => s.isWild);
+    if (JP_ID < 0) return;
+
+    // Each of 5 reels must have ≥1 JP-or-Wild cell
+    const reelsCovered = new Set<number>();
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 5; c++) {
+        const id = grid[r][c];
+        if (id === JP_ID || id === WILD_ID) reelsCovered.add(c);
+      }
+    }
+    if (reelsCovered.size < 5) return;
+
+    // Tier draw: 3% Grand / 12% Major / 85% Minor
+    const rnd = Math.random();
+    const tier: 'grand' | 'major' | 'minor' = rnd < 0.03 ? 'grand' : rnd < 0.15 ? 'major' : 'minor';
+
+    // Read pool, split 50/50, reset, persist
+    const award = this.jackpotPools[tier];
+    const halfAward = Math.floor(award / 2);
+    this.walletA += halfAward;
+    this.walletB += halfAward;
+    this.jackpotPools = resetPool(this.jackpotPools, tier);
+    savePools(this.jackpotPools);
+
+    if (import.meta.env.DEV) {
+      console.log(`[Jackpot] TRIGGERED tier=${tier} award=${award} (each side +${halfAward})`);
+    }
+
+    // Placeholder visual (j-04 will replace with full ceremony)
+    await this.showJackpotPlaceholder(tier, award);
+
+    // Wallet text refresh
+    this.cascadeWallet('A');
+    this.cascadeWallet('B');
+  }
+
+  private async showJackpotPlaceholder(tier: 'grand' | 'major' | 'minor', amount: number): Promise<void> {
+    const tierLabel = { grand: '天獎 GRAND', major: '地獎 MAJOR', minor: '人獎 MINOR' }[tier];
+    const text = goldText(`★ JACKPOT ${tierLabel} ★\nNT$${Math.floor(amount).toLocaleString()}`, {
+      fontSize: T.FONT_SIZE.h1,
+      withShadow: true,
+    });
+    text.anchor.set(0.5, 0.5);
+    text.x = CANVAS_WIDTH / 2;
+    text.y = CANVAS_HEIGHT / 2;
+    text.zIndex = 2000;
+    text.alpha = 0;
+    this.container.addChild(text);
+
+    await tween(300, t => { text.alpha = t; }, Easings.easeOut);
+    await delay(1500);
+    await tween(400, t => { text.alpha = 1 - t; }, Easings.easeIn);
+    text.destroy();
   }
 
   private async popDamage(side: 'A' | 'B', slotIndex: number, amount: number): Promise<void> {
