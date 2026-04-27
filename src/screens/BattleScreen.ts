@@ -115,6 +115,13 @@ export class BattleScreen implements Screen {
   private curseHudAText!: Text;
   private curseHudB!: Container;
   private curseHudBText!: Text;
+  /** SPEC §15.7 M10 Free Spin state — shared (both sides enter together via shared 5×3 grid) */
+  private inFreeSpin = false;
+  private freeSpinsRemaining = 0;
+  private static readonly FREE_SPIN_COUNT = 5;
+  private static readonly FREE_SPIN_WIN_MULT = 2;
+  /** DEV-only key handler for manual Free Spin trigger (removed on unmount) */
+  private _devKeyHandler?: (e: KeyboardEvent) => void;
 
   constructor(private cfg: DraftResult, private onExit: () => void) {}
 
@@ -160,6 +167,17 @@ export class BattleScreen implements Screen {
     };
     this.app.ticker.add(this._breatheTick);
     void this.playResonanceBanner();  // fire-and-forget — BGM starts immediately, banner floats independently
+    if (import.meta.env.DEV) {
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'f' || e.key === 'F') {
+          this.inFreeSpin = true;
+          this.freeSpinsRemaining = BattleScreen.FREE_SPIN_COUNT;
+          console.log('[FreeSpin] DEV manual trigger — 5 spins, ×2 multiplier');
+        }
+      };
+      window.addEventListener('keydown', onKey);
+      this._devKeyHandler = onKey;
+    }
     void this.loop();
   }
 
@@ -188,6 +206,10 @@ export class BattleScreen implements Screen {
     if (this._breatheTick) {
       this.app.ticker.remove(this._breatheTick);
       this._breatheTick = null;
+    }
+    if (this._devKeyHandler) {
+      window.removeEventListener('keydown', this._devKeyHandler);
+      this._devKeyHandler = undefined;
     }
     this.container.destroy({ children: true });
     this.cellsA = [];
@@ -658,8 +680,20 @@ export class BattleScreen implements Screen {
       coinB = Math.floor(coinB * streakMult(this.streakB));
       if (dmgA > 0) dmgA = Math.floor(dmgA * streakMult(this.streakA));
       if (dmgB > 0) dmgB = Math.floor(dmgB * streakMult(this.streakB));
-      this.walletA = this.walletA - this.cfg.betA + coinA;
-      this.walletB = this.walletB - this.cfg.betB + coinB;
+
+      // ── M10 Free Spin: ×2 win multiplier (after Streak, before wallet credit) ──
+      if (this.inFreeSpin) {
+        coinA = Math.floor(coinA * BattleScreen.FREE_SPIN_WIN_MULT);
+        coinB = Math.floor(coinB * BattleScreen.FREE_SPIN_WIN_MULT);
+        if (dmgA > 0) dmgA = Math.floor(dmgA * BattleScreen.FREE_SPIN_WIN_MULT);
+        if (dmgB > 0) dmgB = Math.floor(dmgB * BattleScreen.FREE_SPIN_WIN_MULT);
+      }
+
+      // ── bet=0 during Free Spin (both sides skip bet deduction) ──────────────
+      const betA = this.inFreeSpin ? 0 : this.cfg.betA;
+      const betB = this.inFreeSpin ? 0 : this.cfg.betB;
+      this.walletA = this.walletA - betA + coinA;
+      this.walletB = this.walletB - betB + coinB;
       this.cascadeWallet('A');
       this.cascadeWallet('B');
 
@@ -771,6 +805,16 @@ export class BattleScreen implements Screen {
         `B→A dmg ${dmgB}${tagB} (${spin.sideB.wayHits.length} ways)`,
       );
       this.refresh();
+
+      // ── M10 Free Spin decrement at round end (all passives + damage settled) ──
+      if (this.inFreeSpin) {
+        this.freeSpinsRemaining--;
+        if (this.freeSpinsRemaining <= 0) {
+          this.inFreeSpin = false;
+          this.freeSpinsRemaining = 0;
+          if (import.meta.env.DEV) console.log('[FreeSpin] mode ended');
+        }
+      }
 
       if (!this.running) return;
       await delay(ROUND_GAP_MS);

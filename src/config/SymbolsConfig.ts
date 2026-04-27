@@ -35,7 +35,7 @@ export const SYMBOLS: SymbolDef[] = [
     spiritKey:'wild',          spiritName:'神獸化身', clan:'azure',    isWild:true },
   { id:9, name:'Curse',  shape:'curse',    color:0x8b3aaa, weight:3,
     spiritKey:'curse',         spiritName:'咒符',     clan:'black',    isCurse:true },
-  { id:10, name:'Scatter', shape:'scatter', color:0xff3b6b, weight:2,
+  { id:10, name:'Scatter', shape:'scatter', color:0xff3b6b, weight:4,    // 2→4 (f-02 preflight: sim showed 0.043/match vs SPEC target 0.15-0.30)
     spiritKey:'scatter',       spiritName:'靈脈晶',   clan:'azure',    isScatter:true },
 ];
 
