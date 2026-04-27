@@ -26,6 +26,10 @@ import { FXAtlas } from '@/fx/FXAtlas';
 import { detectResonance, resonanceMultForClan, type ResonanceResult } from '@/systems/Resonance';
 import type { ClanId } from '@/config/DesignTokens';
 import { GlowFilter } from 'pixi-filters';
+import {
+  loadPools, savePools, accrueOnBet,
+  type JackpotPools,
+} from '@/systems/JackpotPool';
 
 // ─── Portrait layout 720×1280 ───────────────────────────────────────────────
 const HEADER_Y   = 14;
@@ -129,6 +133,8 @@ export class BattleScreen implements Screen {
   private freeSpinTint?: Graphics;
   private wasInFreeSpin = false;          // edge detector: enter / exit transitions
   private prevFreeSpinsRemaining = 0;     // detect retrigger jumps (freeSpinsRemaining went UP)
+  /** SPEC §15.8 M12 Jackpot pools — loaded from localStorage on mount, saved each spin (j-02) */
+  private jackpotPools!: JackpotPools;
 
   constructor(private cfg: DraftResult, private onExit: () => void) {}
 
@@ -155,6 +161,15 @@ export class BattleScreen implements Screen {
     addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 130, 0.55);
     this.drawHeader();
     this.drawWallets();
+    this.jackpotPools = loadPools();
+    if (import.meta.env.DEV) {
+      console.log('[JackpotPool] loaded:', this.jackpotPools);
+      const _t = accrueOnBet({ minor: 100, major: 100, grand: 100 }, 200);
+      console.assert(Math.abs(_t.minor - 101) < 0.001, 'JackpotPool accrueOnBet minor');
+      console.assert(Math.abs(_t.major - 100.6) < 0.001, 'JackpotPool accrueOnBet major');
+      console.assert(Math.abs(_t.grand - 100.4) < 0.001, 'JackpotPool accrueOnBet grand');
+      console.log('[JackpotPool] smoke check passed');
+    }
     this.drawJackpotMarquee();
     this.drawFormation('A');
     this.drawFormation('B');
@@ -813,6 +828,14 @@ export class BattleScreen implements Screen {
       this.walletB = this.walletB - betB + coinB;
       this.cascadeWallet('A');
       this.cascadeWallet('B');
+
+      // ── M12 JP pool accrual (j-02): 1% of total spin bet → progressive pools ──
+      // Free Spin: betA/betB=0 → totalBetThisSpin=0 → no accrual (correct by design)
+      const totalBetThisSpin = betA + betB;
+      if (totalBetThisSpin > 0) {
+        this.jackpotPools = accrueOnBet(this.jackpotPools, totalBetThisSpin);
+        savePools(this.jackpotPools);
+      }
 
       // ── Underdog boost: 1.3× damage when own HP ratio < 0.30 ──────────────
       const ratioA = teamHpTotal(this.formationA) / (this.cfg.unitHpA * this.cfg.selectedA.length);
