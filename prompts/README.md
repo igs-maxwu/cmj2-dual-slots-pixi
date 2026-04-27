@@ -92,8 +92,8 @@ Roadmap doc: [`sprint6/ROADMAP.md`](sprint6/ROADMAP.md)
 | PR | Prompt file | Status |
 |---|---|---|
 | [#121](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/121) f-01 Scatter symbol id:10 (pool-present, non-scoring) | [`sprint6/f-01-scatter-symbol.md`](sprint6/f-01-scatter-symbol.md) | ✅ merged |
-| (pending) f-02 Free Spin mode state (`inFreeSpin` / `freeSpinsRemaining` / win ×2) + scatter weight 2→4 | [`sprint6/f-02-free-spin-mode-state.md`](sprint6/f-02-free-spin-mode-state.md) | **ready to dispatch** |
-| (roadmap) f-03 trigger detection (≥3 scatter → enter mode) | — | depends on f-02 |
+| [#122](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/122) f-02 Free Spin mode state (`inFreeSpin` / `freeSpinsRemaining` / win ×2) + scatter weight 2→4 | [`sprint6/f-02-free-spin-mode-state.md`](sprint6/f-02-free-spin-mode-state.md) | ✅ merged |
+| (pending) f-03 trigger detection (≥3 scatter → enter mode, retrigger +5 cap 50) + sim free spin model | [`sprint6/f-03-free-spin-trigger.md`](sprint6/f-03-free-spin-trigger.md) | **ready to dispatch** |
 | (roadmap) f-04 UI overlay (`FREE SPINS N/5` banner, gold tint) | — | depends on f-02 |
 | (roadmap) f-05 sim verify trigger ~0.2/match + RTP impact | — | depends on f-03 |
 
