@@ -31,6 +31,7 @@ import {
   type JackpotPools,
 } from '@/systems/JackpotPool';
 import { playJackpotCeremony } from '@/fx/JackpotCeremony';
+import { playNearWinTeaser } from '@/fx/NearWinTeaser';
 
 // ─── Portrait layout 720×1280 ───────────────────────────────────────────────
 const HEADER_Y   = 14;
@@ -945,6 +946,41 @@ export class BattleScreen implements Screen {
 
       // ── M12 Jackpot trigger (j-03): detect 5-reel JP/Wild, draw tier, pay, reset ──
       await this.detectAndAwardJackpot(spin.grid);
+
+      // ── d-05: Near-win detection — symbol covering exactly 4 of 5 reels ──────
+      {
+        const NON_SPECIAL_IDS = SYMBOLS
+          .map((s, i) => (s.isWild || s.isCurse || s.isScatter || s.isJackpot) ? -1 : i)
+          .filter(i => i >= 0);
+        let nearWinTriggered = false;
+        for (const symId of NON_SPECIAL_IDS) {
+          if (nearWinTriggered) break;
+          const coveredCols = new Set<number>();
+          for (let r = 0; r < 3; r++) {
+            for (let c = 0; c < 5; c++) {
+              if (spin.grid[r][c] === symId) coveredCols.add(c);
+            }
+          }
+          if (coveredCols.size === 4) {
+            let missingCol = -1;
+            for (let c = 0; c < 5; c++) {
+              if (!coveredCols.has(c)) { missingCol = c; break; }
+            }
+            if (missingCol >= 0) {
+              const positions = [0, 1, 2].map(r => {
+                const local = this.reel.cellLocal(missingCol, r);
+                return { x: this.reel.x + local.x, y: this.reel.y + local.y };
+              });
+              const tint = T.CLAN_META[SYMBOLS[symId].clan]?.glow ?? 0xFFD37A;
+              playNearWinTeaser(this.container, positions, tint);
+              nearWinTriggered = true;
+              if (import.meta.env.DEV) {
+                console.log(`[NearWin] symbol=${SYMBOLS[symId].name} missingCol=${missingCol}`);
+              }
+            }
+          }
+        }
+      }
 
       // ── M6 Curse proc: 3+ stack → 500 HP flat damage to that side ──────────
       const CURSE_PROC_DMG = 500;
