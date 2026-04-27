@@ -105,7 +105,18 @@ Roadmap doc: [`sprint6/ROADMAP.md`](sprint6/ROADMAP.md)
 | [#127](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/127) j-02 JP pool localStorage persistence + 1% accrual + 50/30/20 split (new `src/systems/JackpotPool.ts` pure module, 2 commits per discipline) | [`sprint6/j-02-jackpot-pool-persistence.md`](sprint6/j-02-jackpot-pool-persistence.md) | ✅ merged |
 | [#128](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/128) j-03 5-of-a-kind detect + tier draw (3/12/85) + Wild substitute + split 50/50 payout + pool reset + sim full integration | [`sprint6/j-03-jackpot-trigger-draw-payout.md`](sprint6/j-03-jackpot-trigger-draw-payout.md) | ✅ merged (sim: trigger 0.00024/match, RTP 109.00%) |
 | [#129](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/129) j-04 JP ceremony FX (full-screen, SOS2 BigWin atlas, 3-tier visual differentiation Minor/Major/Grand) — new `src/fx/JackpotCeremony.ts` | [`sprint6/j-04-jackpot-ceremony-fx.md`](sprint6/j-04-jackpot-ceremony-fx.md) | ✅ merged |
-| (pending) j-05 JP marquee live counter (replace hardcoded 50k/500k/5M with `this.jackpotPools` dynamic reads) — **Sprint 6 closure PR** | [`sprint6/j-05-jackpot-marquee-live-counter.md`](sprint6/j-05-jackpot-marquee-live-counter.md) | **ready to dispatch** — skill hints: frontend-ui-engineering, incremental-implementation, code-simplification |
+| [#130](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/130) j-05 JP marquee live counter (replace hardcoded 50k/500k/5M with `this.jackpotPools` dynamic reads + grow/shrink pulse) — **Sprint 6 closure PR** | [`sprint6/j-05-jackpot-marquee-live-counter.md`](sprint6/j-05-jackpot-marquee-live-counter.md) | ✅ merged — **Sprint 6 COMPLETE: F 5/5 + J 5/5, all SPEC §15 7 meta mechanics shipped** |
+
+### Sprint 7 · D — Demo Polish (deferred d-04 ~ d-07 from Sprint 3 D-track)
+
+Roadmap doc: [`sprint7/ROADMAP.md`](sprint7/ROADMAP.md)
+
+| PR | Prompt file | Status |
+|---|---|---|
+| (pending) d-04 4 男性靈 signature FX upgrade — Dragon fire-wave / Tiger radial flash / Tortoise smoke plume / Phoenix fire trail (SOS2 atlas + webp additive layers, 4 commits per spirit) | [`sprint7/d-04-signature-fx-upgrade.md`](sprint7/d-04-signature-fx-upgrade.md) | **ready to dispatch** — skill hints: frontend-ui-engineering, incremental-implementation, source-driven-development |
+| (roadmap) d-05 Near-win gold-dust teaser (差 1 cell 湊 4-of-a-kind 時亮金粉 hint) | — | depends on nothing |
+| (roadmap) d-06 Way highlight win-frame (replace Pixi Graphics 框 with sos2-win-frame.webp + GlowFilter pulse) | — | depends on nothing |
+| (roadmap) d-07 BigWin / MegaWin ceremony for non-JP big payouts (reuse sos2-bigwin atlas) | — | depends on nothing |
 
 ### Chore
 
