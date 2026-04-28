@@ -795,14 +795,15 @@ export class BattleScreen implements Screen {
     });
     majorLbl.anchor.set(0.5, 0);
     majorLbl.x = halfX1;
-    majorLbl.y = bottomRowY - 14;
+    majorLbl.y = panelY + panelH - 40;    // chore161: label above value (40px from panel bottom)
     majorLbl.zIndex = 10;
     this.container.addChild(majorLbl);
 
-    this.jpMajorText = goldText('500,000', { fontSize: 22, withShadow: false });
-    this.jpMajorText.anchor.set(0.5, 0);
+    // chore161: 22→20pt + bottom-anchor(0.5,1) so text stays inside panel (6px inset)
+    this.jpMajorText = goldText('500,000', { fontSize: 20, withShadow: false });
+    this.jpMajorText.anchor.set(0.5, 1);
     this.jpMajorText.x = halfX1;
-    this.jpMajorText.y = bottomRowY + 2;
+    this.jpMajorText.y = panelY + panelH - 6;
     this.jpMajorText.zIndex = 10;
     this.container.addChild(this.jpMajorText);
 
@@ -812,14 +813,15 @@ export class BattleScreen implements Screen {
     });
     minorLbl.anchor.set(0.5, 0);
     minorLbl.x = halfX2;
-    minorLbl.y = bottomRowY - 14;
+    minorLbl.y = panelY + panelH - 40;    // chore161: label above value (40px from panel bottom)
     minorLbl.zIndex = 10;
     this.container.addChild(minorLbl);
 
-    this.jpMinorText = goldText('50,000', { fontSize: 22, withShadow: false });
-    this.jpMinorText.anchor.set(0.5, 0);
+    // chore161: 22→20pt + bottom-anchor(0.5,1) so text stays inside panel (6px inset)
+    this.jpMinorText = goldText('50,000', { fontSize: 20, withShadow: false });
+    this.jpMinorText.anchor.set(0.5, 1);
     this.jpMinorText.x = halfX2;
-    this.jpMinorText.y = bottomRowY + 4;
+    this.jpMinorText.y = panelY + panelH - 6;
     this.jpMinorText.zIndex = 10;
     this.container.addChild(this.jpMinorText);
 
