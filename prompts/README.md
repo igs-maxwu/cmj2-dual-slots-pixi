@@ -190,8 +190,8 @@ Roadmap doc: [`sprint12/ROADMAP.md`](sprint12/ROADMAP.md)
 
 | PR | Prompt file | Status |
 |---|---|---|
-| (pending) s12-ui-01 — orphan delete (4 webp) + corner-ornament programmatic L-bracket + dragon-corner force-fallback (3 atomic commits) | [`sprint12/s12-ui-01-orphan-and-corners.md`](sprint12/s12-ui-01-orphan-and-corners.md) | **ready to dispatch** — skill hints: incremental-implementation, code-simplification, source-driven-development |
-| (roadmap) s12-ui-02 — LoadingScreen logo-mark + divider programmatic | — | depends on s12-ui-01 |
+| [#153](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/153) s12-ui-01 — orphan delete (6 webp = 4 orphan + corner-ornament + dragon-corner) + Decorations.ts programmatic L-bracket + SlotReel force-fallback path (3 atomic commits, PWA precache 162→150 entries) | [`sprint12/s12-ui-01-orphan-and-corners.md`](sprint12/s12-ui-01-orphan-and-corners.md) | ✅ merged (64/61/9) |
+| (pending) s12-ui-02 — LoadingScreen logo-mark + divider programmatic (titleText enhanced + Graphics dividerLine; BattleScreen drawLog divider also programmatic) | [`sprint12/s12-ui-02-loading-logo-divider.md`](sprint12/s12-ui-02-loading-logo-divider.md) | **ready to dispatch** — skill hints: code-simplification, incremental-implementation, source-driven-development |
 | (roadmap) s12-ui-03 — UiButton component rewrite (btn-normal + btn-ornate → Graphics gradient + border) | — | depends on s12-ui-02 |
 | (roadmap) s12-ui-04 — SpiritPortrait component rewrite (portrait-ring → Graphics clan ring per mockup SpiritToken) | — | depends on s12-ui-03 |
 | (roadmap) s12-ui-05 — SlotReel slot-frame + BattleScreen win-burst → Graphics | — | depends on s12-ui-04 |
