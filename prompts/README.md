@@ -206,7 +206,8 @@ Roadmap doc: [`sprint13/ROADMAP.md`](sprint13/ROADMAP.md)
 
 | PR | Prompt file | Status |
 |---|---|---|
-| (pending) s13-fx-01 — Free Spin entry ceremony 升級 (sos2-declare-fire Fire_1/6/2 + 「FREE SPIN」 80pt + 「靈氣爆發·5 ROUNDS」副字, 7-stage 2.3s ceremony) | [`sprint13/s13-fx-01-freespin-entry-ceremony.md`](sprint13/s13-fx-01-freespin-entry-ceremony.md) | **ready to dispatch** — skill hints: frontend-ui-engineering, incremental-implementation, source-driven-development |
+| [#159](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/159) s13-fx-01 — Free Spin entry ceremony (FreeSpinEntryCeremony.ts new module + BattleScreen await on trigger; sos2-declare-fire Fire_1/6/2 + 「FREE SPIN」 80pt + 「靈氣爆發·5 ROUNDS」 sub) | [`sprint13/s13-fx-01-freespin-entry-ceremony.md`](sprint13/s13-fx-01-freespin-entry-ceremony.md) | ✅ merged |
+| [#160](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/160) chore — 3 issues fix: MAJOR/MINOR font 9→12 / 16→22, spirit 5v5 visibility (Case D root cause: NINE_GAP 4→24 stops front-row scale 1.10 spirit horizontal overlap), white-clan ball dark text 0x4a3a1a (WCAG AAA 7:1) | [`chore/jp-text-formation-count-ball-contrast.md`](chore/jp-text-formation-count-ball-contrast.md) | ✅ merged |
 | (roadmap) s13-fx-02 — Streak multiplier fly-text + JP fly-in (sos2-fly-multiplier + sos2-particles trail) | — | depends on s13-fx-01 |
 | (roadmap) s13-fx-03 — Free Spin retrigger 「MORE SPINS!」 ceremony (sos2-rainbow-halo + sos2-bigwin LightBall) | — | depends on s13-fx-02 |
 | (roadmap) sprint13 closure | — | depends on s13-fx-03 |
