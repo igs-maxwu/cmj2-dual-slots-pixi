@@ -16,8 +16,8 @@ function hasPreMatch(grid: number[][], colLeft: number, colRight: number): boole
 
 const COLS = 5;
 const ROWS = 3;
-const CELL_W = 128;
-const CELL_H = 150;
+const CELL_W = 124;   // p10-v01: reduced from 128 (Variant B reel zone fits 330px h)
+const CELL_H = 100;   // p10-v01: reduced from 150
 const CELL_GAP = 8;
 const FRAME_PAD = 16;
 
