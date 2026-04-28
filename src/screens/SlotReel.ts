@@ -104,6 +104,7 @@ export class SlotReel extends Container {
         corner.y = y;
         corner.scale.x = Math.sign(sx) * Math.abs(corner.scale.x);
         corner.scale.y = Math.sign(sy) * Math.abs(corner.scale.y);
+        corner.alpha = 0.30;   // p10-v03: de-gold P1-C
         this.addChild(corner);
       }
     } else {

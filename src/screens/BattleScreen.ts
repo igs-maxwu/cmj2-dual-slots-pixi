@@ -230,7 +230,7 @@ export class BattleScreen implements Screen {
     this.displayedWalletB = this.walletB;
 
     this.drawBackground();
-    addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 130, 0.55);
+    addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 130, 0.25);  // p10-v03: de-gold P1-C (0.55→0.25)
     this.drawCompactHeader();  // p10-v01: replaces drawTopBar + drawHeader + drawWallets
     this.jackpotPools = loadPools();
     if (import.meta.env.DEV) {
@@ -681,14 +681,14 @@ export class BattleScreen implements Screen {
     const bgPanel = new Graphics()
       .roundRect(stripX, stripY, stripW, stripH, 6)
       .fill({ color: T.SEA.deep, alpha: 0.85 })
-      .stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.5 });
+      .stroke({ width: 1, color: T.SEA.mid, alpha: 0.6 });   // p10-v03: de-gold P1-C (gold→sea-mid)
     this.container.addChild(bgPanel);
 
     // Vertical divider: left 60% = GRAND area, right 40% = MAJOR+MINOR
     const divX = stripX + Math.round(stripW * 0.6);
     const vDiv = new Graphics()
       .rect(divX, stripY + 10, 1, stripH - 20)
-      .fill({ color: T.GOLD.shadow, alpha: 0.3 });
+      .fill({ color: T.SEA.mid, alpha: 0.4 });   // p10-v03: de-gold P1-C
     this.container.addChild(vDiv);
 
     // ── Left zone: JACKPOT POOL label + GRAND value ───────────────────────
@@ -723,7 +723,7 @@ export class BattleScreen implements Screen {
     // Horizontal hairline between MAJOR and MINOR
     const hHair = new Graphics()
       .rect(divX + 6, hairY, CANVAS_WIDTH - 16 - divX - 6, 1)
-      .fill({ color: T.GOLD.shadow, alpha: 0.2 });
+      .fill({ color: T.SEA.mid, alpha: 0.3 });   // p10-v03: de-gold P1-C
     this.container.addChild(hHair);
 
     // MAJOR label + value
