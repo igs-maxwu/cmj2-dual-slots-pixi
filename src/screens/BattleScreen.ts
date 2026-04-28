@@ -1,4 +1,4 @@
-import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
+import { Application, Assets, Container, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js';
 import type { Screen } from './ScreenManager';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import * as T from '@/config/DesignTokens';
@@ -66,6 +66,17 @@ const ROUND_GAP_MS = 500; // pause between rounds
 const SPIN_BTN_Y = 970;
 const SPIN_BTN_W = 200;
 const SPIN_BTN_H = 60;
+
+// ── chore: AUTO + SKIP ghost buttons (mockup variant-a alignment) ───────────
+const SPIN_BTN_GAP = 16;
+const GHOST_BTN_W  = 110;
+const GHOST_BTN_H  = 46;
+
+// ── chore: PAYLINES decorative indicator (mockup variant-a alignment) ────────
+const PAYLINES_Y      = 935;   // just above SPIN_BTN_Y=970
+const PAYLINES_CELL_W = 14;
+const PAYLINES_CELL_H = 14;
+const PAYLINES_GAP    = 4;
 
 // ─── NineGrid 3×3 formation layout (p11-vA-02) ──────────────────────────────
 // 9 cells per side; 5 spirits placed via seeded Fisher-Yates at mount time.
@@ -214,6 +225,14 @@ export class BattleScreen implements Screen {
   private spinButtonText!: Text;
   private spinButtonSubText!: Text;
   private spinClickResolve: (() => void) | null = null;
+  /** chore: AUTO + SKIP ghost buttons */
+  private autoButton!: Container;
+  private skipButton!: Container;
+  private autoMode = false;
+  private autoTimer?: number;
+  /** chore: PAYLINES decorative indicator */
+  private paylinesContainer!: Container;
+  private paylinesCells: Graphics[] = [];
   /** SPEC §15.8 M12 Jackpot pools — loaded from localStorage on mount, saved each spin (j-02) */
   private jackpotPools!: JackpotPools;
 
@@ -283,6 +302,7 @@ export class BattleScreen implements Screen {
     // drawVsBadge() removed — VS shield lives inside drawBattleArena (p10-v01)
     this.drawLog();
     this.drawSpinButton();          // chore: manual SPIN button (replaces auto-loop)
+    this.drawPaylinesIndicator();   // chore: PAYLINES 1-10 decorative indicator
     // drawBackButton() removed — RETREAT button lives inside drawCompactHeader (p10-v01)
     this.drawCurseHud();
     this.drawFreeSpinOverlay();
@@ -439,6 +459,11 @@ export class BattleScreen implements Screen {
     this.running = false;
     AudioManager.stopBgm();
     this.vsBadge?.destroy();   // p10-v01: optional — VS is static in Variant B
+    // chore: clear AUTO timer to prevent stale interval after unmount
+    if (this.autoTimer !== undefined) {
+      clearInterval(this.autoTimer);
+      this.autoTimer = undefined;
+    }
     this.bg.destroyLayers();
     this.bg.destroy({ children: true });
     this.particles.destroy({ children: true });
@@ -1000,12 +1025,14 @@ export class BattleScreen implements Screen {
     return { x: cellX, y: cellY, row, scale };
   }
 
-  /** p11-vA-01: Reel header strip — A · 我方 | ◇ SHARED BOARD ◇ | B · 對手 */
+  /** chore: Reel header strip — ● A · YOUR TURN | ◇ SHARED BOARD ◇ | B · WAITING ○ */
   private drawReelHeader(): void {
-    const stripY  = REEL_ZONE_Y - 28;
-    const stripH  = 22;
-    const stripX  = 28;
-    const stripW  = CANVAS_WIDTH - 56;
+    const stripY   = REEL_ZONE_Y - 28;
+    const stripH   = 22;
+    const stripX   = 28;
+    const stripW   = CANVAS_WIDTH - 56;
+    const midY     = stripY + stripH / 2;
+    const dotR     = 4;
 
     // Background strip
     const bg = new Graphics()
@@ -1013,14 +1040,21 @@ export class BattleScreen implements Screen {
       .fill({ color: 0x0d1f35, alpha: 0.80 });
     this.container.addChild(bg);
 
-    // A · 我方 (left, azure)
+    // A side — solid azure dot (active state indicator)
+    const aDot = new Graphics()
+      .circle(stripX + 10, midY, dotR)
+      .fill({ color: T.CLAN.azureGlow });
+    aDot.filters = [new GlowFilter({ color: T.CLAN.azureGlow, distance: 8, outerStrength: 1.5, innerStrength: 0.1, quality: 0.3 })];
+    this.container.addChild(aDot);
+
+    // A · YOUR TURN (left, azure)
     const textA = new Text({
-      text: 'A · 我方',
-      style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 10, fill: T.CLAN.azureGlow, letterSpacing: 3 },
+      text: 'A · YOUR TURN',
+      style: { fontFamily: T.FONT.body, fontWeight: '600', fontSize: 10, fill: T.CLAN.azureGlow, letterSpacing: 3 },
     });
     textA.anchor.set(0, 0.5);
-    textA.x = stripX + 10;
-    textA.y = stripY + stripH / 2;
+    textA.x = stripX + 10 + dotR + 5;   // 5px gap after dot
+    textA.y = midY;
     this.container.addChild(textA);
 
     // ◇ SHARED BOARD ◇ (centre, gold)
@@ -1030,18 +1064,24 @@ export class BattleScreen implements Screen {
     });
     textCenter.anchor.set(0.5, 0.5);
     textCenter.x = CANVAS_WIDTH / 2;
-    textCenter.y = stripY + stripH / 2;
+    textCenter.y = midY;
     this.container.addChild(textCenter);
 
-    // B · 對手 (right, vermilion)
+    // B · WAITING (right, muted — waiting state)
     const textB = new Text({
-      text: 'B · 對手',
-      style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 10, fill: T.CLAN.vermilionGlow, letterSpacing: 3 },
+      text: 'B · WAITING',
+      style: { fontFamily: T.FONT.body, fontWeight: '600', fontSize: 10, fill: T.FG.muted, letterSpacing: 3 },
     });
     textB.anchor.set(1, 0.5);
-    textB.x = stripX + stripW - 10;
-    textB.y = stripY + stripH / 2;
+    textB.x = stripX + stripW - 10 - dotR - 5;   // 5px gap before hollow dot
+    textB.y = midY;
     this.container.addChild(textB);
+
+    // B side — hollow circle (idle / waiting state indicator)
+    const bDot = new Graphics()
+      .circle(stripX + stripW - 10, midY, dotR)
+      .stroke({ width: 1.5, color: T.FG.muted, alpha: 0.8 });
+    this.container.addChild(bDot);
   }
 
   private drawSlot(): void {
@@ -1144,11 +1184,25 @@ export class BattleScreen implements Screen {
     this.spinButton.addChild(this.spinButtonSubText);
 
     // Click handler — resolves the promise awaited in loop()
+    // chore: explicit hit area required — Pixi 8 Container has no implicit hit area
+    this.spinButton.hitArea   = new Rectangle(0, 0, SPIN_BTN_W, SPIN_BTN_H);
     this.spinButton.eventMode = 'none';   // starts disabled; enabled by waitForSpinClick()
     this.spinButton.cursor    = 'pointer';
     this.spinButton.on('pointertap', () => this.onSpinClick());
 
     this.container.addChild(this.spinButton);
+
+    // AUTO button (left of SPIN)
+    this.autoButton = this.drawGhostButton('AUTO', () => this.onAutoClick());
+    this.autoButton.x = (CANVAS_WIDTH - SPIN_BTN_W) / 2 - GHOST_BTN_W - SPIN_BTN_GAP;
+    this.autoButton.y = SPIN_BTN_Y + (SPIN_BTN_H - GHOST_BTN_H) / 2;   // vertical centre align
+    this.container.addChild(this.autoButton);
+
+    // SKIP button (right of SPIN)
+    this.skipButton = this.drawGhostButton('SKIP', () => this.onSkipClick());
+    this.skipButton.x = (CANVAS_WIDTH + SPIN_BTN_W) / 2 + SPIN_BTN_GAP;
+    this.skipButton.y = SPIN_BTN_Y + (SPIN_BTN_H - GHOST_BTN_H) / 2;
+    this.container.addChild(this.skipButton);
   }
 
   private onSpinClick(): void {
@@ -1172,6 +1226,124 @@ export class BattleScreen implements Screen {
     this.enableSpinButton();
     return new Promise(resolve => {
       this.spinClickResolve = resolve;
+    });
+  }
+
+  /** chore: ghost button helper — transparent bg + 1px muted border (mockup GhostBtn style) */
+  private drawGhostButton(label: string, onClick: () => void): Container {
+    const btn = new Container();
+    const bg = new Graphics()
+      .roundRect(0, 0, GHOST_BTN_W, GHOST_BTN_H, 4)
+      .stroke({ width: 1, color: T.FG.muted, alpha: 0.5 });
+    btn.addChild(bg);
+
+    const text = new Text({
+      text: label,
+      style: {
+        fontFamily: T.FONT.body, fontWeight: '600', fontSize: 14,
+        fill: T.FG.muted, letterSpacing: 3,
+      },
+    });
+    text.anchor.set(0.5, 0.5);
+    text.x = GHOST_BTN_W / 2;
+    text.y = GHOST_BTN_H / 2;
+    btn.addChild(text);
+
+    // chore: explicit hit area (per Issue 1 fix — Container needs Rectangle)
+    btn.hitArea   = new Rectangle(0, 0, GHOST_BTN_W, GHOST_BTN_H);
+    btn.eventMode = 'static';
+    btn.cursor    = 'pointer';
+    btn.on('pointertap', onClick);
+
+    return btn;
+  }
+
+  private onAutoClick(): void {
+    this.autoMode = !this.autoMode;
+    if (this.autoMode) {
+      this.autoButton.alpha = 0.6;   // active state visual
+      // Auto-fire SPIN every 2 s if the button is waiting
+      this.autoTimer = window.setInterval(() => {
+        if (this.spinClickResolve) this.onSpinClick();
+      }, 2000);
+    } else {
+      this.autoButton.alpha = 1;
+      if (this.autoTimer !== undefined) {
+        clearInterval(this.autoTimer);
+        this.autoTimer = undefined;
+      }
+    }
+  }
+
+  private onSkipClick(): void {
+    // chore: SKIP is a placeholder — animation skip not yet implemented
+    if (import.meta.env.DEV) console.log('[SKIP] (placeholder — animation skip not yet implemented)');
+  }
+
+  // ─── chore: PAYLINES decorative indicator ───────────────────────────────
+  private drawPaylinesIndicator(): void {
+    this.paylinesContainer = new Container();
+    this.paylinesCells = [];
+
+    // "PAYLINES" label (left)
+    const label = new Text({
+      text: 'PAYLINES',
+      style: {
+        fontFamily: T.FONT.body, fontWeight: '500', fontSize: 9,
+        fill: T.FG.muted, letterSpacing: 3,
+      },
+    });
+    label.anchor.set(0, 0.5);
+    label.y = 0;
+    this.paylinesContainer.addChild(label);
+
+    // Force text measurement (width may be 0 before first render)
+    // Use fixed offset as label should be ~58px wide at fontSize 9 with letterSpacing 3
+    const labelWidth = 70;   // conservative fixed width for centering
+
+    // 10 cells, each in its own Container at relative x
+    let xOffset = labelWidth + 12;
+    for (let i = 0; i < 10; i++) {
+      const cellRoot = new Container();
+      cellRoot.x = xOffset;
+
+      const cell = new Graphics()
+        .roundRect(0, -PAYLINES_CELL_H / 2, PAYLINES_CELL_W, PAYLINES_CELL_H, 2)
+        .stroke({ width: 1, color: T.FG.muted, alpha: 0.5 });
+      cellRoot.addChild(cell);
+
+      const cellText = new Text({
+        text: String(i + 1),
+        style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 7, fill: T.FG.muted },
+      });
+      cellText.anchor.set(0.5, 0.5);
+      cellText.x = PAYLINES_CELL_W / 2;
+      cellText.y = 0;
+      cellRoot.addChild(cellText);
+
+      this.paylinesContainer.addChild(cellRoot);
+      this.paylinesCells.push(cell);
+      xOffset += PAYLINES_CELL_W + PAYLINES_GAP;
+    }
+
+    const totalW = labelWidth + 12 + 10 * PAYLINES_CELL_W + 9 * PAYLINES_GAP;
+    this.paylinesContainer.x = (CANVAS_WIDTH - totalW) / 2;
+    this.paylinesContainer.y = PAYLINES_Y;
+    this.container.addChild(this.paylinesContainer);
+  }
+
+  private updatePaylinesIndicator(activeCount: number): void {
+    const n = Math.min(Math.max(activeCount, 0), 10);
+    this.paylinesCells.forEach((cell, i) => {
+      cell.clear();
+      if (i < n) {
+        cell.roundRect(0, -PAYLINES_CELL_H / 2, PAYLINES_CELL_W, PAYLINES_CELL_H, 2)
+            .fill({ color: T.GOLD.base })
+            .stroke({ width: 1, color: T.GOLD.base });
+      } else {
+        cell.roundRect(0, -PAYLINES_CELL_H / 2, PAYLINES_CELL_W, PAYLINES_CELL_H, 2)
+            .stroke({ width: 1, color: T.FG.muted, alpha: 0.5 });
+      }
     });
   }
 
@@ -1504,6 +1676,10 @@ export class BattleScreen implements Screen {
         this.reel.highlightWays(spin.sideA.wayHits, spin.sideB.wayHits),
         this.fireJackpots(spin.sideA.wayHits, spin.sideB.wayHits),
       ]);
+
+      // chore: PAYLINES indicator — light up first N cells (N = total wayHit count, max 10)
+      const totalHits = (spin.sideA.wayHits?.length ?? 0) + (spin.sideB.wayHits?.length ?? 0);
+      this.updatePaylinesIndicator(totalHits);
 
       // ── Computation block (pure numerics — no awaiting, runs between stages) ──
       let dmgA = spin.sideA.dmgDealt;
