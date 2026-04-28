@@ -84,12 +84,12 @@ const PAYLINES_GAP    = 4;
 // Depth scale: row 0 (back) = 0.78 × SPIRIT_H, row 1 (mid) = 0.94 ×, row 2 (front) = 1.10 ×
 const SPIRIT_H           = 130;                              // source sprite height (px) at scale 1.0
 const NINE_CELL_SIZE     = 80;                               // cell square side (px)
-const NINE_GAP           = 4;                                // gap between cells (px)
-const NINE_STEP          = NINE_CELL_SIZE + NINE_GAP;        // = 84 px per cell step
-const NINE_GRID_TOTAL    = 3 * NINE_CELL_SIZE + 2 * NINE_GAP; // = 248 px grid total width/height
+const NINE_GAP           = 24;                               // gap between cells (px) — chore: 4→24 for row/col separation
+const NINE_STEP          = NINE_CELL_SIZE + NINE_GAP;        // = 104 px per cell step
+const NINE_GRID_TOTAL    = 3 * NINE_CELL_SIZE + 2 * NINE_GAP; // = 288 px grid total width/height
 const NINE_GRID_TOP_Y    = 305;                              // grid top y (arena 285 + 20 label pad)
 const NINE_A_GRID_LEFT_X = 32;                               // A side grid left edge x
-const NINE_B_GRID_LEFT_X = CANVAS_WIDTH - NINE_GRID_TOTAL - 32; // B side = 720-248-32 = 440
+const NINE_B_GRID_LEFT_X = CANVAS_WIDTH - NINE_GRID_TOTAL - 32; // B side = 720-288-32 = 400
 
 // Per-unit HP bar (inside each spirit container)
 const UNIT_HP_BAR_W     = 64;
@@ -791,32 +791,32 @@ export class BattleScreen implements Screen {
 
     const majorLbl = new Text({
       text: 'MAJOR',
-      style: { fontFamily: T.FONT.body, fontSize: 9, fill: T.FG.muted, letterSpacing: 2 },
+      style: { fontFamily: T.FONT.body, fontSize: 12, fill: T.FG.muted, letterSpacing: 3 },
     });
     majorLbl.anchor.set(0.5, 0);
     majorLbl.x = halfX1;
-    majorLbl.y = bottomRowY - 10;
+    majorLbl.y = bottomRowY - 14;
     majorLbl.zIndex = 10;
     this.container.addChild(majorLbl);
 
-    this.jpMajorText = goldText('500,000', { fontSize: 16, withShadow: false });
+    this.jpMajorText = goldText('500,000', { fontSize: 22, withShadow: false });
     this.jpMajorText.anchor.set(0.5, 0);
     this.jpMajorText.x = halfX1;
-    this.jpMajorText.y = bottomRowY + 4;
+    this.jpMajorText.y = bottomRowY + 2;
     this.jpMajorText.zIndex = 10;
     this.container.addChild(this.jpMajorText);
 
     const minorLbl = new Text({
       text: 'MINOR',
-      style: { fontFamily: T.FONT.body, fontSize: 9, fill: T.FG.muted, letterSpacing: 2 },
+      style: { fontFamily: T.FONT.body, fontSize: 12, fill: T.FG.muted, letterSpacing: 3 },
     });
     minorLbl.anchor.set(0.5, 0);
     minorLbl.x = halfX2;
-    minorLbl.y = bottomRowY - 10;
+    minorLbl.y = bottomRowY - 14;
     minorLbl.zIndex = 10;
     this.container.addChild(minorLbl);
 
-    this.jpMinorText = goldText('50,000', { fontSize: 16, withShadow: false });
+    this.jpMinorText = goldText('50,000', { fontSize: 22, withShadow: false });
     this.jpMinorText.anchor.set(0.5, 0);
     this.jpMinorText.x = halfX2;
     this.jpMinorText.y = bottomRowY + 4;

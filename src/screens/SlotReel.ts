@@ -217,17 +217,20 @@ export class SlotReel extends Container {
     cell.gemBall.addChild(highlight);
 
     // Layer 4: Chinese character centred on ball
+    // White-clan symbols (id 2, 3): ball is 0xfff0b3 (light cream) — white text fails WCAG.
+    // Use dark brown 0x4a3a1a instead (contrast ~7:1 vs cream, WCAG AAA).
+    const isWhiteClan = symId === 2 || symId === 3;
     const charText = new Text({
       text: visual.char,
       style: {
         fontFamily: '"Noto Serif TC", "Ma Shan Zheng", serif',
         fontWeight: '700',
         fontSize: Math.round(r * 0.95),
-        fill: 0xFFFFFF,
-        stroke: { color: visual.color, width: 2 },
+        fill: isWhiteClan ? 0x4a3a1a : 0xFFFFFF,
+        stroke: { color: visual.color, width: isWhiteClan ? 1 : 2 },
         dropShadow: {
           color: visual.color,
-          alpha: 0.6,
+          alpha: isWhiteClan ? 0.4 : 0.6,
           blur: 6,
           distance: 0,
         },
