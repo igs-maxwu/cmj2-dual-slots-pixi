@@ -181,6 +181,22 @@ Source mockup: `download_picture/Dual Slot Pixi/battle-variant-a.jsx` + `battle-
 | [#150](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/150) chore: SPIN button (manual spin replaces auto-loop SPEC drift per owner) + spirit shadow fix (drawSpiritShadows was called before placements seeded → all fallback cellIdx=0) + loop refactor wait-for-click | [`chore/spin-button-and-stuck-fix.md`](chore/spin-button-and-stuck-fix.md) | ✅ merged |
 | [#151](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/151) chore: SPIN button hitArea fix (Pixi 8 Container needs explicit Rectangle hitArea — Graphics children don't propagate to parent) + AUTO/SKIP ghost buttons + PAYLINES 1-10 decorative indicator + reel header A·YOUR TURN/B·WAITING with active-dot/hollow-circle | [`chore/spin-button-bug-and-mockup-elements.md`](chore/spin-button-bug-and-mockup-elements.md) | ✅ merged (hitArea fix correct but insufficient — see #152) |
 | [#152](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/152) chore: SPIN button **ULTIMATE** fix — `refreshFormation()` array bounds bug (`i<9` but `cells.length=5` since p11-vA-02) silently crashed async onMount before `void this.loop()` → button was unreachable. Console-bisect via `[onMount] A..K` breadcrumb logs found exact crash point. + `app.stage.eventMode='static'` Pixi 8 stage requirement + visual cleanup (drop grid overlay + edge vignette) | [`chore/spin-still-broken-and-visual-rebuild.md`](chore/spin-still-broken-and-visual-rebuild.md) | ✅ merged (8/5/1 — `debugging-and-error-recovery` 5-step evidence-based finally found real root cause) |
+
+### Sprint 12 · UI Asset Decommission (drop all Gemini webp UI borders / frames / buttons)
+
+Roadmap doc: [`sprint12/ROADMAP.md`](sprint12/ROADMAP.md)
+
+**形態**：Owner 反映「遊戲還是很多舊的圖 ... 之前用 gemini 產的邊框都不要了」。Audit 13 Gemini UI webp → 4 orphan + 9 in-use → 全部 programmatic 重做。
+
+| PR | Prompt file | Status |
+|---|---|---|
+| (pending) s12-ui-01 — orphan delete (4 webp) + corner-ornament programmatic L-bracket + dragon-corner force-fallback (3 atomic commits) | [`sprint12/s12-ui-01-orphan-and-corners.md`](sprint12/s12-ui-01-orphan-and-corners.md) | **ready to dispatch** — skill hints: incremental-implementation, code-simplification, source-driven-development |
+| (roadmap) s12-ui-02 — LoadingScreen logo-mark + divider programmatic | — | depends on s12-ui-01 |
+| (roadmap) s12-ui-03 — UiButton component rewrite (btn-normal + btn-ornate → Graphics gradient + border) | — | depends on s12-ui-02 |
+| (roadmap) s12-ui-04 — SpiritPortrait component rewrite (portrait-ring → Graphics clan ring per mockup SpiritToken) | — | depends on s12-ui-03 |
+| (roadmap) s12-ui-05 — SlotReel slot-frame + BattleScreen win-burst → Graphics | — | depends on s12-ui-04 |
+| (roadmap) s12-ui-06 — Final cleanup (UI_ASSET_KEYS empty + LoadingScreen drop UI preload + delete remaining webp) | — | depends on s12-ui-05 |
+| (roadmap) sprint12 closure | — | depends on s12-ui-06 |
 | (roadmap) p10-v02 — Reel cell polish (gem 0.80→0.90 + inner ring + tier pip) | — | depends on p10-v01 |
 | (roadmap) p10-v04 — 8 spirit gem custom PNG art (replace programmatic tint) | — | depends on art delivery |
 | (roadmap) sprint10 closure | — | depends on all above |
