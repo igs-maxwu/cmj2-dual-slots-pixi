@@ -1,31 +1,32 @@
-import { Assets, Container, Sprite, Text, Texture } from 'pixi.js';
-import { GlowFilter } from 'pixi-filters';
+import { Container, Graphics, Rectangle, Text } from 'pixi.js';
 import * as T from '@/config/DesignTokens';
 import { AudioManager } from '@/systems/AudioManager';
 
 /**
- * Gold-plate button backed by btn-normal.png. Three states via sprite.tint +
- * scale (no separate PNGs needed):
- *   normal   — tint #FFFFFF, scale 1.00
- *   hover    — tint #FFFFFF, scale 1.04
- *   pressed  — tint #B88A40, scale 0.97
+ * Programmatic gold-plate button — pure Pixi.Graphics, no asset dependency.
  *
- * With variant:'ornate' the btn-ornate asset is used instead; hover adds a
- * GlowFilter only to the bg sprite (not the label).
+ * Three states via redrawing bg Graphics:
+ *   normal   — gold gradient + border
+ *   hover    — slightly brighter gold + scale 1.04
+ *   pressed  — darker tint + scale 0.97
+ *
+ * Sound: ui-click on tap, ui-hover on pointerover.
+ *
+ * s12-ui-03: replaces Sprite + btn-normal.webp / btn-ornate.webp path.
+ * 'ornate' variant removed (dead code — no callers used it).
  */
 export interface UiButtonOpts {
   fontSize?: number;
   color?: number;
   stroke?: number;
-  variant?: 'normal' | 'ornate';
 }
 
 export class UiButton extends Container {
-  private bg: Sprite;
+  private bg: Graphics;
   private lbl: Text;
   private enabled = true;
-  private readonly isOrnate: boolean;
-  private readonly glowFilter: GlowFilter | null;
+  private readonly w: number;
+  private readonly h: number;
 
   constructor(
     text: string,
@@ -35,24 +36,22 @@ export class UiButton extends Container {
     opts: UiButtonOpts = {},
   ) {
     super();
+    this.w = width;
+    this.h = height;
 
-    this.isOrnate = opts.variant === 'ornate';
-
-    const texKey = this.isOrnate ? 'btn-ornate' : 'btn-normal';
-    this.bg = new Sprite(Assets.get<Texture>(texKey) ?? Texture.WHITE);
-    this.bg.anchor.set(0.5, 0.5);
-    this.bg.width = width;
-    this.bg.height = height;
+    // Background — programmatic gradient + border
+    this.bg = new Graphics();
     this.addChild(this.bg);
+    this.drawBg('normal');
 
-    const defaultColor = this.isOrnate ? T.GOLD.light : T.FG.white;
+    // Label
     this.lbl = new Text({
       text,
       style: {
         fontFamily: T.FONT.title,
         fontWeight: '700',
         fontSize: opts.fontSize ?? Math.round(height * 0.42),
-        fill: opts.color ?? defaultColor,
+        fill: opts.color ?? T.FG.white,
         letterSpacing: 2,
         stroke: { color: 0x000, width: opts.stroke ?? 2 },
       },
@@ -60,14 +59,13 @@ export class UiButton extends Container {
     this.lbl.anchor.set(0.5, 0.5);
     this.addChild(this.lbl);
 
-    this.glowFilter = this.isOrnate
-      ? new GlowFilter({ distance: 12, outerStrength: 2, color: T.GOLD.base })
-      : null;
+    // Hit area for click events (Pixi 8 Container needs explicit hitArea)
+    this.hitArea = new Rectangle(-width / 2, -height / 2, width, height);
 
     this.eventMode = 'static';
     this.cursor = 'pointer';
-    this.on('pointertap', () => { if (this.enabled) { AudioManager.playSfx('ui-click', 0.7); this.onTap(); } });
-    this.on('pointerover', () => { AudioManager.playSfx('ui-hover', 0.5); this.setState('hover'); });
+    this.on('pointertap',  () => { if (this.enabled) { AudioManager.playSfx('ui-click', 0.7); this.onTap(); } });
+    this.on('pointerover', () => { if (this.enabled) { AudioManager.playSfx('ui-hover', 0.5); this.setState('hover'); } });
     this.on('pointerout',  () => this.setState('normal'));
     this.on('pointerdown', () => this.setState('pressed'));
     this.on('pointerup',   () => this.setState('hover'));
@@ -76,50 +74,64 @@ export class UiButton extends Container {
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
     this.eventMode = enabled ? 'static' : 'none';
-    this.cursor = enabled ? 'pointer' : 'default';
-    this.bg.tint = enabled ? T.TINT.identity : T.TINT.disabled;
-    this.bg.filters = [];
+    this.cursor    = enabled ? 'pointer' : 'default';
     this.lbl.alpha = enabled ? 1 : 0.4;
-    if (enabled) this.setState('normal');
+    this.drawBg(enabled ? 'normal' : 'disabled');
   }
 
   setText(text: string): void { this.lbl.text = text; }
 
   private setState(state: 'normal' | 'hover' | 'pressed'): void {
     if (!this.enabled) return;
-    if (this.isOrnate) {
-      switch (state) {
-        case 'normal':
-          this.bg.tint = T.TINT.identity;
-          this.scale.set(1);
-          this.bg.filters = [];
-          break;
-        case 'hover':
-          this.bg.tint = T.TINT.identity;
-          this.scale.set(1.04);
-          this.bg.filters = this.glowFilter ? [this.glowFilter] : [];
-          break;
-        case 'pressed':
-          this.bg.tint = T.TINT.hover;
-          this.scale.set(0.97);
-          this.bg.filters = [];
-          break;
-      }
-    } else {
-      switch (state) {
-        case 'normal':
-          this.bg.tint = T.TINT.identity;
-          this.scale.set(1);
-          break;
-        case 'hover':
-          this.bg.tint = T.TINT.identity;
-          this.scale.set(1.04);
-          break;
-        case 'pressed':
-          this.bg.tint = T.TINT.pressed;
-          this.scale.set(0.97);
-          break;
-      }
+    this.drawBg(state);
+    switch (state) {
+      case 'normal':  this.scale.set(1);     break;
+      case 'hover':   this.scale.set(1.04);  break;
+      case 'pressed': this.scale.set(0.97);  break;
     }
+  }
+
+  /** Redraws background per state — gold gradient simulation + border. */
+  private drawBg(state: 'normal' | 'hover' | 'pressed' | 'disabled'): void {
+    this.bg.clear();
+    const radius = 8;
+    const halfW = this.w / 2;
+    const halfH = this.h / 2;
+
+    // Color per state
+    let topColor: number, bottomColor: number, borderColor: number;
+    switch (state) {
+      case 'hover':
+        topColor    = T.GOLD.glow;       // brighter top
+        bottomColor = T.GOLD.base;
+        borderColor = T.GOLD.glow;
+        break;
+      case 'pressed':
+        topColor    = T.GOLD.shadow;     // darker (pressed)
+        bottomColor = T.GOLD.shadow;
+        borderColor = T.GOLD.base;
+        break;
+      case 'disabled':
+        topColor    = 0x444444;
+        bottomColor = 0x222222;
+        borderColor = 0x666666;
+        break;
+      case 'normal':
+      default:
+        topColor    = T.GOLD.base;
+        bottomColor = T.GOLD.shadow;
+        borderColor = T.GOLD.base;
+        break;
+    }
+
+    // 2-rect gradient simulation (Pixi 8 has no native linear gradient)
+    this.bg.roundRect(-halfW, -halfH, this.w, this.h * 0.5, radius)
+      .fill({ color: topColor });
+    this.bg.roundRect(-halfW, 0, this.w, this.h * 0.5, radius)
+      .fill({ color: bottomColor });
+
+    // Border
+    this.bg.roundRect(-halfW, -halfH, this.w, this.h, radius)
+      .stroke({ width: 2, color: borderColor, alpha: 0.9 });
   }
 }
