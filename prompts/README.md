@@ -196,7 +196,20 @@ Roadmap doc: [`sprint12/ROADMAP.md`](sprint12/ROADMAP.md)
 | [#156](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/156) s12-ui-04 — SpiritPortrait rewrite (portrait-ring webp → Graphics 4-layer clan ring with GlowFilter + clan-aware color logic) | [`sprint12/s12-ui-04-spirit-portrait-rewrite.md`](sprint12/s12-ui-04-spirit-portrait-rewrite.md) | ✅ merged (64/24/3, PWA precache 142→140) |
 | [#157](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/157) s12-ui-05 — SlotReel slot-frame + BattleScreen win-burst → Pixi.Graphics (3-stroke ornate + 4 corner dots; concentric rings + 12 radial rays) | [`sprint12/s12-ui-05-reel-frame-and-winburst.md`](sprint12/s12-ui-05-reel-frame-and-winburst.md) | ✅ merged (65/32/2) |
 | [#158](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/158) s12-ui-06 — Final cleanup (delete 2 UI webp + 5 gem-shape webp + GemMapping.ts + LoadingScreen drop UI/gems preload + UI_ASSET_KEYS empty) | [`sprint12/s12-ui-06-final-cleanup.md`](sprint12/s12-ui-06-final-cleanup.md) | ✅ merged (6/84/10, PWA precache 162→126 cumulative -36 entries) |
-| (`docs/pitch/sprint12-closure.md` commit pending) Sprint 12 closure — UI Asset Decommission 6/6 complete (all 18 Gemini UI/gem webp retired + 1 dead config file deleted) | — | ✅ delivered (orchestrator inline) — **Sprint 12 COMPLETE** |
+| (`docs/pitch/sprint12-closure.md` commit `91d1b3d`) Sprint 12 closure — UI Asset Decommission 6/6 complete (all 18 Gemini UI/gem webp retired + 1 dead config file deleted) | — | ✅ delivered (orchestrator inline) — **Sprint 12 COMPLETE** |
+
+### Sprint 13 · SOS2 動畫升級 (Free Spin entry / Streak fly / JP fly-in / retrigger)
+
+Roadmap doc: [`sprint13/ROADMAP.md`](sprint13/ROADMAP.md)
+
+**形態**：3 polish PRs 用既有 SOS2 atlas / webp 升級「機制觸發瞬間」戲劇性。**機制不動**，純視覺 ceremony。Inventory grep-confirmed 所有需要 asset 都在 `public/assets/fx/`。
+
+| PR | Prompt file | Status |
+|---|---|---|
+| (pending) s13-fx-01 — Free Spin entry ceremony 升級 (sos2-declare-fire Fire_1/6/2 + 「FREE SPIN」 80pt + 「靈氣爆發·5 ROUNDS」副字, 7-stage 2.3s ceremony) | [`sprint13/s13-fx-01-freespin-entry-ceremony.md`](sprint13/s13-fx-01-freespin-entry-ceremony.md) | **ready to dispatch** — skill hints: frontend-ui-engineering, incremental-implementation, source-driven-development |
+| (roadmap) s13-fx-02 — Streak multiplier fly-text + JP fly-in (sos2-fly-multiplier + sos2-particles trail) | — | depends on s13-fx-01 |
+| (roadmap) s13-fx-03 — Free Spin retrigger 「MORE SPINS!」 ceremony (sos2-rainbow-halo + sos2-bigwin LightBall) | — | depends on s13-fx-02 |
+| (roadmap) sprint13 closure | — | depends on s13-fx-03 |
 | (roadmap) s12-ui-03 — UiButton component rewrite (btn-normal + btn-ornate → Graphics gradient + border) | — | depends on s12-ui-02 |
 | (roadmap) s12-ui-04 — SpiritPortrait component rewrite (portrait-ring → Graphics clan ring per mockup SpiritToken) | — | depends on s12-ui-03 |
 | (roadmap) s12-ui-05 — SlotReel slot-frame + BattleScreen win-burst → Graphics | — | depends on s12-ui-04 |
