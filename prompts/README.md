@@ -176,9 +176,8 @@ Source mockup: `download_picture/Dual Slot Pixi/battle-variant-a.jsx` + `battle-
 |---|---|---|
 | [#147](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/147) p11-vA-01 — Layout reset (JP HERO 178px + 「戰」 separator + arena 310px + VS 50px circle + reel header SHARED BOARD + log 185px) | [`sprint11/p11-vA-01-layout-reset.md`](sprint11/p11-vA-01-layout-reset.md) | ✅ merged (278/186/1) |
 | [#148](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/148) p11-vA-02 — NineGrid 3×3 formation (5-of-9 deterministic Fisher-Yates seeded placement, depth scale 0.78→1.10, B-side col mirror, render back-to-front z-order) | [`sprint11/p11-vA-02-ninegrid-formation.md`](sprint11/p11-vA-02-ninegrid-formation.md) | ✅ merged (134/91/1) |
-| (pending) p11-vA-03 — Gem reskin (drop gem-shape PNG → glossy ball + 青/白/朱/玄/替/咒/散/寶 中文字 per Pixi.Graphics + GlowFilter, preserves p10-v02 inner ring + tier pips + d-06 wayhit highlight) | [`sprint11/p11-vA-03-gem-reskin-ball.md`](sprint11/p11-vA-03-gem-reskin-ball.md) | **ready to dispatch** — skill hints: frontend-ui-engineering, code-simplification, source-driven-development |
-| (roadmap) p11-vA-03 — Gem reskin (replace gem-shape PNG with glossy circle ball + 青/白/朱/玄 Chinese character + dashed inner ring + tier pip corner) | — | depends on p11-vA-02 |
-| (roadmap) sprint11 closure | — | depends on p11-vA-03 |
+| [#149](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/149) p11-vA-03 — Gem reskin (drop gem-shape PNG → glossy ball + 青/白/朱/玄/替/咒/散/寶 中文字, T.CLAN.whiteGlow+blackGlow grep-confirmed, all p10-v02+d-06 invariants preserved) | [`sprint11/p11-vA-03-gem-reskin-ball.md`](sprint11/p11-vA-03-gem-reskin-ball.md) | ✅ merged (90/21/1) |
+| (`docs/pitch/sprint11-closure.md` commit pending) Sprint 11 closure — Variant A migration 3/3 complete | — | ✅ delivered (orchestrator inline) — **Sprint 11 COMPLETE** |
 | (roadmap) p10-v02 — Reel cell polish (gem 0.80→0.90 + inner ring + tier pip) | — | depends on p10-v01 |
 | (roadmap) p10-v04 — 8 spirit gem custom PNG art (replace programmatic tint) | — | depends on art delivery |
 | (roadmap) sprint10 closure | — | depends on all above |
