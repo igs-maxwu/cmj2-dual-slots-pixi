@@ -923,6 +923,10 @@ export class BattleScreen implements Screen {
     const cells     = side === 'A' ? this.cellsA     : this.cellsB;
     const glowColor = side === 'A' ? T.TEAM.azureGlow : T.TEAM.vermilionGlow;
 
+    // chore161 fix: createFormation scatters 5 spirits randomly into 9 slots (0-8).
+    // drawFormation must collect non-null units in index order rather than reading grid[0..4].
+    const activeUnits = grid.filter(u => u !== null);
+
     // Collect slot → pos, then sort back-to-front for z-ordering
     type PosResult = { x: number; y: number; row: number; scale: number };
     const sortedSlots: Array<{ slot: number; pos: PosResult }> = [];
@@ -935,7 +939,7 @@ export class BattleScreen implements Screen {
     const cellRefsBySlot = new Map<number, FormationCellRefs>();
 
     for (const { slot, pos } of sortedSlots) {
-      const unit = grid[slot] ?? null;
+      const unit = activeUnits[slot] ?? null;   // chore161: use compact active list not raw grid[slot]
 
       // spiritH derived from depth scale: scale × SPIRIT_H  (source height at scale=1)
       const spiritH = Math.round(pos.scale * SPIRIT_H);
@@ -1521,11 +1525,12 @@ export class BattleScreen implements Screen {
   }
 
   private refreshFormation(side: 'A' | 'B', grid: FormationGrid, cells: FormationCellRefs[]): void {
-    // BUGFIX: loop to cells.length (5), not 9 — drawFormation only creates refs for the 5 occupied slots.
-    // grid has 9 entries (full NineGrid), but cells[] maps slots 0-4 only; cells[5..8] would be undefined.
+    // chore161 fix: grid has 9 entries with spirits at random indices (createFormation scatters 0-8).
+    // Extract non-null units in index order to match the compact display slots 0-4 from drawFormation.
+    const activeUnits = grid.filter(u => u !== null);
     for (let i = 0; i < cells.length; i++) {
       const ref  = cells[i];
-      const unit = grid[i];
+      const unit = activeUnits[i] ?? null;   // chore161: compact active list, not raw grid[i]
       if (!unit) {
         ref.glowRing.visible  = false;
         ref.crossMark.visible = false;
