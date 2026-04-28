@@ -62,25 +62,23 @@ const LOG_H_CONST  = 185;   // p11-vA-01: was 140
 
 const ROUND_GAP_MS = 500; // pause between rounds
 
-// ─── Free-standing arena layout — 3-row (chore: formation-three-row-layout) ──
-// Three staggered rows: front (2 chars, closest) + mid (2 chars) + back (1 char, furthest)
-// Owner feedback: "雀靈應該是九宮格" — 2-row felt crowded and shallow.
-const SPIRIT_H              = 130;                          // front-row sprite height (px)
-const SPIRIT_H_MID          = Math.round(SPIRIT_H * 0.69);  // ≈ 90px — mid row (medium depth)
-const SPIRIT_H_BACK         = Math.round(SPIRIT_H * 0.46);  // ≈ 60px — back row (furthest, smallest)
-const ARENA_Y_FRONT         = 540;                          // front-row feet y (unchanged)
-const ARENA_Y_MID           = 430;                          // p11-vA-01: was 380, raised to fit arena 285-595
-const ARENA_Y_BACK          = 320;                          // p11-vA-01: was 260, raised above separator y=262
-const ARENA_SPACING_FRONT_X = 110;                          // front: 2 spirits × 130w, gap=2×110=220>130 ✓
-const ARENA_SPACING_MID_X   = 95;                           // mid: 2 spirits × 90w, gap=2×95=190>90 ✓
-// ARENA_SPACING_BACK_X removed — back has 1 spirit at center (xOff=0)
-const ARENA_A_CENTER_X      = 184;                          // A-side pivot x (unchanged)
-const ARENA_B_CENTER_X      = CANVAS_WIDTH - 184;           // B-side mirror
+// ─── NineGrid 3×3 formation layout (p11-vA-02) ──────────────────────────────
+// 9 cells per side; 5 spirits placed via seeded Fisher-Yates at mount time.
+// Depth scale: row 0 (back) = 0.78 × SPIRIT_H, row 1 (mid) = 0.94 ×, row 2 (front) = 1.10 ×
+const SPIRIT_H           = 130;                              // source sprite height (px) at scale 1.0
+const NINE_CELL_SIZE     = 80;                               // cell square side (px)
+const NINE_GAP           = 4;                                // gap between cells (px)
+const NINE_STEP          = NINE_CELL_SIZE + NINE_GAP;        // = 84 px per cell step
+const NINE_GRID_TOTAL    = 3 * NINE_CELL_SIZE + 2 * NINE_GAP; // = 248 px grid total width/height
+const NINE_GRID_TOP_Y    = 305;                              // grid top y (arena 285 + 20 label pad)
+const NINE_A_GRID_LEFT_X = 32;                               // A side grid left edge x
+const NINE_B_GRID_LEFT_X = CANVAS_WIDTH - NINE_GRID_TOTAL - 32; // B side = 720-248-32 = 440
 
 // Per-unit HP bar (inside each spirit container)
 const UNIT_HP_BAR_W     = 64;
 const UNIT_HP_BAR_H     = 6;
-const UNIT_HP_BAR_Y_OFF = -(SPIRIT_H / 2 + 8);   // -73px from feet; back at 320-73=247 > JP hero bottom 220 ✓
+// HP bar y offset: above cell top edge (cell center is anchor, cell top is -NINE_CELL_SIZE/2)
+const UNIT_HP_BAR_Y_OFF = -(NINE_CELL_SIZE / 2) - 10;       // above cell top by 10px
 
 // ─── Components for formation display ────────────────────────────────────────
 interface FormationCellRefs {
@@ -104,6 +102,9 @@ export class BattleScreen implements Screen {
   private _breatheTick: (() => void) | null = null;
   private cellsA: FormationCellRefs[] = [];
   private cellsB: FormationCellRefs[] = [];
+  /** p11-vA-02: NineGrid — which of the 9 cells (0-8) each side's 5 spirits occupy */
+  private gridPlacementA: number[] = [];
+  private gridPlacementB: number[] = [];
   private walletA = 10000;
   private walletB = 10000;
   private displayedWalletA = 10000;
@@ -255,6 +256,14 @@ export class BattleScreen implements Screen {
     this.refreshJackpotMarquee();   // j-05: show loaded pool values immediately
     this.drawZoneSeparator();       // p11-vA-01: 「戰」 gold separator line between JP hero and arena
     this.drawBattleArena();         // p11-vA-01: 310px arena (was 520px Variant B)
+    // p11-vA-02: seed NineGrid placements before drawing formation
+    const seedBase = performance.now().toString();
+    this.gridPlacementA = this.computeGridPlacement(`${seedBase}-A`);
+    this.gridPlacementB = this.computeGridPlacement(`${seedBase}-B`);
+    if (import.meta.env.DEV) {
+      console.log(`[NineGrid] A placement: [${this.gridPlacementA.join(',')}]`);
+      console.log(`[NineGrid] B placement: [${this.gridPlacementB.join(',')}]`);
+    }
     this.drawFormation('A');
     this.drawFormation('B');
     this.drawReelHeader();          // p11-vA-01: A · 我方 | ◇ SHARED BOARD ◇ | B · 對手 strip
@@ -322,7 +331,8 @@ export class BattleScreen implements Screen {
     this.container.addChild(warmGlow);
 
     // ── Perspective floor lines (compact — fits 310px window) ─────────────
-    const floorTop  = ARENA_Y_MID + 20;           // ≈450: below mid-row spirits
+    // floorTop below mid-row cells: mid cell bottom = NINE_GRID_TOP_Y + 2*NINE_STEP (≈473)
+    const floorTop  = NINE_GRID_TOP_Y + 2 * NINE_STEP;  // ≈473: below mid-row cell bottom
     const floorBot  = ARENA_BOT - 10;             // ≈585
     const floorH    = floorBot - floorTop;
     const vanishX   = CANVAS_WIDTH / 2;
@@ -389,8 +399,10 @@ export class BattleScreen implements Screen {
     bannerBText.y = labelY + labelH / 2;
     this.container.addChild(bannerBText);
 
-    // ── VS — circle 50px at y = ARENA_TOP_Y + 130 = 415 ─────────────────
-    // Sits between back-row (ARENA_Y_BACK=320) and mid-row (ARENA_Y_MID=430)
+    // ── VS — circle at arena center, between A and B grids ──────────────
+    // A grid right edge: NINE_A_GRID_LEFT_X + NINE_GRID_TOTAL = 280
+    // B grid left edge:  NINE_B_GRID_LEFT_X = 440   → VS at x=360 (canvas center) is safe
+    // y=415: between back-row top (305+40=345) and mid-row center (305+84+40=429)
     const vsCenterX = CANVAS_WIDTH / 2;
     const vsCenterY = ARENA_TOP_Y + 130;   // 285 + 130 = 415
 
@@ -451,7 +463,8 @@ export class BattleScreen implements Screen {
   /** 8 radial lines from a vanishing point above the arena + 3 horizontal depth bands.
    *  p10-v01: background grid floor only — detailed arena floor is in drawBattleArena(). */
   private drawPerspectiveFloor(): void {
-    const horizonY  = ARENA_Y_BACK - 30;    // p10-v01: align horizon with back-row baseline
+    // Horizon aligns with back-row cell top: NINE_GRID_TOP_Y + 0*NINE_STEP = 305; subtract 30 for perspective
+    const horizonY  = NINE_GRID_TOP_Y - 30;  // p11-vA-02: align horizon with NineGrid back-row top
     const vanishX   = CANVAS_WIDTH / 2;
     const bottomY   = CANVAS_HEIGHT;
     const goldColor = T.GOLD.shadow;
@@ -499,32 +512,24 @@ export class BattleScreen implements Screen {
   }
 
   /**
-   * Ellipse ground shadows beneath each spirit slot.
-   * 3-row layout positions (chore: formation-three-row-layout):
-   *   ARENA_A_CENTER_X=184, ARENA_SPACING_FRONT_X=110, ARENA_SPACING_MID_X=95
-   *   A front (slots 3,4): x = 184-110=74, 184+110=294   (2 spirits)
-   *   A mid   (slots 1,2): x = 184-95=89,  184+95=279    (2 spirits)
-   *   A back  (slot 0):    x = 184                        (1 spirit, center)
-   *   B front (slots 3,4): x = 536+110=646, 536-110=426
-   *   B mid   (slots 1,2): x = 536+95=631,  536-95=441
-   *   B back  (slot 0):    x = 536
-   *   Total: 5 shadows per side × 2 = 10 ellipses
+   * p11-vA-02: Ground shadows derived dynamically from NineGrid placement.
+   * One ellipse per occupied cell — size and alpha scale with depth (row 0=small/faint, row 2=large/dark).
+   * Called AFTER gridPlacementA/B are seeded in onMount.
    */
   private drawSpiritShadows(): void {
-    const A_FRONT_X = [74,  294];
-    const A_MID_X   = [89,  279];
-    const A_BACK_X  = [184];
-    const B_FRONT_X = [646, 426];
-    const B_MID_X   = [631, 441];
-    const B_BACK_X  = [536];
-
     const shadow = new Graphics();
-    for (const x of A_FRONT_X) shadow.ellipse(x, ARENA_Y_FRONT + 8, 34, 9).fill({ color: 0x000000, alpha: 0.45 });
-    for (const x of A_MID_X)   shadow.ellipse(x, ARENA_Y_MID   + 8, 28, 7).fill({ color: 0x000000, alpha: 0.40 });
-    for (const x of A_BACK_X)  shadow.ellipse(x, ARENA_Y_BACK  + 8, 18, 5).fill({ color: 0x000000, alpha: 0.30 });
-    for (const x of B_FRONT_X) shadow.ellipse(x, ARENA_Y_FRONT + 8, 34, 9).fill({ color: 0x000000, alpha: 0.45 });
-    for (const x of B_MID_X)   shadow.ellipse(x, ARENA_Y_MID   + 8, 28, 7).fill({ color: 0x000000, alpha: 0.40 });
-    for (const x of B_BACK_X)  shadow.ellipse(x, ARENA_Y_BACK  + 8, 18, 5).fill({ color: 0x000000, alpha: 0.30 });
+    for (const side of ['A', 'B'] as const) {
+      for (let slot = 0; slot < 5; slot++) {
+        const pos      = this.slotToArenaPos(side, slot);
+        // Ellipse dimensions scale with depth
+        const ellipseW = 28 * pos.scale;
+        const ellipseH = 6  * pos.scale;
+        const alpha    = 0.25 + pos.scale * 0.15;   // 0.36 (back) → 0.41 (mid) → 0.45 (front)
+        // Shadow sits at cell bottom (feet position): container y + NINE_CELL_SIZE/2
+        const shadowY  = pos.y + NINE_CELL_SIZE / 2 + 2;
+        shadow.ellipse(pos.x, shadowY, ellipseW, ellipseH).fill({ color: 0x000000, alpha });
+      }
+    }
     this.container.addChild(shadow);
   }
 
@@ -841,34 +846,69 @@ export class BattleScreen implements Screen {
       .then(() => tween(half, t => { text.scale.set(target - (target - 1) * t); }, Easings.easeIn));
   }
 
-  // ─── Free-standing formation ──────────────────────────────────────────────
+  // ─── NineGrid seeded placement (p11-vA-02) ───────────────────────────────
+  /**
+   * FNV-1a hash seeded Fisher-Yates shuffle → select 5 of 9 cells (sorted).
+   * Same seed → same placement (deterministic). Different mount seed → different result.
+   */
+  private computeGridPlacement(seed: string): number[] {
+    let h = 2166136261;
+    for (let i = 0; i < seed.length; i++) {
+      h ^= seed.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    const rand = () => {
+      h ^= h << 13; h ^= h >>> 17; h ^= h << 5;
+      return ((h >>> 0) % 1000) / 1000;
+    };
+    const cells = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+    for (let i = cells.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [cells[i], cells[j]] = [cells[j]!, cells[i]!];
+    }
+    return cells.slice(0, 5).sort((a, b) => a - b);
+  }
+
+  // ─── NineGrid formation render (p11-vA-02) ───────────────────────────────
+  /**
+   * Draws the 5 spirits for one side onto NineGrid cells.
+   * Sprites are addChild'd sorted back→front (row 0 first, row 2 last) for correct z-order
+   * so front-row spirits visually appear in front of back-row ones.
+   * B-side col mirroring handled in slotToArenaPos — no extra flip needed here.
+   */
   private drawFormation(side: 'A' | 'B'): void {
     const grid      = side === 'A' ? this.formationA : this.formationB;
     const cells     = side === 'A' ? this.cellsA     : this.cellsB;
     const glowColor = side === 'A' ? T.TEAM.azureGlow : T.TEAM.vermilionGlow;
 
-    for (let slot = 0; slot < 9; slot++) {
-      const unit = grid[slot];
-      const pos  = this.slotToArenaPos(side, slot);
+    // Collect slot → pos, then sort back-to-front for z-ordering
+    type PosResult = { x: number; y: number; row: number; scale: number };
+    const sortedSlots: Array<{ slot: number; pos: PosResult }> = [];
+    for (let slot = 0; slot < 5; slot++) {
+      sortedSlots.push({ slot, pos: this.slotToArenaPos(side, slot) });
+    }
+    sortedSlots.sort((a, b) => a.pos.row - b.pos.row);   // back (0) → front (2)
+
+    // Build a slot→cellRef map so cellsA/B stay in original slot order
+    const cellRefsBySlot = new Map<number, FormationCellRefs>();
+
+    for (const { slot, pos } of sortedSlots) {
+      const unit = grid[slot] ?? null;
+
+      // spiritH derived from depth scale: scale × SPIRIT_H  (source height at scale=1)
+      const spiritH = Math.round(pos.scale * SPIRIT_H);
 
       const container = new Container();
       container.x = pos.x;
       container.y = pos.y;
+      container.zIndex = pos.row;   // 0=back / 1=mid / 2=front
       this.container.addChild(container);
-
-      // 3-row: pick spirit height by row — back 60px / mid 90px / front 130px
-      const sizeMap: Record<'back' | 'mid' | 'front', number> = {
-        back:  SPIRIT_H_BACK,
-        mid:   SPIRIT_H_MID,
-        front: SPIRIT_H,
-      };
-      const spiritH = sizeMap[pos.row];
 
       // Ground ellipse glow — breathes via ticker (visible only for alive units)
       const glowRing = new Graphics();
       if (unit) {
-        const ew = spiritH * 0.9;
-        glowRing.ellipse(0, 0, ew / 2, 7).fill({ color: glowColor, alpha: 1 });
+        const ew = NINE_CELL_SIZE * pos.scale * 0.7;
+        glowRing.ellipse(0, NINE_CELL_SIZE / 2 - 2, ew / 2, 5).fill({ color: glowColor, alpha: 1 });
       }
       glowRing.alpha   = 0;
       glowRing.visible = unit !== null && unit.alive;
@@ -881,27 +921,31 @@ export class BattleScreen implements Screen {
         if (tex) {
           sprite = new Sprite(tex);
           sprite.anchor.set(0.5, 1);
-          sprite.scale.set(spiritH / tex.height);
-          // flip x for A-side so spirits face the centre (assets are facing-left by default).
+          const baseScale = SPIRIT_H / Math.max(tex.width, tex.height);
+          sprite.scale.set(baseScale * pos.scale);
+          // A faces right (assets are facing-left by default → flip A); B stays left facing A
           if (side === 'A') sprite.scale.x *= -1;
+          sprite.y = NINE_CELL_SIZE / 2;   // feet at cell bottom edge
           container.addChild(sprite);
         }
       }
 
       // Per-unit HP bar — track (static bg) + fill (redrawn in refreshFormation)
+      // Position: above cell top edge (UNIT_HP_BAR_Y_OFF = -NINE_CELL_SIZE/2 - 10)
+      const scaledBarW = Math.round(UNIT_HP_BAR_W * pos.scale);
       const hpTrack = new Graphics()
-        .roundRect(-UNIT_HP_BAR_W / 2, UNIT_HP_BAR_Y_OFF, UNIT_HP_BAR_W, UNIT_HP_BAR_H, UNIT_HP_BAR_H / 2)
+        .roundRect(-scaledBarW / 2, UNIT_HP_BAR_Y_OFF, scaledBarW, UNIT_HP_BAR_H, UNIT_HP_BAR_H / 2)
         .fill({ color: T.HP.track, alpha: 0.8 })
         .stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.6 });
       hpTrack.visible = unit !== null;
       const hpFill = new Graphics();
-      hpFill.visible = unit !== null;   // p10-bug-01: hide fill for empty slots (no bleed into JP)
+      hpFill.visible = unit !== null;
       container.addChild(hpTrack);
       container.addChild(hpFill);
 
-      // Death cross ✕ centred on torso (midpoint of sprite); use spiritH for correct position
-      const ch    = spiritH * 0.25;
-      const midY  = -spiritH / 2;
+      // Death cross ✕ centred on torso
+      const ch   = spiritH * 0.20;
+      const midY = 0;   // container center (cell center)
       const crossMark = new Graphics()
         .moveTo(-ch, midY - ch).lineTo(ch, midY + ch)
         .moveTo( ch, midY - ch).lineTo(-ch, midY + ch)
@@ -909,39 +953,38 @@ export class BattleScreen implements Screen {
       crossMark.visible = false;
       container.addChild(crossMark);
 
-      cells.push({ container, sprite, hpTrack, hpFill, glowRing, crossMark });
+      cellRefsBySlot.set(slot, { container, sprite, hpTrack, hpFill, glowRing, crossMark });
+    }
+
+    // Push to cellsA/B in original slot order (0-4) so refreshFormation index mapping is stable
+    for (let slot = 0; slot < 5; slot++) {
+      const ref = cellRefsBySlot.get(slot);
+      if (ref) cells.push(ref);
     }
   }
 
   /**
-   * Maps a 3×3 formation slot index to the staggered arena position.
-   * 3-row layout (chore: formation-three-row-layout):
-   *   slot 0 — BACK center (solo, furthest, smallest)
-   *   slot 1 — MID left
-   *   slot 2 — MID right
-   *   slot 3 — FRONT left
-   *   slot 4 — FRONT right
-   * B-side x offsets are mirrored (sprite also flipped via scale.x = -1).
-   * Returns row identifier so drawFormation can pick correct spiritH.
+   * p11-vA-02: Maps a formation slot index (0-4) to NineGrid cell center position.
+   * Grid: 3×3 cells, row 0 = back (furthest), row 2 = front (closest).
+   * B-side col is mirrored so front faces A (col 0 is rightmost for B).
+   * Returns { x, y, row: 0|1|2, scale } where scale = 0.78 + (row/2)*0.32.
    */
-  private slotToArenaPos(side: 'A' | 'B', slot: number): { x: number; y: number; row: 'front' | 'mid' | 'back' } {
-    const LAYOUT: ReadonlyArray<{ row: 'front' | 'mid' | 'back'; xOff: number }> = [
-      { row: 'back',  xOff:  0                    },  // slot 0 — back center (solo)
-      { row: 'mid',   xOff: -ARENA_SPACING_MID_X  },  // slot 1 — mid left
-      { row: 'mid',   xOff: +ARENA_SPACING_MID_X  },  // slot 2 — mid right
-      { row: 'front', xOff: -ARENA_SPACING_FRONT_X},  // slot 3 — front left
-      { row: 'front', xOff: +ARENA_SPACING_FRONT_X},  // slot 4 — front right
-      // slots 5-8: overflow fallback to slot 0 position (unused in 5-pick draft)
-    ];
-    const entry   = LAYOUT[slot] ?? LAYOUT[0];
-    const centerX = side === 'A' ? ARENA_A_CENTER_X : ARENA_B_CENTER_X;
-    const mirror  = side === 'B' ? -1 : 1;
-    const yMap    = { back: ARENA_Y_BACK, mid: ARENA_Y_MID, front: ARENA_Y_FRONT };
-    return {
-      x:   centerX + entry.xOff * mirror,
-      y:   yMap[entry.row],
-      row: entry.row,
-    };
+  private slotToArenaPos(side: 'A' | 'B', slot: number): { x: number; y: number; row: number; scale: number } {
+    const placement = side === 'A' ? this.gridPlacementA : this.gridPlacementB;
+    const cellIdx   = placement[slot] ?? placement[0] ?? 0;  // fallback if slot >= 5
+    const row       = Math.floor(cellIdx / 3);                // 0=back, 1=mid, 2=front
+    const col       = cellIdx % 3;
+    const mirroredCol = side === 'B' ? (2 - col) : col;
+
+    const gridLeftX = side === 'A' ? NINE_A_GRID_LEFT_X : NINE_B_GRID_LEFT_X;
+    const cellX     = gridLeftX + mirroredCol * NINE_STEP + NINE_CELL_SIZE / 2;
+    const cellY     = NINE_GRID_TOP_Y + row * NINE_STEP + NINE_CELL_SIZE / 2;
+
+    // Depth scale: back=0.78, mid=0.94, front=1.10
+    const t     = row / 2;
+    const scale = 0.78 + t * 0.32;
+
+    return { x: cellX, y: cellY, row, scale };
   }
 
   /** p11-vA-01: Reel header strip — A · 我方 | ◇ SHARED BOARD ◇ | B · 對手 */
