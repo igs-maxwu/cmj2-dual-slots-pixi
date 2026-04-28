@@ -82,26 +82,32 @@ export class SlotReel extends Container {
       .fill({ color: T.SURF.darkInlay.color, alpha: 0.9 });
     this.addChild(bg);
 
-    // Ornate frame PNG overlaid on top
-    const frameTex = Assets.get<Texture>('slot-frame');
-    if (frameTex) {
-      // Draw frame slightly larger than reel area so its ornate border sits
-      // around the edges with a small outward bleed.
-      const bleed = 14;
-      const frame = new Sprite(frameTex);
-      frame.anchor.set(0, 0);
-      frame.x = -bleed;
-      frame.y = -bleed;
-      frame.width  = REEL_W + bleed * 2;
-      frame.height = REEL_H + bleed * 2;
-      this.addChild(frame);
-    } else {
-      // Fallback — keep programmatic border
-      const border = new Graphics()
-        .roundRect(0, 0, REEL_W, REEL_H, T.RADIUS.md)
-        .stroke({ width: 2, color: T.GOLD.deep, alpha: 0.85 });
-      this.addChild(border);
+    // s12-ui-05: programmatic ornate gold frame replaces slot-frame.webp
+    // 3-stroke layered border + corner accent dots (mockup ornate frame style)
+    const outerBorder = new Graphics()
+      .roundRect(0, 0, REEL_W, REEL_H, T.RADIUS.md)
+      .stroke({ width: 3, color: T.GOLD.shadow, alpha: 0.95 });
+    this.addChild(outerBorder);
+
+    const midBorder = new Graphics()
+      .roundRect(2, 2, REEL_W - 4, REEL_H - 4, T.RADIUS.md - 1)
+      .stroke({ width: 2, color: T.GOLD.base, alpha: 1.0 });
+    this.addChild(midBorder);
+
+    const innerBorder = new Graphics()
+      .roundRect(5, 5, REEL_W - 10, REEL_H - 10, T.RADIUS.md - 2)
+      .stroke({ width: 1, color: T.GOLD.glow, alpha: 0.7 });
+    this.addChild(innerBorder);
+
+    // Corner accent dots at 4 corners
+    const cornerDots = [
+      [4, 4], [REEL_W - 4, 4], [4, REEL_H - 4], [REEL_W - 4, REEL_H - 4],
+    ];
+    const corners = new Graphics();
+    for (const [x, y] of cornerDots) {
+      corners.circle(x, y, 2).fill({ color: T.GOLD.glow, alpha: 0.9 });
     }
+    this.addChild(corners);
 
     // s12-ui-01c: programmatic L-bracket corner ornaments (no asset dependency)
     // Replaces dragon-corner.webp Sprite path (p10-bug-01 fallback promoted to primary)
