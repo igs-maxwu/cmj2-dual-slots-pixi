@@ -1025,12 +1025,14 @@ export class BattleScreen implements Screen {
     return { x: cellX, y: cellY, row, scale };
   }
 
-  /** p11-vA-01: Reel header strip — A · 我方 | ◇ SHARED BOARD ◇ | B · 對手 */
+  /** chore: Reel header strip — ● A · YOUR TURN | ◇ SHARED BOARD ◇ | B · WAITING ○ */
   private drawReelHeader(): void {
-    const stripY  = REEL_ZONE_Y - 28;
-    const stripH  = 22;
-    const stripX  = 28;
-    const stripW  = CANVAS_WIDTH - 56;
+    const stripY   = REEL_ZONE_Y - 28;
+    const stripH   = 22;
+    const stripX   = 28;
+    const stripW   = CANVAS_WIDTH - 56;
+    const midY     = stripY + stripH / 2;
+    const dotR     = 4;
 
     // Background strip
     const bg = new Graphics()
@@ -1038,14 +1040,21 @@ export class BattleScreen implements Screen {
       .fill({ color: 0x0d1f35, alpha: 0.80 });
     this.container.addChild(bg);
 
-    // A · 我方 (left, azure)
+    // A side — solid azure dot (active state indicator)
+    const aDot = new Graphics()
+      .circle(stripX + 10, midY, dotR)
+      .fill({ color: T.CLAN.azureGlow });
+    aDot.filters = [new GlowFilter({ color: T.CLAN.azureGlow, distance: 8, outerStrength: 1.5, innerStrength: 0.1, quality: 0.3 })];
+    this.container.addChild(aDot);
+
+    // A · YOUR TURN (left, azure)
     const textA = new Text({
-      text: 'A · 我方',
-      style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 10, fill: T.CLAN.azureGlow, letterSpacing: 3 },
+      text: 'A · YOUR TURN',
+      style: { fontFamily: T.FONT.body, fontWeight: '600', fontSize: 10, fill: T.CLAN.azureGlow, letterSpacing: 3 },
     });
     textA.anchor.set(0, 0.5);
-    textA.x = stripX + 10;
-    textA.y = stripY + stripH / 2;
+    textA.x = stripX + 10 + dotR + 5;   // 5px gap after dot
+    textA.y = midY;
     this.container.addChild(textA);
 
     // ◇ SHARED BOARD ◇ (centre, gold)
@@ -1055,18 +1064,24 @@ export class BattleScreen implements Screen {
     });
     textCenter.anchor.set(0.5, 0.5);
     textCenter.x = CANVAS_WIDTH / 2;
-    textCenter.y = stripY + stripH / 2;
+    textCenter.y = midY;
     this.container.addChild(textCenter);
 
-    // B · 對手 (right, vermilion)
+    // B · WAITING (right, muted — waiting state)
     const textB = new Text({
-      text: 'B · 對手',
-      style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 10, fill: T.CLAN.vermilionGlow, letterSpacing: 3 },
+      text: 'B · WAITING',
+      style: { fontFamily: T.FONT.body, fontWeight: '600', fontSize: 10, fill: T.FG.muted, letterSpacing: 3 },
     });
     textB.anchor.set(1, 0.5);
-    textB.x = stripX + stripW - 10;
-    textB.y = stripY + stripH / 2;
+    textB.x = stripX + stripW - 10 - dotR - 5;   // 5px gap before hollow dot
+    textB.y = midY;
     this.container.addChild(textB);
+
+    // B side — hollow circle (idle / waiting state indicator)
+    const bDot = new Graphics()
+      .circle(stripX + stripW - 10, midY, dotR)
+      .stroke({ width: 1.5, color: T.FG.muted, alpha: 0.8 });
+    this.container.addChild(bDot);
   }
 
   private drawSlot(): void {
