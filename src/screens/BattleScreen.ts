@@ -35,21 +35,30 @@ import { playNearWinTeaser } from '@/fx/NearWinTeaser';
 import { playBigWinCeremony } from '@/fx/BigWinCeremony';
 import type { MatchResult, MatchOutcome } from '@/screens/ResultScreen';
 
-// ─── Portrait layout 720×1280 — Variant B ───────────────────────────────────
+// ─── Portrait layout 720×1280 — Variant A (p11-vA-01) ───────────────────────
 
-// ── p10-v01: Compact header (Variant B) ─────────────────────────────────────
+// ── Compact header (unchanged from v-01) ────────────────────────────────────
 const COMPACT_HDR_H = 54;   // compact header height
 
-// ── p10-v01: JP thin strip (Variant B) ──────────────────────────────────────
-const JP_STRIP_Y = 70;      // thin JP strip top y
-const JP_STRIP_H = 64;      // thin JP strip height → bottom at y=134
+// ── p11-vA-01: JP HERO zone (y=70-220) ──────────────────────────────────────
+const JP_LABEL_Y   = 70;    // "— THE POOL OF EIGHT SEAS —" label y
+const JP_MARQUEE_Y = 88;    // hero panel top (label height + gap)
+const JP_MARQUEE_H = 132;   // hero panel height → bottom at y=220
 
-// Slot reel — centred, pushed below formations
-const SLOT_X     = Math.round((CANVAS_WIDTH - REEL_W) / 2);
-const REEL_ZONE_Y = 700;    // p10-v01: raised from 610 → 700 (Variant B reel zone)
+// ── p11-vA-01: Zone separator 「戰」 (y=262) ────────────────────────────────
+const ZONE_SEP_Y   = 262;   // hairline + 「戰」 character center y
+
+// ── p11-vA-01: Battle arena (y=285-595, 310px) ──────────────────────────────
+const ARENA_TOP_Y  = 285;   // arena container top y
+const ARENA_HEIGHT = 310;   // arena container height
+
+// Slot reel — centred, below arena
+const SLOT_X      = Math.round((CANVAS_WIDTH - REEL_W) / 2);
+const REEL_ZONE_Y  = 615;   // p11-vA-01: was 700 (Variant B)
 
 // Log panel pinned below reel zone
-const LOG_Y      = 1100;    // p10-v01: raised from 1150 → 1100
+const LOG_Y        = 1055;  // p11-vA-01: was 1100
+const LOG_H_CONST  = 185;   // p11-vA-01: was 140
 
 const ROUND_GAP_MS = 500; // pause between rounds
 
@@ -59,9 +68,9 @@ const ROUND_GAP_MS = 500; // pause between rounds
 const SPIRIT_H              = 130;                          // front-row sprite height (px)
 const SPIRIT_H_MID          = Math.round(SPIRIT_H * 0.69);  // ≈ 90px — mid row (medium depth)
 const SPIRIT_H_BACK         = Math.round(SPIRIT_H * 0.46);  // ≈ 60px — back row (furthest, smallest)
-const ARENA_Y_FRONT         = 540;                          // front-row feet y (was 510)
-const ARENA_Y_MID           = 380;                          // mid-row feet y (NEW)
-const ARENA_Y_BACK          = 260;                          // back-row feet y (was 290, solo center)
+const ARENA_Y_FRONT         = 540;                          // front-row feet y (unchanged)
+const ARENA_Y_MID           = 430;                          // p11-vA-01: was 380, raised to fit arena 285-595
+const ARENA_Y_BACK          = 320;                          // p11-vA-01: was 260, raised above separator y=262
 const ARENA_SPACING_FRONT_X = 110;                          // front: 2 spirits × 130w, gap=2×110=220>130 ✓
 const ARENA_SPACING_MID_X   = 95;                           // mid: 2 spirits × 90w, gap=2×95=190>90 ✓
 // ARENA_SPACING_BACK_X removed — back has 1 spirit at center (xOff=0)
@@ -71,7 +80,7 @@ const ARENA_B_CENTER_X      = CANVAS_WIDTH - 184;           // B-side mirror
 // Per-unit HP bar (inside each spirit container)
 const UNIT_HP_BAR_W     = 64;
 const UNIT_HP_BAR_H     = 6;
-const UNIT_HP_BAR_Y_OFF = -(SPIRIT_H / 2 + 8);   // -73px from feet; back at 260-73=187 > JP strip 134 ✓
+const UNIT_HP_BAR_Y_OFF = -(SPIRIT_H / 2 + 8);   // -73px from feet; back at 320-73=247 > JP hero bottom 220 ✓
 
 // ─── Components for formation display ────────────────────────────────────────
 interface FormationCellRefs {
@@ -244,9 +253,11 @@ export class BattleScreen implements Screen {
     }
     this.drawJackpotMarquee();
     this.refreshJackpotMarquee();   // j-05: show loaded pool values immediately
-    this.drawBattleArena();         // p10-v01: warm bed + perspective floor + side banners + VS shield
+    this.drawZoneSeparator();       // p11-vA-01: 「戰」 gold separator line between JP hero and arena
+    this.drawBattleArena();         // p11-vA-01: 310px arena (was 520px Variant B)
     this.drawFormation('A');
     this.drawFormation('B');
+    this.drawReelHeader();          // p11-vA-01: A · 我方 | ◇ SHARED BOARD ◇ | B · 對手 strip
     this.drawSlot();
     // drawVsBadge() removed — VS shield lives inside drawBattleArena (p10-v01)
     this.drawLog();
@@ -293,153 +304,108 @@ export class BattleScreen implements Screen {
 
   // p10-v01: drawVsBadge() retired — VS shield now lives inside drawBattleArena()
 
-  // ── p10-v01: Battle arena hero zone (Variant B) ───────────────────────────
-  // Warm bed (dark blue rounded rect) + perspective floor grid + side banners + VS shield
+  // ── p11-vA-01: Battle arena 310px (Variant A) ────────────────────────────
+  // Compact warm-bed (285→595) + perspective floor + side labels + circle VS at y=415
   private drawBattleArena(): void {
-    const ARENA_TOP  = 150;    // arena container top y
-    const ARENA_BOT  = 670;    // arena container bottom y
-    const ARENA_H    = ARENA_BOT - ARENA_TOP;    // 520
+    const ARENA_BOT = ARENA_TOP_Y + ARENA_HEIGHT;   // 285 + 310 = 595
 
     // ── Warm bed background ───────────────────────────────────────────────
     const bedPad = 14;
     const bed = new Graphics()
-      .roundRect(bedPad, ARENA_TOP + 30, CANVAS_WIDTH - bedPad * 2, ARENA_H - 30, 12)
-      .fill({ color: 0x061A33, alpha: 0.72 })
-      .stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.35 });
-    // Bottom warm glow overlay (radial-gradient approximation via transparent ellipse)
+      .roundRect(bedPad, ARENA_TOP_Y + 8, CANVAS_WIDTH - bedPad * 2, ARENA_HEIGHT - 8, 8)
+      .fill({ color: 0x061A33, alpha: 0.65 })
+      .stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.30 });
     const warmGlow = new Graphics()
-      .ellipse(CANVAS_WIDTH / 2, ARENA_BOT - 40, 240, 80)
-      .fill({ color: 0xF5B82A, alpha: 0.05 });
+      .ellipse(CANVAS_WIDTH / 2, ARENA_BOT - 30, 200, 60)
+      .fill({ color: 0xF5B82A, alpha: 0.04 });
     this.container.addChild(bed);
     this.container.addChild(warmGlow);
 
-    // ── Perspective floor lines ────────────────────────────────────────────
-    // 11 radial lines from vanishing point (center of arena, y=0 in local coords → absolute y=ARENA_TOP+200)
-    // Horizontal bands at quadratic-eased t values: t=[0.18, 0.36, 0.58, 0.82]
-    const floorTop  = ARENA_TOP + 200;
-    const floorH    = 260;
+    // ── Perspective floor lines (compact — fits 310px window) ─────────────
+    const floorTop  = ARENA_Y_MID + 20;           // ≈450: below mid-row spirits
+    const floorBot  = ARENA_BOT - 10;             // ≈585
+    const floorH    = floorBot - floorTop;
     const vanishX   = CANVAS_WIDTH / 2;
-    const floorBot  = floorTop + floorH;
     const lPad      = bedPad + 4;
     const rPad      = CANVAS_WIDTH - lPad;
 
     const floorLines = new Graphics();
-    const NUM_RADIAL = 11;
+    const NUM_RADIAL = 9;
     for (let i = 0; i <= NUM_RADIAL; i++) {
-      const bottomX = lPad + ((rPad - lPad) / NUM_RADIAL) * i;
+      const bottomX  = lPad + ((rPad - lPad) / NUM_RADIAL) * i;
       const isCenter = i === Math.floor(NUM_RADIAL / 2);
       floorLines.moveTo(vanishX, floorTop).lineTo(bottomX, floorBot);
-      floorLines.stroke({ width: isCenter ? 1.5 : 1, color: T.GOLD.shadow, alpha: isCenter ? 0.55 : 0.3 });
+      floorLines.stroke({ width: isCenter ? 1.5 : 1, color: T.GOLD.shadow, alpha: isCenter ? 0.50 : 0.25 });
     }
-
-    // 4 horizontal depth bands (quadratic ease: y = floorH * t * t)
-    const hBandTs = [0.18, 0.36, 0.58, 0.82];
+    const hBandTs = [0.25, 0.55, 0.85];
     const hBands = new Graphics();
     for (const t of hBandTs) {
       const y  = floorTop + floorH * t * t;
       const xL = vanishX - (vanishX - lPad) * t * t;
       const xR = vanishX + (rPad - vanishX) * t * t;
       hBands.moveTo(xL, y).lineTo(xR, y);
-      hBands.stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.28 + t * 0.18 });
+      hBands.stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.22 + t * 0.15 });
     }
-
-    // Center divider — dashed vertical line from floorTop down through floor
-    const centerDiv = new Graphics();
-    const dashLen = 4, gapLen = 6;
-    let dy = floorTop;
-    while (dy < floorBot) {
-      centerDiv.moveTo(vanishX, dy).lineTo(vanishX, Math.min(dy + dashLen, floorBot));
-      dy += dashLen + gapLen;
-    }
-    centerDiv.stroke({ width: 1.5, color: T.GOLD.shadow, alpha: 0.45 });
-
     this.container.addChild(floorLines);
     this.container.addChild(hBands);
-    this.container.addChild(centerDiv);
 
-    // ── Side banners ──────────────────────────────────────────────────────
-    const bannerY = ARENA_TOP + 10;
-    const bannerH = 28;
+    // ── Side labels (A · 我方 / 對手 · B) ────────────────────────────────
+    const labelY  = ARENA_TOP_Y + 10;
+    const labelH  = 24;
 
-    // A side banner (left)
     const bannerABg = new Graphics()
-      .rect(bedPad + 14, bannerY, 180, bannerH)
-      .fill({ color: T.CLAN.azureGlow, alpha: 0.07 });
+      .rect(bedPad + 14, labelY, 160, labelH)
+      .fill({ color: T.CLAN.azureGlow, alpha: 0.06 });
     const bannerAAccent = new Graphics()
-      .rect(bedPad + 14, bannerY, 2, bannerH)
+      .rect(bedPad + 14, labelY, 2, labelH)
       .fill({ color: T.CLAN.azureGlow, alpha: 0.9 });
     this.container.addChild(bannerABg);
     this.container.addChild(bannerAAccent);
 
     const bannerAText = new Text({
-      text: 'A · 我方陣營',
-      style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 13, fill: T.CLAN.azureGlow, letterSpacing: 3 },
+      text: 'A · 我方',
+      style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 11, fill: T.CLAN.azureGlow, letterSpacing: 3 },
     });
     bannerAText.anchor.set(0, 0.5);
     bannerAText.x = bedPad + 22;
-    bannerAText.y = bannerY + bannerH / 2;
+    bannerAText.y = labelY + labelH / 2;
     this.container.addChild(bannerAText);
 
-    // B side banner (right)
     const bannerBBg = new Graphics()
-      .rect(CANVAS_WIDTH - bedPad - 14 - 180, bannerY, 180, bannerH)
-      .fill({ color: T.CLAN.vermilionGlow, alpha: 0.07 });
+      .rect(CANVAS_WIDTH - bedPad - 14 - 160, labelY, 160, labelH)
+      .fill({ color: T.CLAN.vermilionGlow, alpha: 0.06 });
     const bannerBAccent = new Graphics()
-      .rect(CANVAS_WIDTH - bedPad - 16, bannerY, 2, bannerH)
+      .rect(CANVAS_WIDTH - bedPad - 16, labelY, 2, labelH)
       .fill({ color: T.CLAN.vermilionGlow, alpha: 0.9 });
     this.container.addChild(bannerBBg);
     this.container.addChild(bannerBAccent);
 
     const bannerBText = new Text({
-      text: '對手陣營 · B',
-      style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 13, fill: T.CLAN.vermilionGlow, letterSpacing: 3 },
+      text: '對手 · B',
+      style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 11, fill: T.CLAN.vermilionGlow, letterSpacing: 3 },
     });
     bannerBText.anchor.set(1, 0.5);
     bannerBText.x = CANVAS_WIDTH - bedPad - 22;
-    bannerBText.y = bannerY + bannerH / 2;
+    bannerBText.y = labelY + labelH / 2;
     this.container.addChild(bannerBText);
 
-    // ── VS shield — hexagon with VS text ─────────────────────────────────
-    // Positioned between back-row (y=290) and floor start (y=350) → center at y=380
+    // ── VS — circle 50px at y = ARENA_TOP_Y + 130 = 415 ─────────────────
+    // Sits between back-row (ARENA_Y_BACK=320) and mid-row (ARENA_Y_MID=430)
     const vsCenterX = CANVAS_WIDTH / 2;
-    const vsCenterY = 475;   // chore: between mid-feet (380) and front-head (~410), clear of spirits
-    const vsR       = 40;   // hexagon circumradius
+    const vsCenterY = ARENA_TOP_Y + 130;   // 285 + 130 = 415
 
-    const vsShield = new Graphics();
-    // Hexagon (6 points, flat-top orientation: first point at top)
-    const hexPts: Array<[number, number]> = [];
-    for (let i = 0; i < 6; i++) {
-      const angle = (Math.PI / 3) * i - Math.PI / 2;
-      hexPts.push([vsCenterX + vsR * Math.cos(angle), vsCenterY + vsR * Math.sin(angle)]);
-    }
-    vsShield.moveTo(hexPts[0][0], hexPts[0][1]);
-    for (let i = 1; i < 6; i++) vsShield.lineTo(hexPts[i][0], hexPts[i][1]);
-    vsShield.closePath();
-    vsShield.fill({ color: 0x1A0F02, alpha: 0.92 });
-    vsShield.stroke({ width: 2, color: T.GOLD.shadow, alpha: 0.85 });
-    this.container.addChild(vsShield);
+    const vsCircle = new Graphics()
+      .circle(vsCenterX, vsCenterY, 25)
+      .fill({ color: 0x0d2547, alpha: 0.95 })
+      .stroke({ width: 1.5, color: T.GOLD.base, alpha: 1 });
+    this.container.addChild(vsCircle);
 
-    // Inner ring (slightly smaller hexagon for depth)
-    const vsInner = new Graphics();
-    const innerR = vsR - 6;
-    const innerPts: Array<[number, number]> = [];
-    for (let i = 0; i < 6; i++) {
-      const angle = (Math.PI / 3) * i - Math.PI / 2;
-      innerPts.push([vsCenterX + innerR * Math.cos(angle), vsCenterY + innerR * Math.sin(angle)]);
-    }
-    vsInner.moveTo(innerPts[0][0], innerPts[0][1]);
-    for (let i = 1; i < 6; i++) vsInner.lineTo(innerPts[i][0], innerPts[i][1]);
-    vsInner.closePath();
-    vsInner.stroke({ width: 1, color: T.GOLD.glow, alpha: 0.4 });
-    this.container.addChild(vsInner);
-
-    // "VS" text
-    const vsText = goldText('VS', { fontSize: 22, withShadow: true });
+    const vsText = goldText('VS', { fontSize: 16, withShadow: true });
     vsText.anchor.set(0.5, 0.5);
     vsText.x = vsCenterX;
     vsText.y = vsCenterY;
     vsText.filters = [new GlowFilter({
-      color: 0xFFD37A, distance: 10, outerStrength: 2.0, innerStrength: 0.3, quality: 0.4,
+      color: 0xFFD37A, distance: 8, outerStrength: 1.8, innerStrength: 0.3, quality: 0.4,
     })];
     this.container.addChild(vsText);
   }
@@ -678,97 +644,179 @@ export class BattleScreen implements Screen {
 
 
   // ─── Jackpot marquee ─────────────────────────────────────────────────────
-  // p10-v01: Variant B — thin 64px strip (was v-02 200px 2-row panel)
-  // Layout: [JACKPOT POOL label / GRAND amount (large, glowing)]  |  [MAJOR label+val / MINOR label+val]
+  // p11-vA-01: Variant A — HERO 178px (was Variant B thin 64px strip)
+  // Label above panel + warm-brown panel with gold border + bulb dots
+  // + GRAND 42pt centre + MAJOR/MINOR bottom row
+  // j-05 contract: jpGrandText / jpMajorText / jpMinorText MUST stay assigned here
   private drawJackpotMarquee(): void {
-    const stripX = 16;
-    const stripW = CANVAS_WIDTH - 32;
-    const stripY = JP_STRIP_Y;
-    const stripH = JP_STRIP_H;
-    const midY   = stripY + stripH / 2;
-
-    // Outer panel — dark with subtle gold border
-    const bgPanel = new Graphics()
-      .roundRect(stripX, stripY, stripW, stripH, 6)
-      .fill({ color: T.SEA.deep, alpha: 0.85 })
-      .stroke({ width: 1, color: T.SEA.mid, alpha: 0.6 });   // p10-v03: de-gold P1-C (gold→sea-mid)
-    this.container.addChild(bgPanel);
-
-    // Vertical divider: left 60% = GRAND area, right 40% = MAJOR+MINOR
-    const divX = stripX + Math.round(stripW * 0.6);
-    const vDiv = new Graphics()
-      .rect(divX, stripY + 10, 1, stripH - 20)
-      .fill({ color: T.SEA.mid, alpha: 0.4 });   // p10-v03: de-gold P1-C
-    this.container.addChild(vDiv);
-
-    // ── Left zone: JACKPOT POOL label + GRAND value ───────────────────────
-    const leftCenterX = stripX + Math.round(stripW * 0.3);
-
-    const jpLabel = new Text({
-      text: 'JACKPOT POOL',
-      style: { fontFamily: T.FONT.body, fontSize: 9, fill: T.FG.muted, letterSpacing: 3 },
+    // ── Label above hero panel: 「— THE POOL OF EIGHT SEAS —」──
+    const label = new Text({
+      text: '— THE POOL OF EIGHT SEAS —',
+      style: { fontFamily: T.FONT.body, fontSize: 9, fill: T.FG.muted, letterSpacing: 4 },
     });
-    jpLabel.anchor.set(0.5, 1);
-    jpLabel.x = leftCenterX;
-    jpLabel.y = midY - 2;
-    this.container.addChild(jpLabel);
+    label.anchor.set(0.5, 0);
+    label.x = CANVAS_WIDTH / 2;
+    label.y = JP_LABEL_Y;
+    this.container.addChild(label);
 
-    this.jpGrandText = goldText('5,000,000', { fontSize: 22, withShadow: true });
-    this.jpGrandText.anchor.set(0.5, 0);
-    this.jpGrandText.x = leftCenterX;
-    this.jpGrandText.y = midY + 1;
+    // ── HERO panel: y=88, h=132, margin 28px each side ──
+    const panelX = 28;
+    const panelW = CANVAS_WIDTH - 56;
+    const panelY = JP_MARQUEE_Y;
+    const panelH = JP_MARQUEE_H;
+
+    // Dark warm-brown gradient bg (two-layer simulation — Pixi has no native gradient)
+    const bgTop = new Graphics()
+      .rect(panelX, panelY, panelW, panelH * 0.5)
+      .fill({ color: 0x2a1a04, alpha: 1 });
+    const bgBot = new Graphics()
+      .rect(panelX, panelY + panelH * 0.5, panelW, panelH * 0.5)
+      .fill({ color: 0x1a0f02, alpha: 1 });
+    bgTop.zIndex = 5;  bgBot.zIndex = 5;
+    this.container.addChild(bgTop);
+    this.container.addChild(bgBot);
+
+    // Gold border
+    const border = new Graphics()
+      .roundRect(panelX, panelY, panelW, panelH, 6)
+      .stroke({ width: 1.5, color: T.GOLD.base, alpha: 1 });
+    border.zIndex = 6;
+    this.container.addChild(border);
+
+    // Inner glow — wide soft inner stroke simulating box-shadow inset
+    const innerGlow = new Graphics()
+      .roundRect(panelX + 2, panelY + 2, panelW - 4, panelH - 4, 5)
+      .stroke({ width: 6, color: T.GOLD.base, alpha: 0.15 });
+    innerGlow.zIndex = 7;
+    this.container.addChild(innerGlow);
+
+    // Marquee bulbs — dotted gold pattern top + bottom edges
+    const bulbs = new Graphics();
+    const bulbY1 = panelY + 6;
+    const bulbY2 = panelY + panelH - 6;
+    for (let bx = panelX + 6; bx < panelX + panelW - 6; bx += 14) {
+      bulbs.circle(bx, bulbY1, 1.5).circle(bx, bulbY2, 1.5);
+    }
+    bulbs.fill({ color: T.GOLD.glow, alpha: 0.6 });
+    bulbs.zIndex = 8;
+    this.container.addChild(bulbs);
+
+    // ── Top row: ★ GRAND JACKPOT ★ label + POOL · NTD label ──
+    const topRowY = panelY + 14;
+    const grandLabel = new Text({
+      text: '★ GRAND JACKPOT ★',
+      style: { fontFamily: T.FONT.body, fontSize: 10, fill: T.GOLD.glow, letterSpacing: 4 },
+    });
+    grandLabel.x = panelX + 20;
+    grandLabel.y = topRowY;
+    grandLabel.zIndex = 10;
+    this.container.addChild(grandLabel);
+
+    const poolLabel = new Text({
+      text: 'POOL · NTD',
+      style: { fontFamily: T.FONT.body, fontSize: 10, fill: T.FG.muted, letterSpacing: 2 },
+    });
+    poolLabel.anchor.set(1, 0);
+    poolLabel.x = panelX + panelW - 20;
+    poolLabel.y = topRowY;
+    poolLabel.zIndex = 10;
+    this.container.addChild(poolLabel);
+
+    // ── Centre: GRAND value — 42pt Cinzel gold + glow ──
+    this.jpGrandText = goldText('5,000,000', { fontSize: 42, withShadow: true });
+    this.jpGrandText.anchor.set(0.5, 0.5);
+    this.jpGrandText.x = panelX + panelW / 2;
+    this.jpGrandText.y = panelY + panelH * 0.50;
     this.jpGrandText.filters = [new GlowFilter({
-      color: 0xFFD37A, distance: 10, outerStrength: 2.0, innerStrength: 0.4, quality: 0.4,
+      color: T.GOLD.base, distance: 18, outerStrength: 2.5, innerStrength: 0.5, quality: 0.4,
     })];
+    this.jpGrandText.zIndex = 11;
     this.container.addChild(this.jpGrandText);
 
-    // ── Right zone: MAJOR top + hairline + MINOR bottom ───────────────────
-    const rightX  = divX + Math.round((CANVAS_WIDTH - 16 - divX) * 0.5);
-    const majorY  = stripY + Math.round(stripH * 0.28);
-    const minorY  = stripY + Math.round(stripH * 0.72);
-    const hairY   = stripY + Math.round(stripH * 0.5);
-    const lblX    = divX + 10;
-    const valX    = CANVAS_WIDTH - 16 - 10;
+    // ── Bottom row: hairline + MAJOR (left) | MINOR (right) ──
+    const bottomRowY  = panelY + panelH - 24;
+    const dividerLine = new Graphics()
+      .rect(panelX + 20, panelY + panelH - 40, panelW - 40, 1)
+      .fill({ color: T.GOLD.base, alpha: 0.25 });
+    dividerLine.zIndex = 9;
+    this.container.addChild(dividerLine);
 
-    // Horizontal hairline between MAJOR and MINOR
-    const hHair = new Graphics()
-      .rect(divX + 6, hairY, CANVAS_WIDTH - 16 - divX - 6, 1)
-      .fill({ color: T.SEA.mid, alpha: 0.3 });   // p10-v03: de-gold P1-C
-    this.container.addChild(hHair);
+    const halfX1 = panelX + panelW * 0.30;
+    const halfX2 = panelX + panelW * 0.70;
 
-    // MAJOR label + value
-    const majorLabel = new Text({
+    const majorLbl = new Text({
       text: 'MAJOR',
-      style: { fontFamily: T.FONT.body, fontSize: 8, fill: T.FG.muted, letterSpacing: 2 },
+      style: { fontFamily: T.FONT.body, fontSize: 9, fill: T.FG.muted, letterSpacing: 2 },
     });
-    majorLabel.anchor.set(0, 0.5);
-    majorLabel.x = lblX;
-    majorLabel.y = majorY;
-    this.container.addChild(majorLabel);
+    majorLbl.anchor.set(0.5, 0);
+    majorLbl.x = halfX1;
+    majorLbl.y = bottomRowY - 10;
+    majorLbl.zIndex = 10;
+    this.container.addChild(majorLbl);
 
-    this.jpMajorText = goldText('500,000', { fontSize: 12, withShadow: false });
-    this.jpMajorText.anchor.set(1, 0.5);
-    this.jpMajorText.x = valX;
-    this.jpMajorText.y = majorY;
+    this.jpMajorText = goldText('500,000', { fontSize: 16, withShadow: false });
+    this.jpMajorText.anchor.set(0.5, 0);
+    this.jpMajorText.x = halfX1;
+    this.jpMajorText.y = bottomRowY + 4;
+    this.jpMajorText.zIndex = 10;
     this.container.addChild(this.jpMajorText);
 
-    // MINOR label + value
-    const minorLabel = new Text({
+    const minorLbl = new Text({
       text: 'MINOR',
-      style: { fontFamily: T.FONT.body, fontSize: 8, fill: T.FG.muted, letterSpacing: 2 },
+      style: { fontFamily: T.FONT.body, fontSize: 9, fill: T.FG.muted, letterSpacing: 2 },
     });
-    minorLabel.anchor.set(0, 0.5);
-    minorLabel.x = lblX;
-    minorLabel.y = minorY;
-    this.container.addChild(minorLabel);
+    minorLbl.anchor.set(0.5, 0);
+    minorLbl.x = halfX2;
+    minorLbl.y = bottomRowY - 10;
+    minorLbl.zIndex = 10;
+    this.container.addChild(minorLbl);
 
-    this.jpMinorText = goldText('50,000', { fontSize: 12, withShadow: false });
-    this.jpMinorText.anchor.set(1, 0.5);
-    this.jpMinorText.x = valX;
-    this.jpMinorText.y = minorY;
+    this.jpMinorText = goldText('50,000', { fontSize: 16, withShadow: false });
+    this.jpMinorText.anchor.set(0.5, 0);
+    this.jpMinorText.x = halfX2;
+    this.jpMinorText.y = bottomRowY + 4;
+    this.jpMinorText.zIndex = 10;
     this.container.addChild(this.jpMinorText);
 
-    void rightX;   // computed but used implicitly via lblX/valX — suppress unused warning
+    // Vertical divider between MAJOR and MINOR
+    const vDivider = new Graphics()
+      .rect(panelX + panelW * 0.5, bottomRowY - 10, 1, 30)
+      .fill({ color: T.GOLD.base, alpha: 0.2 });
+    vDivider.zIndex = 9;
+    this.container.addChild(vDivider);
+  }
+
+  /** p11-vA-01: 「戰」 zone separator between JP hero and battle arena */
+  private drawZoneSeparator(): void {
+    const lineY = ZONE_SEP_Y;
+
+    // Horizontal hairline (full width minus margin)
+    const line = new Graphics()
+      .rect(80, lineY, CANVAS_WIDTH - 160, 1)
+      .fill({ color: T.GOLD.base, alpha: 0.4 });
+    this.container.addChild(line);
+
+    // Dark background rect behind the 「戰」 character to break the line cleanly
+    const charBg = new Graphics()
+      .rect(CANVAS_WIDTH / 2 - 18, lineY - 11, 36, 22)
+      .fill({ color: 0x02101f, alpha: 1 });
+    this.container.addChild(charBg);
+
+    // 「戰」 character centered on line — gold, 14pt
+    const zhanChar = new Text({
+      text: '戰',
+      style: {
+        fontFamily: T.FONT.title, fontWeight: '700', fontSize: 14,
+        fill: T.GOLD.base,
+      },
+    });
+    zhanChar.anchor.set(0.5, 0.5);
+    zhanChar.x = CANVAS_WIDTH / 2;
+    zhanChar.y = lineY;
+    zhanChar.filters = [new GlowFilter({
+      color: T.GOLD.base, distance: 8, outerStrength: 1.2, innerStrength: 0.2, quality: 0.4,
+    })];
+    this.container.addChild(zhanChar);
   }
 
   /**
@@ -896,17 +944,61 @@ export class BattleScreen implements Screen {
     };
   }
 
+  /** p11-vA-01: Reel header strip — A · 我方 | ◇ SHARED BOARD ◇ | B · 對手 */
+  private drawReelHeader(): void {
+    const stripY  = REEL_ZONE_Y - 28;
+    const stripH  = 22;
+    const stripX  = 28;
+    const stripW  = CANVAS_WIDTH - 56;
+
+    // Background strip
+    const bg = new Graphics()
+      .rect(stripX, stripY, stripW, stripH)
+      .fill({ color: 0x0d1f35, alpha: 0.80 });
+    this.container.addChild(bg);
+
+    // A · 我方 (left, azure)
+    const textA = new Text({
+      text: 'A · 我方',
+      style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 10, fill: T.CLAN.azureGlow, letterSpacing: 3 },
+    });
+    textA.anchor.set(0, 0.5);
+    textA.x = stripX + 10;
+    textA.y = stripY + stripH / 2;
+    this.container.addChild(textA);
+
+    // ◇ SHARED BOARD ◇ (centre, gold)
+    const textCenter = new Text({
+      text: '◇ SHARED BOARD ◇',
+      style: { fontFamily: T.FONT.body, fontWeight: '600', fontSize: 10, fill: T.GOLD.base, letterSpacing: 3 },
+    });
+    textCenter.anchor.set(0.5, 0.5);
+    textCenter.x = CANVAS_WIDTH / 2;
+    textCenter.y = stripY + stripH / 2;
+    this.container.addChild(textCenter);
+
+    // B · 對手 (right, vermilion)
+    const textB = new Text({
+      text: 'B · 對手',
+      style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 10, fill: T.CLAN.vermilionGlow, letterSpacing: 3 },
+    });
+    textB.anchor.set(1, 0.5);
+    textB.x = stripX + stripW - 10;
+    textB.y = stripY + stripH / 2;
+    this.container.addChild(textB);
+  }
+
   private drawSlot(): void {
     this.reel = new SlotReel();
     this.reel.x = SLOT_X;
-    this.reel.y = REEL_ZONE_Y;   // p10-v01: REEL_ZONE_Y=700 (was SLOT_Y=610)
+    this.reel.y = REEL_ZONE_Y;   // p11-vA-01: REEL_ZONE_Y=615 (was 700 Variant B)
     this.container.addChild(this.reel);
   }
 
   private drawLog(): void {
-    // p10-v01: battle log panel (dark bg, gold border) — Variant B styled panel
+    // p11-vA-01: battle log panel — LOG_H_CONST=185 (Variant A layout, y=1055)
     const LOG_PAD_X = 28;
-    const LOG_H     = 140;
+    const LOG_H     = LOG_H_CONST;
     const logPanel = new Graphics()
       .roundRect(LOG_PAD_X, LOG_Y, CANVAS_WIDTH - LOG_PAD_X * 2, LOG_H, 6)
       .fill({ color: T.SEA.deep, alpha: 0.55 })
@@ -953,7 +1045,7 @@ export class BattleScreen implements Screen {
   private drawCurseHud(): void {
     // A side — bottom-left of wallet area
     this.curseHudA = new Container();
-    this.curseHudA.x = 16;  this.curseHudA.y = JP_STRIP_Y + JP_STRIP_H + 8;   // p10-v01: below JP strip
+    this.curseHudA.x = 16;  this.curseHudA.y = JP_MARQUEE_Y + JP_MARQUEE_H + 8;   // p11-vA-01: below JP marquee hero
     const iconA = new Graphics()
       .circle(0, 0, 9).fill({ color: 0x8b3aaa, alpha: 0.85 })
       .stroke({ width: 1.5, color: 0xffaaff, alpha: 0.9 });
@@ -970,7 +1062,7 @@ export class BattleScreen implements Screen {
 
     // B side mirror — bottom-right of wallet area
     this.curseHudB = new Container();
-    this.curseHudB.x = CANVAS_WIDTH - 16;  this.curseHudB.y = JP_STRIP_Y + JP_STRIP_H + 8;   // p10-v01: below JP strip
+    this.curseHudB.x = CANVAS_WIDTH - 16;  this.curseHudB.y = JP_MARQUEE_Y + JP_MARQUEE_H + 8;   // p11-vA-01: below JP marquee hero
     const iconB = new Graphics()
       .circle(0, 0, 9).fill({ color: 0x8b3aaa, alpha: 0.85 })
       .stroke({ width: 1.5, color: 0xffaaff, alpha: 0.9 });
@@ -1011,7 +1103,7 @@ export class BattleScreen implements Screen {
     // Banner Container (centred at top, initially hidden)
     this.freeSpinBanner = new Container();
     this.freeSpinBanner.x = CANVAS_WIDTH / 2;
-    this.freeSpinBanner.y = JP_STRIP_Y + JP_STRIP_H + 16;   // p10-v01: below JP strip
+    this.freeSpinBanner.y = JP_MARQUEE_Y + JP_MARQUEE_H + 16;   // p11-vA-01: below JP marquee hero
     this.freeSpinBanner.visible = false;
     this.freeSpinBanner.alpha = 0;
 
