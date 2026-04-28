@@ -263,6 +263,8 @@ export class BattleScreen implements Screen {
     stage.addChild(this.particles);
     stage.addChild(this.container);
     this.container.sortableChildren = true;   // p10-bug-01: enable zIndex respect (Pixi 8 requires explicit opt-in)
+    // chore: Pixi 8 EventSystem requires stage to be 'static' for pointer events to propagate to children
+    app.stage.eventMode = 'static';
     this.formationA = createFormation(this.cfg.selectedA, this.cfg.unitHpA);
     this.formationB = createFormation(this.cfg.selectedB, this.cfg.unitHpB);
     this.resonanceA = detectResonance(this.cfg.selectedA);
@@ -297,7 +299,7 @@ export class BattleScreen implements Screen {
     this.drawSpiritShadows();    // chore: moved here from drawBackground() so shadows use seeded placement
     this.drawFormation('A');
     this.drawFormation('B');
-    this.drawReelHeader();          // p11-vA-01: A · 我方 | ◇ SHARED BOARD ◇ | B · 對手 strip
+    this.drawReelHeader();          // chore: ● A · YOUR TURN | ◇ SHARED BOARD ◇ | B · WAITING ○
     this.drawSlot();
     // drawVsBadge() removed — VS shield lives inside drawBattleArena (p10-v01)
     this.drawLog();
@@ -1521,7 +1523,9 @@ export class BattleScreen implements Screen {
   }
 
   private refreshFormation(side: 'A' | 'B', grid: FormationGrid, cells: FormationCellRefs[]): void {
-    for (let i = 0; i < 9; i++) {
+    // BUGFIX: loop to cells.length (5), not 9 — drawFormation only creates refs for the 5 occupied slots.
+    // grid has 9 entries (full NineGrid), but cells[] maps slots 0-4 only; cells[5..8] would be undefined.
+    for (let i = 0; i < cells.length; i++) {
       const ref  = cells[i];
       const unit = grid[i];
       if (!unit) {
