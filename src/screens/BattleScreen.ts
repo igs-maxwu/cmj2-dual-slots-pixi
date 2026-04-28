@@ -35,21 +35,30 @@ import { playNearWinTeaser } from '@/fx/NearWinTeaser';
 import { playBigWinCeremony } from '@/fx/BigWinCeremony';
 import type { MatchResult, MatchOutcome } from '@/screens/ResultScreen';
 
-// ─── Portrait layout 720×1280 — Variant B ───────────────────────────────────
+// ─── Portrait layout 720×1280 — Variant A (p11-vA-01) ───────────────────────
 
-// ── p10-v01: Compact header (Variant B) ─────────────────────────────────────
+// ── Compact header (unchanged from v-01) ────────────────────────────────────
 const COMPACT_HDR_H = 54;   // compact header height
 
-// ── p10-v01: JP thin strip (Variant B) ──────────────────────────────────────
-const JP_STRIP_Y = 70;      // thin JP strip top y
-const JP_STRIP_H = 64;      // thin JP strip height → bottom at y=134
+// ── p11-vA-01: JP HERO zone (y=70-220) ──────────────────────────────────────
+const JP_LABEL_Y   = 70;    // "— THE POOL OF EIGHT SEAS —" label y
+const JP_MARQUEE_Y = 88;    // hero panel top (label height + gap)
+const JP_MARQUEE_H = 132;   // hero panel height → bottom at y=220
 
-// Slot reel — centred, pushed below formations
-const SLOT_X     = Math.round((CANVAS_WIDTH - REEL_W) / 2);
-const REEL_ZONE_Y = 700;    // p10-v01: raised from 610 → 700 (Variant B reel zone)
+// ── p11-vA-01: Zone separator 「戰」 (y=262) ────────────────────────────────
+const ZONE_SEP_Y   = 262;   // hairline + 「戰」 character center y
+
+// ── p11-vA-01: Battle arena (y=285-595, 310px) ──────────────────────────────
+const ARENA_TOP_Y  = 285;   // arena container top y
+const ARENA_HEIGHT = 310;   // arena container height
+
+// Slot reel — centred, below arena
+const SLOT_X      = Math.round((CANVAS_WIDTH - REEL_W) / 2);
+const REEL_ZONE_Y  = 615;   // p11-vA-01: was 700 (Variant B)
 
 // Log panel pinned below reel zone
-const LOG_Y      = 1100;    // p10-v01: raised from 1150 → 1100
+const LOG_Y        = 1055;  // p11-vA-01: was 1100
+const LOG_H_CONST  = 185;   // p11-vA-01: was 140
 
 const ROUND_GAP_MS = 500; // pause between rounds
 
@@ -59,9 +68,9 @@ const ROUND_GAP_MS = 500; // pause between rounds
 const SPIRIT_H              = 130;                          // front-row sprite height (px)
 const SPIRIT_H_MID          = Math.round(SPIRIT_H * 0.69);  // ≈ 90px — mid row (medium depth)
 const SPIRIT_H_BACK         = Math.round(SPIRIT_H * 0.46);  // ≈ 60px — back row (furthest, smallest)
-const ARENA_Y_FRONT         = 540;                          // front-row feet y (was 510)
-const ARENA_Y_MID           = 380;                          // mid-row feet y (NEW)
-const ARENA_Y_BACK          = 260;                          // back-row feet y (was 290, solo center)
+const ARENA_Y_FRONT         = 540;                          // front-row feet y (unchanged)
+const ARENA_Y_MID           = 430;                          // p11-vA-01: was 380, raised to fit arena 285-595
+const ARENA_Y_BACK          = 320;                          // p11-vA-01: was 260, raised above separator y=262
 const ARENA_SPACING_FRONT_X = 110;                          // front: 2 spirits × 130w, gap=2×110=220>130 ✓
 const ARENA_SPACING_MID_X   = 95;                           // mid: 2 spirits × 90w, gap=2×95=190>90 ✓
 // ARENA_SPACING_BACK_X removed — back has 1 spirit at center (xOff=0)
@@ -71,7 +80,7 @@ const ARENA_B_CENTER_X      = CANVAS_WIDTH - 184;           // B-side mirror
 // Per-unit HP bar (inside each spirit container)
 const UNIT_HP_BAR_W     = 64;
 const UNIT_HP_BAR_H     = 6;
-const UNIT_HP_BAR_Y_OFF = -(SPIRIT_H / 2 + 8);   // -73px from feet; back at 260-73=187 > JP strip 134 ✓
+const UNIT_HP_BAR_Y_OFF = -(SPIRIT_H / 2 + 8);   // -73px from feet; back at 320-73=247 > JP hero bottom 220 ✓
 
 // ─── Components for formation display ────────────────────────────────────────
 interface FormationCellRefs {
@@ -244,7 +253,8 @@ export class BattleScreen implements Screen {
     }
     this.drawJackpotMarquee();
     this.refreshJackpotMarquee();   // j-05: show loaded pool values immediately
-    this.drawBattleArena();         // p10-v01: warm bed + perspective floor + side banners + VS shield
+    this.drawZoneSeparator();       // p11-vA-01: 「戰」 gold separator line between JP hero and arena
+    this.drawBattleArena();         // p11-vA-01: 310px arena (was 520px Variant B)
     this.drawFormation('A');
     this.drawFormation('B');
     this.drawSlot();
@@ -678,97 +688,179 @@ export class BattleScreen implements Screen {
 
 
   // ─── Jackpot marquee ─────────────────────────────────────────────────────
-  // p10-v01: Variant B — thin 64px strip (was v-02 200px 2-row panel)
-  // Layout: [JACKPOT POOL label / GRAND amount (large, glowing)]  |  [MAJOR label+val / MINOR label+val]
+  // p11-vA-01: Variant A — HERO 178px (was Variant B thin 64px strip)
+  // Label above panel + warm-brown panel with gold border + bulb dots
+  // + GRAND 42pt centre + MAJOR/MINOR bottom row
+  // j-05 contract: jpGrandText / jpMajorText / jpMinorText MUST stay assigned here
   private drawJackpotMarquee(): void {
-    const stripX = 16;
-    const stripW = CANVAS_WIDTH - 32;
-    const stripY = JP_STRIP_Y;
-    const stripH = JP_STRIP_H;
-    const midY   = stripY + stripH / 2;
-
-    // Outer panel — dark with subtle gold border
-    const bgPanel = new Graphics()
-      .roundRect(stripX, stripY, stripW, stripH, 6)
-      .fill({ color: T.SEA.deep, alpha: 0.85 })
-      .stroke({ width: 1, color: T.SEA.mid, alpha: 0.6 });   // p10-v03: de-gold P1-C (gold→sea-mid)
-    this.container.addChild(bgPanel);
-
-    // Vertical divider: left 60% = GRAND area, right 40% = MAJOR+MINOR
-    const divX = stripX + Math.round(stripW * 0.6);
-    const vDiv = new Graphics()
-      .rect(divX, stripY + 10, 1, stripH - 20)
-      .fill({ color: T.SEA.mid, alpha: 0.4 });   // p10-v03: de-gold P1-C
-    this.container.addChild(vDiv);
-
-    // ── Left zone: JACKPOT POOL label + GRAND value ───────────────────────
-    const leftCenterX = stripX + Math.round(stripW * 0.3);
-
-    const jpLabel = new Text({
-      text: 'JACKPOT POOL',
-      style: { fontFamily: T.FONT.body, fontSize: 9, fill: T.FG.muted, letterSpacing: 3 },
+    // ── Label above hero panel: 「— THE POOL OF EIGHT SEAS —」──
+    const label = new Text({
+      text: '— THE POOL OF EIGHT SEAS —',
+      style: { fontFamily: T.FONT.body, fontSize: 9, fill: T.FG.muted, letterSpacing: 4 },
     });
-    jpLabel.anchor.set(0.5, 1);
-    jpLabel.x = leftCenterX;
-    jpLabel.y = midY - 2;
-    this.container.addChild(jpLabel);
+    label.anchor.set(0.5, 0);
+    label.x = CANVAS_WIDTH / 2;
+    label.y = JP_LABEL_Y;
+    this.container.addChild(label);
 
-    this.jpGrandText = goldText('5,000,000', { fontSize: 22, withShadow: true });
-    this.jpGrandText.anchor.set(0.5, 0);
-    this.jpGrandText.x = leftCenterX;
-    this.jpGrandText.y = midY + 1;
+    // ── HERO panel: y=88, h=132, margin 28px each side ──
+    const panelX = 28;
+    const panelW = CANVAS_WIDTH - 56;
+    const panelY = JP_MARQUEE_Y;
+    const panelH = JP_MARQUEE_H;
+
+    // Dark warm-brown gradient bg (two-layer simulation — Pixi has no native gradient)
+    const bgTop = new Graphics()
+      .rect(panelX, panelY, panelW, panelH * 0.5)
+      .fill({ color: 0x2a1a04, alpha: 1 });
+    const bgBot = new Graphics()
+      .rect(panelX, panelY + panelH * 0.5, panelW, panelH * 0.5)
+      .fill({ color: 0x1a0f02, alpha: 1 });
+    bgTop.zIndex = 5;  bgBot.zIndex = 5;
+    this.container.addChild(bgTop);
+    this.container.addChild(bgBot);
+
+    // Gold border
+    const border = new Graphics()
+      .roundRect(panelX, panelY, panelW, panelH, 6)
+      .stroke({ width: 1.5, color: T.GOLD.base, alpha: 1 });
+    border.zIndex = 6;
+    this.container.addChild(border);
+
+    // Inner glow — wide soft inner stroke simulating box-shadow inset
+    const innerGlow = new Graphics()
+      .roundRect(panelX + 2, panelY + 2, panelW - 4, panelH - 4, 5)
+      .stroke({ width: 6, color: T.GOLD.base, alpha: 0.15 });
+    innerGlow.zIndex = 7;
+    this.container.addChild(innerGlow);
+
+    // Marquee bulbs — dotted gold pattern top + bottom edges
+    const bulbs = new Graphics();
+    const bulbY1 = panelY + 6;
+    const bulbY2 = panelY + panelH - 6;
+    for (let bx = panelX + 6; bx < panelX + panelW - 6; bx += 14) {
+      bulbs.circle(bx, bulbY1, 1.5).circle(bx, bulbY2, 1.5);
+    }
+    bulbs.fill({ color: T.GOLD.glow, alpha: 0.6 });
+    bulbs.zIndex = 8;
+    this.container.addChild(bulbs);
+
+    // ── Top row: ★ GRAND JACKPOT ★ label + POOL · NTD label ──
+    const topRowY = panelY + 14;
+    const grandLabel = new Text({
+      text: '★ GRAND JACKPOT ★',
+      style: { fontFamily: T.FONT.body, fontSize: 10, fill: T.GOLD.glow, letterSpacing: 4 },
+    });
+    grandLabel.x = panelX + 20;
+    grandLabel.y = topRowY;
+    grandLabel.zIndex = 10;
+    this.container.addChild(grandLabel);
+
+    const poolLabel = new Text({
+      text: 'POOL · NTD',
+      style: { fontFamily: T.FONT.body, fontSize: 10, fill: T.FG.muted, letterSpacing: 2 },
+    });
+    poolLabel.anchor.set(1, 0);
+    poolLabel.x = panelX + panelW - 20;
+    poolLabel.y = topRowY;
+    poolLabel.zIndex = 10;
+    this.container.addChild(poolLabel);
+
+    // ── Centre: GRAND value — 42pt Cinzel gold + glow ──
+    this.jpGrandText = goldText('5,000,000', { fontSize: 42, withShadow: true });
+    this.jpGrandText.anchor.set(0.5, 0.5);
+    this.jpGrandText.x = panelX + panelW / 2;
+    this.jpGrandText.y = panelY + panelH * 0.50;
     this.jpGrandText.filters = [new GlowFilter({
-      color: 0xFFD37A, distance: 10, outerStrength: 2.0, innerStrength: 0.4, quality: 0.4,
+      color: T.GOLD.base, distance: 18, outerStrength: 2.5, innerStrength: 0.5, quality: 0.4,
     })];
+    this.jpGrandText.zIndex = 11;
     this.container.addChild(this.jpGrandText);
 
-    // ── Right zone: MAJOR top + hairline + MINOR bottom ───────────────────
-    const rightX  = divX + Math.round((CANVAS_WIDTH - 16 - divX) * 0.5);
-    const majorY  = stripY + Math.round(stripH * 0.28);
-    const minorY  = stripY + Math.round(stripH * 0.72);
-    const hairY   = stripY + Math.round(stripH * 0.5);
-    const lblX    = divX + 10;
-    const valX    = CANVAS_WIDTH - 16 - 10;
+    // ── Bottom row: hairline + MAJOR (left) | MINOR (right) ──
+    const bottomRowY  = panelY + panelH - 24;
+    const dividerLine = new Graphics()
+      .rect(panelX + 20, panelY + panelH - 40, panelW - 40, 1)
+      .fill({ color: T.GOLD.base, alpha: 0.25 });
+    dividerLine.zIndex = 9;
+    this.container.addChild(dividerLine);
 
-    // Horizontal hairline between MAJOR and MINOR
-    const hHair = new Graphics()
-      .rect(divX + 6, hairY, CANVAS_WIDTH - 16 - divX - 6, 1)
-      .fill({ color: T.SEA.mid, alpha: 0.3 });   // p10-v03: de-gold P1-C
-    this.container.addChild(hHair);
+    const halfX1 = panelX + panelW * 0.30;
+    const halfX2 = panelX + panelW * 0.70;
 
-    // MAJOR label + value
-    const majorLabel = new Text({
+    const majorLbl = new Text({
       text: 'MAJOR',
-      style: { fontFamily: T.FONT.body, fontSize: 8, fill: T.FG.muted, letterSpacing: 2 },
+      style: { fontFamily: T.FONT.body, fontSize: 9, fill: T.FG.muted, letterSpacing: 2 },
     });
-    majorLabel.anchor.set(0, 0.5);
-    majorLabel.x = lblX;
-    majorLabel.y = majorY;
-    this.container.addChild(majorLabel);
+    majorLbl.anchor.set(0.5, 0);
+    majorLbl.x = halfX1;
+    majorLbl.y = bottomRowY - 10;
+    majorLbl.zIndex = 10;
+    this.container.addChild(majorLbl);
 
-    this.jpMajorText = goldText('500,000', { fontSize: 12, withShadow: false });
-    this.jpMajorText.anchor.set(1, 0.5);
-    this.jpMajorText.x = valX;
-    this.jpMajorText.y = majorY;
+    this.jpMajorText = goldText('500,000', { fontSize: 16, withShadow: false });
+    this.jpMajorText.anchor.set(0.5, 0);
+    this.jpMajorText.x = halfX1;
+    this.jpMajorText.y = bottomRowY + 4;
+    this.jpMajorText.zIndex = 10;
     this.container.addChild(this.jpMajorText);
 
-    // MINOR label + value
-    const minorLabel = new Text({
+    const minorLbl = new Text({
       text: 'MINOR',
-      style: { fontFamily: T.FONT.body, fontSize: 8, fill: T.FG.muted, letterSpacing: 2 },
+      style: { fontFamily: T.FONT.body, fontSize: 9, fill: T.FG.muted, letterSpacing: 2 },
     });
-    minorLabel.anchor.set(0, 0.5);
-    minorLabel.x = lblX;
-    minorLabel.y = minorY;
-    this.container.addChild(minorLabel);
+    minorLbl.anchor.set(0.5, 0);
+    minorLbl.x = halfX2;
+    minorLbl.y = bottomRowY - 10;
+    minorLbl.zIndex = 10;
+    this.container.addChild(minorLbl);
 
-    this.jpMinorText = goldText('50,000', { fontSize: 12, withShadow: false });
-    this.jpMinorText.anchor.set(1, 0.5);
-    this.jpMinorText.x = valX;
-    this.jpMinorText.y = minorY;
+    this.jpMinorText = goldText('50,000', { fontSize: 16, withShadow: false });
+    this.jpMinorText.anchor.set(0.5, 0);
+    this.jpMinorText.x = halfX2;
+    this.jpMinorText.y = bottomRowY + 4;
+    this.jpMinorText.zIndex = 10;
     this.container.addChild(this.jpMinorText);
 
-    void rightX;   // computed but used implicitly via lblX/valX — suppress unused warning
+    // Vertical divider between MAJOR and MINOR
+    const vDivider = new Graphics()
+      .rect(panelX + panelW * 0.5, bottomRowY - 10, 1, 30)
+      .fill({ color: T.GOLD.base, alpha: 0.2 });
+    vDivider.zIndex = 9;
+    this.container.addChild(vDivider);
+  }
+
+  /** p11-vA-01: 「戰」 zone separator between JP hero and battle arena */
+  private drawZoneSeparator(): void {
+    const lineY = ZONE_SEP_Y;
+
+    // Horizontal hairline (full width minus margin)
+    const line = new Graphics()
+      .rect(80, lineY, CANVAS_WIDTH - 160, 1)
+      .fill({ color: T.GOLD.base, alpha: 0.4 });
+    this.container.addChild(line);
+
+    // Dark background rect behind the 「戰」 character to break the line cleanly
+    const charBg = new Graphics()
+      .rect(CANVAS_WIDTH / 2 - 18, lineY - 11, 36, 22)
+      .fill({ color: 0x02101f, alpha: 1 });
+    this.container.addChild(charBg);
+
+    // 「戰」 character centered on line — gold, 14pt
+    const zhanChar = new Text({
+      text: '戰',
+      style: {
+        fontFamily: T.FONT.title, fontWeight: '700', fontSize: 14,
+        fill: T.GOLD.base,
+      },
+    });
+    zhanChar.anchor.set(0.5, 0.5);
+    zhanChar.x = CANVAS_WIDTH / 2;
+    zhanChar.y = lineY;
+    zhanChar.filters = [new GlowFilter({
+      color: T.GOLD.base, distance: 8, outerStrength: 1.2, innerStrength: 0.2, quality: 0.4,
+    })];
+    this.container.addChild(zhanChar);
   }
 
   /**
@@ -953,7 +1045,7 @@ export class BattleScreen implements Screen {
   private drawCurseHud(): void {
     // A side — bottom-left of wallet area
     this.curseHudA = new Container();
-    this.curseHudA.x = 16;  this.curseHudA.y = JP_STRIP_Y + JP_STRIP_H + 8;   // p10-v01: below JP strip
+    this.curseHudA.x = 16;  this.curseHudA.y = JP_MARQUEE_Y + JP_MARQUEE_H + 8;   // p11-vA-01: below JP marquee hero
     const iconA = new Graphics()
       .circle(0, 0, 9).fill({ color: 0x8b3aaa, alpha: 0.85 })
       .stroke({ width: 1.5, color: 0xffaaff, alpha: 0.9 });
@@ -970,7 +1062,7 @@ export class BattleScreen implements Screen {
 
     // B side mirror — bottom-right of wallet area
     this.curseHudB = new Container();
-    this.curseHudB.x = CANVAS_WIDTH - 16;  this.curseHudB.y = JP_STRIP_Y + JP_STRIP_H + 8;   // p10-v01: below JP strip
+    this.curseHudB.x = CANVAS_WIDTH - 16;  this.curseHudB.y = JP_MARQUEE_Y + JP_MARQUEE_H + 8;   // p11-vA-01: below JP marquee hero
     const iconB = new Graphics()
       .circle(0, 0, 9).fill({ color: 0x8b3aaa, alpha: 0.85 })
       .stroke({ width: 1.5, color: 0xffaaff, alpha: 0.9 });
@@ -1011,7 +1103,7 @@ export class BattleScreen implements Screen {
     // Banner Container (centred at top, initially hidden)
     this.freeSpinBanner = new Container();
     this.freeSpinBanner.x = CANVAS_WIDTH / 2;
-    this.freeSpinBanner.y = JP_STRIP_Y + JP_STRIP_H + 16;   // p10-v01: below JP strip
+    this.freeSpinBanner.y = JP_MARQUEE_Y + JP_MARQUEE_H + 16;   // p11-vA-01: below JP marquee hero
     this.freeSpinBanner.visible = false;
     this.freeSpinBanner.alpha = 0;
 
