@@ -62,6 +62,11 @@ const LOG_H_CONST  = 185;   // p11-vA-01: was 140
 
 const ROUND_GAP_MS = 500; // pause between rounds
 
+// ── chore: SPIN button (manual spin replaces auto-loop) ─────────────────────
+const SPIN_BTN_Y = 970;
+const SPIN_BTN_W = 200;
+const SPIN_BTN_H = 60;
+
 // ─── NineGrid 3×3 formation layout (p11-vA-02) ──────────────────────────────
 // 9 cells per side; 5 spirits placed via seeded Fisher-Yates at mount time.
 // Depth scale: row 0 (back) = 0.78 × SPIRIT_H, row 1 (mid) = 0.94 ×, row 2 (front) = 1.10 ×
@@ -203,6 +208,12 @@ export class BattleScreen implements Screen {
   private freeSpinTint?: Graphics;
   private wasInFreeSpin = false;          // edge detector: enter / exit transitions
   private prevFreeSpinsRemaining = 0;     // detect retrigger jumps (freeSpinsRemaining went UP)
+  /** chore: manual SPIN button — resolves waitForSpinClick() promise */
+  private spinButton!: Container;
+  private spinButtonBg!: Graphics;
+  private spinButtonText!: Text;
+  private spinButtonSubText!: Text;
+  private spinClickResolve: (() => void) | null = null;
   /** SPEC §15.8 M12 Jackpot pools — loaded from localStorage on mount, saved each spin (j-02) */
   private jackpotPools!: JackpotPools;
 
@@ -271,6 +282,7 @@ export class BattleScreen implements Screen {
     this.drawSlot();
     // drawVsBadge() removed — VS shield lives inside drawBattleArena (p10-v01)
     this.drawLog();
+    this.drawSpinButton();          // chore: manual SPIN button (replaces auto-loop)
     // drawBackButton() removed — RETREAT button lives inside drawCompactHeader (p10-v01)
     this.drawCurseHud();
     this.drawFreeSpinOverlay();
@@ -1084,6 +1096,84 @@ export class BattleScreen implements Screen {
   }
 
   // drawBackButton() retired in p10-v01 — RETREAT button is in drawCompactHeader()
+
+  // ─── chore: Manual SPIN button ──────────────────────────────────────────
+  private drawSpinButton(): void {
+    this.spinButton = new Container();
+    const btnX = (CANVAS_WIDTH - SPIN_BTN_W) / 2;   // centered
+    this.spinButton.x = btnX;
+    this.spinButton.y = SPIN_BTN_Y;
+    this.spinButton.zIndex = 200;
+
+    // Gold bg
+    this.spinButtonBg = new Graphics()
+      .roundRect(0, 0, SPIN_BTN_W, SPIN_BTN_H, 12)
+      .fill({ color: T.GOLD.base, alpha: 1 })
+      .stroke({ width: 2, color: T.GOLD.shadow, alpha: 0.8 });
+    this.spinButton.addChild(this.spinButtonBg);
+
+    // Gold glow
+    this.spinButton.filters = [new GlowFilter({
+      color: T.GOLD.glow, distance: 12, outerStrength: 1.5, innerStrength: 0.3, quality: 0.4,
+    })];
+
+    // Main label 「轉 動」
+    this.spinButtonText = new Text({
+      text: '轉 動',
+      style: {
+        fontFamily: T.FONT.title, fontWeight: '700', fontSize: 24,
+        fill: 0x0D1421, letterSpacing: 8,
+      },
+    });
+    this.spinButtonText.anchor.set(0.5, 0.5);
+    this.spinButtonText.x = SPIN_BTN_W / 2;
+    this.spinButtonText.y = SPIN_BTN_H / 2 - 6;
+    this.spinButton.addChild(this.spinButtonText);
+
+    // Sub label 「-N NTD」
+    this.spinButtonSubText = new Text({
+      text: `-${this.cfg.betA} NTD`,
+      style: {
+        fontFamily: T.FONT.body, fontWeight: '500', fontSize: 11,
+        fill: 0x0D1421, fontStyle: 'italic',
+      },
+    });
+    this.spinButtonSubText.anchor.set(0.5, 0.5);
+    this.spinButtonSubText.x = SPIN_BTN_W / 2;
+    this.spinButtonSubText.y = SPIN_BTN_H / 2 + 14;
+    this.spinButton.addChild(this.spinButtonSubText);
+
+    // Click handler — resolves the promise awaited in loop()
+    this.spinButton.eventMode = 'none';   // starts disabled; enabled by waitForSpinClick()
+    this.spinButton.cursor    = 'pointer';
+    this.spinButton.on('pointertap', () => this.onSpinClick());
+
+    this.container.addChild(this.spinButton);
+  }
+
+  private onSpinClick(): void {
+    if (!this.spinClickResolve) return;
+    const resolve = this.spinClickResolve;
+    this.spinClickResolve = null;
+    // Visually disable during spin
+    this.spinButton.eventMode    = 'none';
+    this.spinButton.alpha        = 0.5;
+    this.spinButtonText.text     = '...';
+    resolve();
+  }
+
+  private enableSpinButton(): void {
+    this.spinButton.eventMode = 'static';
+    this.spinButton.alpha     = 1;
+    this.spinButtonText.text  = '轉 動';
+  }
+
+  private waitForSpinClick(): Promise<void> {
+    this.enableSpinButton();
+    return new Promise(resolve => {
+      this.spinClickResolve = resolve;
+    });
+  }
 
   // ─── Curse stack HUD (k-04) ──────────────────────────────────────────────
   private drawCurseHud(): void {
