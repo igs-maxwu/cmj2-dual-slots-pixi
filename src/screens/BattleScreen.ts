@@ -264,6 +264,7 @@ export class BattleScreen implements Screen {
       console.log(`[NineGrid] A placement: [${this.gridPlacementA.join(',')}]`);
       console.log(`[NineGrid] B placement: [${this.gridPlacementB.join(',')}]`);
     }
+    this.drawSpiritShadows();    // chore: moved here from drawBackground() so shadows use seeded placement
     this.drawFormation('A');
     this.drawFormation('B');
     this.drawReelHeader();          // p11-vA-01: A · 我方 | ◇ SHARED BOARD ◇ | B · 對手 strip
@@ -443,12 +444,12 @@ export class BattleScreen implements Screen {
   }
 
   // ─── Build UI ────────────────────────────────────────────────────────────
-  // v-03: dispatches to 4 visual sub-layers
+  // v-03: dispatches to 3 visual sub-layers (drawSpiritShadows moved out — needs placement seed first)
   private drawBackground(): void {
     this.drawGridOverlay();
     this.drawPerspectiveFloor();
     this.drawEdgeVignette();
-    this.drawSpiritShadows();
+    // NOTE: drawSpiritShadows() is called separately in onMount AFTER gridPlacementA/B are seeded
   }
 
   /** Solid base is provided by AmbientBackground; this layer adds the water-ink grid. */
