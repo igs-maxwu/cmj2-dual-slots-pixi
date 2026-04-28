@@ -67,6 +67,11 @@ const SPIN_BTN_Y = 970;
 const SPIN_BTN_W = 200;
 const SPIN_BTN_H = 60;
 
+// ── chore: AUTO + SKIP ghost buttons (mockup variant-a alignment) ───────────
+const SPIN_BTN_GAP = 16;
+const GHOST_BTN_W  = 110;
+const GHOST_BTN_H  = 46;
+
 // ─── NineGrid 3×3 formation layout (p11-vA-02) ──────────────────────────────
 // 9 cells per side; 5 spirits placed via seeded Fisher-Yates at mount time.
 // Depth scale: row 0 (back) = 0.78 × SPIRIT_H, row 1 (mid) = 0.94 ×, row 2 (front) = 1.10 ×
@@ -214,6 +219,11 @@ export class BattleScreen implements Screen {
   private spinButtonText!: Text;
   private spinButtonSubText!: Text;
   private spinClickResolve: (() => void) | null = null;
+  /** chore: AUTO + SKIP ghost buttons */
+  private autoButton!: Container;
+  private skipButton!: Container;
+  private autoMode = false;
+  private autoTimer?: number;
   /** SPEC §15.8 M12 Jackpot pools — loaded from localStorage on mount, saved each spin (j-02) */
   private jackpotPools!: JackpotPools;
 
@@ -439,6 +449,11 @@ export class BattleScreen implements Screen {
     this.running = false;
     AudioManager.stopBgm();
     this.vsBadge?.destroy();   // p10-v01: optional — VS is static in Variant B
+    // chore: clear AUTO timer to prevent stale interval after unmount
+    if (this.autoTimer !== undefined) {
+      clearInterval(this.autoTimer);
+      this.autoTimer = undefined;
+    }
     this.bg.destroyLayers();
     this.bg.destroy({ children: true });
     this.particles.destroy({ children: true });
@@ -1151,6 +1166,18 @@ export class BattleScreen implements Screen {
     this.spinButton.on('pointertap', () => this.onSpinClick());
 
     this.container.addChild(this.spinButton);
+
+    // AUTO button (left of SPIN)
+    this.autoButton = this.drawGhostButton('AUTO', () => this.onAutoClick());
+    this.autoButton.x = (CANVAS_WIDTH - SPIN_BTN_W) / 2 - GHOST_BTN_W - SPIN_BTN_GAP;
+    this.autoButton.y = SPIN_BTN_Y + (SPIN_BTN_H - GHOST_BTN_H) / 2;   // vertical centre align
+    this.container.addChild(this.autoButton);
+
+    // SKIP button (right of SPIN)
+    this.skipButton = this.drawGhostButton('SKIP', () => this.onSkipClick());
+    this.skipButton.x = (CANVAS_WIDTH + SPIN_BTN_W) / 2 + SPIN_BTN_GAP;
+    this.skipButton.y = SPIN_BTN_Y + (SPIN_BTN_H - GHOST_BTN_H) / 2;
+    this.container.addChild(this.skipButton);
   }
 
   private onSpinClick(): void {
@@ -1175,6 +1202,57 @@ export class BattleScreen implements Screen {
     return new Promise(resolve => {
       this.spinClickResolve = resolve;
     });
+  }
+
+  /** chore: ghost button helper — transparent bg + 1px muted border (mockup GhostBtn style) */
+  private drawGhostButton(label: string, onClick: () => void): Container {
+    const btn = new Container();
+    const bg = new Graphics()
+      .roundRect(0, 0, GHOST_BTN_W, GHOST_BTN_H, 4)
+      .stroke({ width: 1, color: T.FG.muted, alpha: 0.5 });
+    btn.addChild(bg);
+
+    const text = new Text({
+      text: label,
+      style: {
+        fontFamily: T.FONT.body, fontWeight: '600', fontSize: 14,
+        fill: T.FG.muted, letterSpacing: 3,
+      },
+    });
+    text.anchor.set(0.5, 0.5);
+    text.x = GHOST_BTN_W / 2;
+    text.y = GHOST_BTN_H / 2;
+    btn.addChild(text);
+
+    // chore: explicit hit area (per Issue 1 fix — Container needs Rectangle)
+    btn.hitArea   = new Rectangle(0, 0, GHOST_BTN_W, GHOST_BTN_H);
+    btn.eventMode = 'static';
+    btn.cursor    = 'pointer';
+    btn.on('pointertap', onClick);
+
+    return btn;
+  }
+
+  private onAutoClick(): void {
+    this.autoMode = !this.autoMode;
+    if (this.autoMode) {
+      this.autoButton.alpha = 0.6;   // active state visual
+      // Auto-fire SPIN every 2 s if the button is waiting
+      this.autoTimer = window.setInterval(() => {
+        if (this.spinClickResolve) this.onSpinClick();
+      }, 2000);
+    } else {
+      this.autoButton.alpha = 1;
+      if (this.autoTimer !== undefined) {
+        clearInterval(this.autoTimer);
+        this.autoTimer = undefined;
+      }
+    }
+  }
+
+  private onSkipClick(): void {
+    // chore: SKIP is a placeholder — animation skip not yet implemented
+    if (import.meta.env.DEV) console.log('[SKIP] (placeholder — animation skip not yet implemented)');
   }
 
   // ─── Curse stack HUD (k-04) ──────────────────────────────────────────────
