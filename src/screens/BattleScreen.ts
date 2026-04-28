@@ -483,11 +483,10 @@ export class BattleScreen implements Screen {
   }
 
   // ─── Build UI ────────────────────────────────────────────────────────────
-  // v-03: dispatches to 3 visual sub-layers (drawSpiritShadows moved out — needs placement seed first)
+  // v-03: dispatches to visual sub-layers (drawSpiritShadows moved out — needs placement seed first)
+  // chore/visual: removed drawGridOverlay() + drawEdgeVignette() — not present in mockup variant-a
   private drawBackground(): void {
-    this.drawGridOverlay();
     this.drawPerspectiveFloor();
-    this.drawEdgeVignette();
     // NOTE: drawSpiritShadows() is called separately in onMount AFTER gridPlacementA/B are seeded
   }
 
