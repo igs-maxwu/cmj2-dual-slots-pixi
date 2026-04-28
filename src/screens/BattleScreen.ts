@@ -230,7 +230,7 @@ export class BattleScreen implements Screen {
     this.displayedWalletB = this.walletB;
 
     this.drawBackground();
-    addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 130, 0.55);
+    addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 130, 0.25);  // p10-v03: de-gold P1-C (0.55→0.25)
     this.drawCompactHeader();  // p10-v01: replaces drawTopBar + drawHeader + drawWallets
     this.jackpotPools = loadPools();
     if (import.meta.env.DEV) {
