@@ -1389,7 +1389,7 @@ export class BattleScreen implements Screen {
     else                      AudioManager.playSfx('win-small');
   }
 
-  // ─── Auto-battle loop ────────────────────────────────────────────────────
+  // ─── Manual-spin battle loop (chore: was auto-loop, now wait-for-click) ─────
   private async loop(): Promise<void> {
     this.running = true;
     // Full pool: all 8 symbols always spin; non-selected ones fill cells without scoring
@@ -1400,6 +1400,10 @@ export class BattleScreen implements Screen {
     let lastPreHpA = 0, lastPreHpB = 0;
 
     while (this.running && isTeamAlive(this.formationA) && isTeamAlive(this.formationB)) {
+      // chore: wait for player to press SPIN before each round (replaces auto-loop)
+      await this.waitForSpinClick();
+      if (!this.running) return;
+
       this.round++;
       this.vsBadge?.pulse();   // p10-v01: optional guard
       this.refresh();
