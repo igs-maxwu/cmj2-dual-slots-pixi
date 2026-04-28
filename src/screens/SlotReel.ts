@@ -29,6 +29,7 @@ interface Cell {
   gemSprite:     Sprite;        // SOS2 gem visual (replaces SpiritPortrait)
   overlay:       Graphics;
   currentSymbol: number;
+  pipsContainer: Container;     // p10-v02: tier pip indicator (1-3 dots, bottom of cell)
 }
 
 /** Re-exported for callers that previously imported HitLineLite from here. */
@@ -145,11 +146,23 @@ export class SlotReel extends Container {
           .stroke({ width: 1, color: T.SEA.rim, alpha: 0.7 });
         container.addChild(cellBg);
 
+        // p10-v02: inner accent ring — teal-cyan "glass frame" inside the outer border
+        const innerRing = new Graphics()
+          .roundRect(-CELL_W / 2 + 4, -CELL_H / 2 + 4, CELL_W - 8, CELL_H - 8, Math.max(T.RADIUS.sm - 2, 2))
+          .stroke({ width: 1, color: T.SEA.caustic, alpha: 0.20 });
+        container.addChild(innerRing);
+
         // Gem sprite — Texture.WHITE placeholder, overwritten by setCellSymbol()
         const gemSprite = new Sprite(Texture.WHITE);
         gemSprite.anchor.set(0.5);
         gemSprite.y = 0;
         container.addChild(gemSprite);
+
+        // p10-v02: tier pip indicator — redrawn per-symbol in refreshCellPips()
+        const pipsContainer = new Container();
+        pipsContainer.x = 0;
+        pipsContainer.y = CELL_H / 2 - 10;   // bottom of cell, 10px above edge
+        container.addChild(pipsContainer);
 
         const overlay = new Graphics()
           .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
@@ -157,7 +170,7 @@ export class SlotReel extends Container {
         overlay.alpha = 0;
         container.addChild(overlay);
 
-        colCells.push({ container, gemSprite, overlay, currentSymbol: -1 });
+        colCells.push({ container, gemSprite, overlay, currentSymbol: -1, pipsContainer });
         this.setCellSymbol(colCells[r], r % SYMBOLS.length);
       }
       this.cells.push(colCells);
@@ -172,12 +185,49 @@ export class SlotReel extends Container {
     const tex     = Assets.get<Texture>(gemInfo.assetKey);
     if (tex) {
       cell.gemSprite.texture = tex;
-      // Scale gem to ~80% of the smaller cell dimension
-      const targetSize = Math.min(CELL_W, CELL_H) * 0.80;
+      // p10-v02: Scale gem to 90% of the smaller cell dimension (was 80%)
+      const targetSize = Math.min(CELL_W, CELL_H) * 0.90;
       const scale = targetSize / Math.max(tex.width, tex.height);
       cell.gemSprite.scale.set(scale);
     }
     cell.gemSprite.tint = gemInfo.tint;
+
+    // p10-v02: refresh tier pips for the new symbol
+    this.refreshCellPips(cell, symId);
+  }
+
+  /**
+   * p10-v02: Redraw tier pip indicator for a cell.
+   * Pip count/color by symbol tier:
+   *   special (Jackpot/Scatter/Curse/Wild) checked first, then ID range.
+   * Uses T.SYM.low1 / mid1 / high1 (confirmed in DesignTokens — all exist).
+   */
+  private refreshCellPips(cell: Cell, symId: number): void {
+    cell.pipsContainer.removeChildren();
+
+    const sym = SYMBOLS[symId];
+    let pipCount: number;
+    let pipColor: number;
+
+    if (sym.isJackpot)       { pipCount = 3; pipColor = T.GOLD.glow; }
+    else if (sym.isScatter)  { pipCount = 2; pipColor = 0xff3b6b; }
+    else if (sym.isCurse)    { pipCount = 1; pipColor = 0xc77fdb; }
+    else if (sym.isWild)     { pipCount = 1; pipColor = T.GOLD.glow; }
+    else if (symId <= 2)     { pipCount = 1; pipColor = T.SYM.low1; }
+    else if (symId <= 5)     { pipCount = 2; pipColor = T.SYM.mid1; }
+    else                     { pipCount = 3; pipColor = T.SYM.high1; }
+
+    // Centered horizontal row: 3px radius pips, 4px gap between pip edges
+    const pipR   = 3;
+    const pipGap = 4;
+    const totalW = pipCount * (pipR * 2) + (pipCount - 1) * pipGap;
+    const startX = -(totalW / 2) + pipR;
+    for (let i = 0; i < pipCount; i++) {
+      const pip = new Graphics()
+        .circle(startX + i * (pipR * 2 + pipGap), 0, pipR)
+        .fill({ color: pipColor, alpha: 0.90 });
+      cell.pipsContainer.addChild(pip);
+    }
   }
 
   // ─── Spin ────────────────────────────────────────────────────────────────
