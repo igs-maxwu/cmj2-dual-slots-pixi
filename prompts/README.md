@@ -164,6 +164,20 @@ Roadmap doc: [`sprint10/ROADMAP.md`](sprint10/ROADMAP.md)
 | [#145](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/145) p10-v03 — Gold budget finalize (corner alpha 0.55→0.25 / dragon-corner alpha 0.30 / JP border+dividers gold→sea-mid; 3 atomic commits, 5/4/2 lines/files) | [`sprint10/p10-v03-gold-budget-finalize.md`](sprint10/p10-v03-gold-budget-finalize.md) | ✅ merged (≤3 gold focal points achieved) |
 | (`docs/pitch/sprint10-closure.md` commit `fb4796c`) Sprint 10 closure — 12 of 13 audit findings resolved (P2-B ROUND pill simplification defers to Sprint 11) | — | ✅ delivered (orchestrator inline) — **Sprint 10 COMPLETE** |
 | [#146](https://github.com/igs-maxwu/cmj2-dual-slots-pixi/pull/146) chore: 3-row formation 九宮格 layout — back(1) solo / mid(2) / front(2), VS shield y=380→475 to avoid mid-row collision | [`chore/formation-three-row-layout.md`](chore/formation-three-row-layout.md) | ✅ merged |
+
+### Sprint 11 · Variant A Migration (Claude Design new mockup)
+
+Roadmap doc: [`sprint11/ROADMAP.md`](sprint11/ROADMAP.md)
+Source mockup: `download_picture/Dual Slot Pixi/battle-variant-a.jsx` + `battle-shared.jsx`
+
+**Owner decisions**: (1) keep existing `public/assets/spirits/*.webp` (same characters, no swap), (2) accept gem reskin from 5-shape PNG to glossy ball + Chinese character (drop d-02 5-shape lineage)
+
+| PR | Prompt file | Status |
+|---|---|---|
+| (pending) p11-vA-01 — Layout reset (JP HERO 178px + 「戰」 separator + arena 310px + VS 50px circle + reel header SHARED BOARD + log 185px) — **drop SPIN/PAYLINES per auto-loop SPEC** | [`sprint11/p11-vA-01-layout-reset.md`](sprint11/p11-vA-01-layout-reset.md) | **ready to dispatch** — skill hints: frontend-ui-engineering, code-simplification, source-driven-development |
+| (roadmap) p11-vA-02 — NineGrid 3×3 formation (5-of-9 deterministic seeded placement, depth scale 0.78→1.10, B-side col mirror, render back-to-front z-order) | — | depends on p11-vA-01 |
+| (roadmap) p11-vA-03 — Gem reskin (replace gem-shape PNG with glossy circle ball + 青/白/朱/玄 Chinese character + dashed inner ring + tier pip corner) | — | depends on p11-vA-02 |
+| (roadmap) sprint11 closure | — | depends on p11-vA-03 |
 | (roadmap) p10-v02 — Reel cell polish (gem 0.80→0.90 + inner ring + tier pip) | — | depends on p10-v01 |
 | (roadmap) p10-v04 — 8 spirit gem custom PNG art (replace programmatic tint) | — | depends on art delivery |
 | (roadmap) sprint10 closure | — | depends on all above |
