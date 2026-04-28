@@ -1,4 +1,4 @@
-import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
+import { Application, Assets, Container, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js';
 import type { Screen } from './ScreenManager';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import * as T from '@/config/DesignTokens';
@@ -1144,6 +1144,8 @@ export class BattleScreen implements Screen {
     this.spinButton.addChild(this.spinButtonSubText);
 
     // Click handler — resolves the promise awaited in loop()
+    // chore: explicit hit area required — Pixi 8 Container has no implicit hit area
+    this.spinButton.hitArea   = new Rectangle(0, 0, SPIN_BTN_W, SPIN_BTN_H);
     this.spinButton.eventMode = 'none';   // starts disabled; enabled by waitForSpinClick()
     this.spinButton.cursor    = 'pointer';
     this.spinButton.on('pointertap', () => this.onSpinClick());
