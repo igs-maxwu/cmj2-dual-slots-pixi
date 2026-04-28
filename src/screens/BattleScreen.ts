@@ -790,32 +790,32 @@ export class BattleScreen implements Screen {
 
     const majorLbl = new Text({
       text: 'MAJOR',
-      style: { fontFamily: T.FONT.body, fontSize: 9, fill: T.FG.muted, letterSpacing: 2 },
+      style: { fontFamily: T.FONT.body, fontSize: 12, fill: T.FG.muted, letterSpacing: 3 },
     });
     majorLbl.anchor.set(0.5, 0);
     majorLbl.x = halfX1;
-    majorLbl.y = bottomRowY - 10;
+    majorLbl.y = bottomRowY - 14;
     majorLbl.zIndex = 10;
     this.container.addChild(majorLbl);
 
-    this.jpMajorText = goldText('500,000', { fontSize: 16, withShadow: false });
+    this.jpMajorText = goldText('500,000', { fontSize: 22, withShadow: false });
     this.jpMajorText.anchor.set(0.5, 0);
     this.jpMajorText.x = halfX1;
-    this.jpMajorText.y = bottomRowY + 4;
+    this.jpMajorText.y = bottomRowY + 2;
     this.jpMajorText.zIndex = 10;
     this.container.addChild(this.jpMajorText);
 
     const minorLbl = new Text({
       text: 'MINOR',
-      style: { fontFamily: T.FONT.body, fontSize: 9, fill: T.FG.muted, letterSpacing: 2 },
+      style: { fontFamily: T.FONT.body, fontSize: 12, fill: T.FG.muted, letterSpacing: 3 },
     });
     minorLbl.anchor.set(0.5, 0);
     minorLbl.x = halfX2;
-    minorLbl.y = bottomRowY - 10;
+    minorLbl.y = bottomRowY - 14;
     minorLbl.zIndex = 10;
     this.container.addChild(minorLbl);
 
-    this.jpMinorText = goldText('50,000', { fontSize: 16, withShadow: false });
+    this.jpMinorText = goldText('50,000', { fontSize: 22, withShadow: false });
     this.jpMinorText.anchor.set(0.5, 0);
     this.jpMinorText.x = halfX2;
     this.jpMinorText.y = bottomRowY + 4;
