@@ -1,4 +1,4 @@
-import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
+import { Application, Assets, Container, Graphics, Text } from 'pixi.js';
 import type { Screen } from './ScreenManager';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import * as T from '@/config/DesignTokens';
@@ -15,7 +15,6 @@ export class LoadingScreen implements Screen {
   private progressBar!: Graphics;
   private trackX = 0;
   private trackY = 0;
-  private logo: Sprite | null = null;
   private titleText: Text | null = null;
   private subText: Text | null = null;
 
@@ -114,33 +113,34 @@ export class LoadingScreen implements Screen {
     // Corner ornaments
     addCornerOrnaments(this.container, CANVAS_WIDTH, CANVAS_HEIGHT, 150, 0.6);
 
-    // Logo mark — replace the plain title if texture is available
-    const logoTex = Assets.get<Texture>('logo-mark');
-    if (logoTex) {
-      this.logo = new Sprite(logoTex);
-      this.logo.anchor.set(0.5, 0.5);
-      const maxW = 720;
-      const scale = maxW / logoTex.width;
-      this.logo.scale.set(scale);
-      this.logo.x = CANVAS_WIDTH / 2;
-      this.logo.y = CANVAS_HEIGHT / 2 - 90;
-      this.container.addChild(this.logo);
-      if (this.titleText) this.titleText.visible = false;
-      if (this.subText)   this.subText.visible   = false;
+    // s12-ui-02: replace logo-mark sprite with stylized programmatic title
+    // (titleText already drawn by drawTitle() — keep visible, just upgrade visual)
+    if (this.titleText) {
+      // Enhance existing titleText with stronger glow + slightly larger scale
+      this.titleText.style.dropShadow = {
+        color: T.GOLD.glow,
+        alpha: 0.8,
+        blur: 12,
+        distance: 0,
+        angle: 0,
+      };
+      this.titleText.scale.set(1.2);
     }
 
-    // Divider under subtitle
-    const divTex = Assets.get<Texture>('divider');
-    if (divTex) {
-      const div = new Sprite(divTex);
-      div.anchor.set(0.5, 0.5);
-      const w = 560;
-      div.scale.set(w / divTex.width);
-      div.x = CANVAS_WIDTH / 2;
-      div.y = CANVAS_HEIGHT / 2 + 30;
-      div.alpha = 0.85;
-      this.container.addChild(div);
-    }
+    // s12-ui-02: programmatic divider line replaces divider.webp Sprite
+    const dividerY = CANVAS_HEIGHT / 2 + 30;
+    const dividerW = 560;
+    const dividerX = (CANVAS_WIDTH - dividerW) / 2;
+    const dividerLine = new Graphics()
+      .moveTo(dividerX, dividerY).lineTo(dividerX + dividerW, dividerY)
+      .stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.85 });
+    this.container.addChild(dividerLine);
+
+    // Decorative dot in center of divider (visual interest)
+    const dividerDot = new Graphics()
+      .circle(CANVAS_WIDTH / 2, dividerY, 3)
+      .fill({ color: T.GOLD.base });
+    this.container.addChild(dividerDot);
   }
 
   private async preloadUi(): Promise<void> {

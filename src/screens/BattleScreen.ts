@@ -1111,18 +1111,14 @@ export class BattleScreen implements Screen {
     logLabel.y = LOG_Y + 8;
     this.container.addChild(logLabel);
 
-    // Decorative divider sprite (optional — if asset loaded)
-    const divTex = Assets.get<Texture>('divider');
-    if (divTex) {
-      const div = new Sprite(divTex);
-      div.anchor.set(0.5, 0.5);
-      const w = (CANVAS_WIDTH - LOG_PAD_X * 2 - 24) * 0.9;
-      div.scale.set(w / divTex.width);
-      div.x = CANVAS_WIDTH / 2;
-      div.y = LOG_Y + 24;
-      div.alpha = 0.5;
-      this.container.addChild(div);
-    }
+    // s12-ui-02: programmatic hairline replaces divider.webp Sprite
+    const dividerW = (CANVAS_WIDTH - LOG_PAD_X * 2 - 24) * 0.9;
+    const dividerX = (CANVAS_WIDTH - dividerW) / 2;
+    const dividerY = LOG_Y + 24;
+    const logDivider = new Graphics()
+      .moveTo(dividerX, dividerY).lineTo(dividerX + dividerW, dividerY)
+      .stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.5 });
+    this.container.addChild(logDivider);
 
     this.logText = new Text({
       text: '',

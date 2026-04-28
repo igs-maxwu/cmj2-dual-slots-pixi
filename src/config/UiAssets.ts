@@ -5,8 +5,6 @@ export const UI_ASSET_KEYS = [
   'btn-ornate',
   'portrait-ring',
   'win-burst',
-  'divider',
-  'logo-mark',
 ] as const;
 
 export type UiAssetKey = typeof UI_ASSET_KEYS[number];
