@@ -257,6 +257,7 @@ export class BattleScreen implements Screen {
     this.drawBattleArena();         // p11-vA-01: 310px arena (was 520px Variant B)
     this.drawFormation('A');
     this.drawFormation('B');
+    this.drawReelHeader();          // p11-vA-01: A · 我方 | ◇ SHARED BOARD ◇ | B · 對手 strip
     this.drawSlot();
     // drawVsBadge() removed — VS shield lives inside drawBattleArena (p10-v01)
     this.drawLog();
@@ -303,153 +304,108 @@ export class BattleScreen implements Screen {
 
   // p10-v01: drawVsBadge() retired — VS shield now lives inside drawBattleArena()
 
-  // ── p10-v01: Battle arena hero zone (Variant B) ───────────────────────────
-  // Warm bed (dark blue rounded rect) + perspective floor grid + side banners + VS shield
+  // ── p11-vA-01: Battle arena 310px (Variant A) ────────────────────────────
+  // Compact warm-bed (285→595) + perspective floor + side labels + circle VS at y=415
   private drawBattleArena(): void {
-    const ARENA_TOP  = 150;    // arena container top y
-    const ARENA_BOT  = 670;    // arena container bottom y
-    const ARENA_H    = ARENA_BOT - ARENA_TOP;    // 520
+    const ARENA_BOT = ARENA_TOP_Y + ARENA_HEIGHT;   // 285 + 310 = 595
 
     // ── Warm bed background ───────────────────────────────────────────────
     const bedPad = 14;
     const bed = new Graphics()
-      .roundRect(bedPad, ARENA_TOP + 30, CANVAS_WIDTH - bedPad * 2, ARENA_H - 30, 12)
-      .fill({ color: 0x061A33, alpha: 0.72 })
-      .stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.35 });
-    // Bottom warm glow overlay (radial-gradient approximation via transparent ellipse)
+      .roundRect(bedPad, ARENA_TOP_Y + 8, CANVAS_WIDTH - bedPad * 2, ARENA_HEIGHT - 8, 8)
+      .fill({ color: 0x061A33, alpha: 0.65 })
+      .stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.30 });
     const warmGlow = new Graphics()
-      .ellipse(CANVAS_WIDTH / 2, ARENA_BOT - 40, 240, 80)
-      .fill({ color: 0xF5B82A, alpha: 0.05 });
+      .ellipse(CANVAS_WIDTH / 2, ARENA_BOT - 30, 200, 60)
+      .fill({ color: 0xF5B82A, alpha: 0.04 });
     this.container.addChild(bed);
     this.container.addChild(warmGlow);
 
-    // ── Perspective floor lines ────────────────────────────────────────────
-    // 11 radial lines from vanishing point (center of arena, y=0 in local coords → absolute y=ARENA_TOP+200)
-    // Horizontal bands at quadratic-eased t values: t=[0.18, 0.36, 0.58, 0.82]
-    const floorTop  = ARENA_TOP + 200;
-    const floorH    = 260;
+    // ── Perspective floor lines (compact — fits 310px window) ─────────────
+    const floorTop  = ARENA_Y_MID + 20;           // ≈450: below mid-row spirits
+    const floorBot  = ARENA_BOT - 10;             // ≈585
+    const floorH    = floorBot - floorTop;
     const vanishX   = CANVAS_WIDTH / 2;
-    const floorBot  = floorTop + floorH;
     const lPad      = bedPad + 4;
     const rPad      = CANVAS_WIDTH - lPad;
 
     const floorLines = new Graphics();
-    const NUM_RADIAL = 11;
+    const NUM_RADIAL = 9;
     for (let i = 0; i <= NUM_RADIAL; i++) {
-      const bottomX = lPad + ((rPad - lPad) / NUM_RADIAL) * i;
+      const bottomX  = lPad + ((rPad - lPad) / NUM_RADIAL) * i;
       const isCenter = i === Math.floor(NUM_RADIAL / 2);
       floorLines.moveTo(vanishX, floorTop).lineTo(bottomX, floorBot);
-      floorLines.stroke({ width: isCenter ? 1.5 : 1, color: T.GOLD.shadow, alpha: isCenter ? 0.55 : 0.3 });
+      floorLines.stroke({ width: isCenter ? 1.5 : 1, color: T.GOLD.shadow, alpha: isCenter ? 0.50 : 0.25 });
     }
-
-    // 4 horizontal depth bands (quadratic ease: y = floorH * t * t)
-    const hBandTs = [0.18, 0.36, 0.58, 0.82];
+    const hBandTs = [0.25, 0.55, 0.85];
     const hBands = new Graphics();
     for (const t of hBandTs) {
       const y  = floorTop + floorH * t * t;
       const xL = vanishX - (vanishX - lPad) * t * t;
       const xR = vanishX + (rPad - vanishX) * t * t;
       hBands.moveTo(xL, y).lineTo(xR, y);
-      hBands.stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.28 + t * 0.18 });
+      hBands.stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.22 + t * 0.15 });
     }
-
-    // Center divider — dashed vertical line from floorTop down through floor
-    const centerDiv = new Graphics();
-    const dashLen = 4, gapLen = 6;
-    let dy = floorTop;
-    while (dy < floorBot) {
-      centerDiv.moveTo(vanishX, dy).lineTo(vanishX, Math.min(dy + dashLen, floorBot));
-      dy += dashLen + gapLen;
-    }
-    centerDiv.stroke({ width: 1.5, color: T.GOLD.shadow, alpha: 0.45 });
-
     this.container.addChild(floorLines);
     this.container.addChild(hBands);
-    this.container.addChild(centerDiv);
 
-    // ── Side banners ──────────────────────────────────────────────────────
-    const bannerY = ARENA_TOP + 10;
-    const bannerH = 28;
+    // ── Side labels (A · 我方 / 對手 · B) ────────────────────────────────
+    const labelY  = ARENA_TOP_Y + 10;
+    const labelH  = 24;
 
-    // A side banner (left)
     const bannerABg = new Graphics()
-      .rect(bedPad + 14, bannerY, 180, bannerH)
-      .fill({ color: T.CLAN.azureGlow, alpha: 0.07 });
+      .rect(bedPad + 14, labelY, 160, labelH)
+      .fill({ color: T.CLAN.azureGlow, alpha: 0.06 });
     const bannerAAccent = new Graphics()
-      .rect(bedPad + 14, bannerY, 2, bannerH)
+      .rect(bedPad + 14, labelY, 2, labelH)
       .fill({ color: T.CLAN.azureGlow, alpha: 0.9 });
     this.container.addChild(bannerABg);
     this.container.addChild(bannerAAccent);
 
     const bannerAText = new Text({
-      text: 'A · 我方陣營',
-      style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 13, fill: T.CLAN.azureGlow, letterSpacing: 3 },
+      text: 'A · 我方',
+      style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 11, fill: T.CLAN.azureGlow, letterSpacing: 3 },
     });
     bannerAText.anchor.set(0, 0.5);
     bannerAText.x = bedPad + 22;
-    bannerAText.y = bannerY + bannerH / 2;
+    bannerAText.y = labelY + labelH / 2;
     this.container.addChild(bannerAText);
 
-    // B side banner (right)
     const bannerBBg = new Graphics()
-      .rect(CANVAS_WIDTH - bedPad - 14 - 180, bannerY, 180, bannerH)
-      .fill({ color: T.CLAN.vermilionGlow, alpha: 0.07 });
+      .rect(CANVAS_WIDTH - bedPad - 14 - 160, labelY, 160, labelH)
+      .fill({ color: T.CLAN.vermilionGlow, alpha: 0.06 });
     const bannerBAccent = new Graphics()
-      .rect(CANVAS_WIDTH - bedPad - 16, bannerY, 2, bannerH)
+      .rect(CANVAS_WIDTH - bedPad - 16, labelY, 2, labelH)
       .fill({ color: T.CLAN.vermilionGlow, alpha: 0.9 });
     this.container.addChild(bannerBBg);
     this.container.addChild(bannerBAccent);
 
     const bannerBText = new Text({
-      text: '對手陣營 · B',
-      style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 13, fill: T.CLAN.vermilionGlow, letterSpacing: 3 },
+      text: '對手 · B',
+      style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 11, fill: T.CLAN.vermilionGlow, letterSpacing: 3 },
     });
     bannerBText.anchor.set(1, 0.5);
     bannerBText.x = CANVAS_WIDTH - bedPad - 22;
-    bannerBText.y = bannerY + bannerH / 2;
+    bannerBText.y = labelY + labelH / 2;
     this.container.addChild(bannerBText);
 
-    // ── VS shield — hexagon with VS text ─────────────────────────────────
-    // Positioned between back-row (y=290) and floor start (y=350) → center at y=380
+    // ── VS — circle 50px at y = ARENA_TOP_Y + 130 = 415 ─────────────────
+    // Sits between back-row (ARENA_Y_BACK=320) and mid-row (ARENA_Y_MID=430)
     const vsCenterX = CANVAS_WIDTH / 2;
-    const vsCenterY = 475;   // chore: between mid-feet (380) and front-head (~410), clear of spirits
-    const vsR       = 40;   // hexagon circumradius
+    const vsCenterY = ARENA_TOP_Y + 130;   // 285 + 130 = 415
 
-    const vsShield = new Graphics();
-    // Hexagon (6 points, flat-top orientation: first point at top)
-    const hexPts: Array<[number, number]> = [];
-    for (let i = 0; i < 6; i++) {
-      const angle = (Math.PI / 3) * i - Math.PI / 2;
-      hexPts.push([vsCenterX + vsR * Math.cos(angle), vsCenterY + vsR * Math.sin(angle)]);
-    }
-    vsShield.moveTo(hexPts[0][0], hexPts[0][1]);
-    for (let i = 1; i < 6; i++) vsShield.lineTo(hexPts[i][0], hexPts[i][1]);
-    vsShield.closePath();
-    vsShield.fill({ color: 0x1A0F02, alpha: 0.92 });
-    vsShield.stroke({ width: 2, color: T.GOLD.shadow, alpha: 0.85 });
-    this.container.addChild(vsShield);
+    const vsCircle = new Graphics()
+      .circle(vsCenterX, vsCenterY, 25)
+      .fill({ color: 0x0d2547, alpha: 0.95 })
+      .stroke({ width: 1.5, color: T.GOLD.base, alpha: 1 });
+    this.container.addChild(vsCircle);
 
-    // Inner ring (slightly smaller hexagon for depth)
-    const vsInner = new Graphics();
-    const innerR = vsR - 6;
-    const innerPts: Array<[number, number]> = [];
-    for (let i = 0; i < 6; i++) {
-      const angle = (Math.PI / 3) * i - Math.PI / 2;
-      innerPts.push([vsCenterX + innerR * Math.cos(angle), vsCenterY + innerR * Math.sin(angle)]);
-    }
-    vsInner.moveTo(innerPts[0][0], innerPts[0][1]);
-    for (let i = 1; i < 6; i++) vsInner.lineTo(innerPts[i][0], innerPts[i][1]);
-    vsInner.closePath();
-    vsInner.stroke({ width: 1, color: T.GOLD.glow, alpha: 0.4 });
-    this.container.addChild(vsInner);
-
-    // "VS" text
-    const vsText = goldText('VS', { fontSize: 22, withShadow: true });
+    const vsText = goldText('VS', { fontSize: 16, withShadow: true });
     vsText.anchor.set(0.5, 0.5);
     vsText.x = vsCenterX;
     vsText.y = vsCenterY;
     vsText.filters = [new GlowFilter({
-      color: 0xFFD37A, distance: 10, outerStrength: 2.0, innerStrength: 0.3, quality: 0.4,
+      color: 0xFFD37A, distance: 8, outerStrength: 1.8, innerStrength: 0.3, quality: 0.4,
     })];
     this.container.addChild(vsText);
   }
@@ -988,17 +944,61 @@ export class BattleScreen implements Screen {
     };
   }
 
+  /** p11-vA-01: Reel header strip — A · 我方 | ◇ SHARED BOARD ◇ | B · 對手 */
+  private drawReelHeader(): void {
+    const stripY  = REEL_ZONE_Y - 28;
+    const stripH  = 22;
+    const stripX  = 28;
+    const stripW  = CANVAS_WIDTH - 56;
+
+    // Background strip
+    const bg = new Graphics()
+      .rect(stripX, stripY, stripW, stripH)
+      .fill({ color: 0x0d1f35, alpha: 0.80 });
+    this.container.addChild(bg);
+
+    // A · 我方 (left, azure)
+    const textA = new Text({
+      text: 'A · 我方',
+      style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 10, fill: T.CLAN.azureGlow, letterSpacing: 3 },
+    });
+    textA.anchor.set(0, 0.5);
+    textA.x = stripX + 10;
+    textA.y = stripY + stripH / 2;
+    this.container.addChild(textA);
+
+    // ◇ SHARED BOARD ◇ (centre, gold)
+    const textCenter = new Text({
+      text: '◇ SHARED BOARD ◇',
+      style: { fontFamily: T.FONT.body, fontWeight: '600', fontSize: 10, fill: T.GOLD.base, letterSpacing: 3 },
+    });
+    textCenter.anchor.set(0.5, 0.5);
+    textCenter.x = CANVAS_WIDTH / 2;
+    textCenter.y = stripY + stripH / 2;
+    this.container.addChild(textCenter);
+
+    // B · 對手 (right, vermilion)
+    const textB = new Text({
+      text: 'B · 對手',
+      style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 10, fill: T.CLAN.vermilionGlow, letterSpacing: 3 },
+    });
+    textB.anchor.set(1, 0.5);
+    textB.x = stripX + stripW - 10;
+    textB.y = stripY + stripH / 2;
+    this.container.addChild(textB);
+  }
+
   private drawSlot(): void {
     this.reel = new SlotReel();
     this.reel.x = SLOT_X;
-    this.reel.y = REEL_ZONE_Y;   // p10-v01: REEL_ZONE_Y=700 (was SLOT_Y=610)
+    this.reel.y = REEL_ZONE_Y;   // p11-vA-01: REEL_ZONE_Y=615 (was 700 Variant B)
     this.container.addChild(this.reel);
   }
 
   private drawLog(): void {
-    // p10-v01: battle log panel (dark bg, gold border) — Variant B styled panel
+    // p11-vA-01: battle log panel — LOG_H_CONST=185 (Variant A layout, y=1055)
     const LOG_PAD_X = 28;
-    const LOG_H     = 140;
+    const LOG_H     = LOG_H_CONST;
     const logPanel = new Graphics()
       .roundRect(LOG_PAD_X, LOG_Y, CANVAS_WIDTH - LOG_PAD_X * 2, LOG_H, 6)
       .fill({ color: T.SEA.deep, alpha: 0.55 })
