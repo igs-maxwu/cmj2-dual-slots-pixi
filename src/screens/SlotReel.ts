@@ -103,45 +103,22 @@ export class SlotReel extends Container {
       this.addChild(border);
     }
 
-    // Dragon-head corner ornaments — mirrored to all 4 corners
-    const cornerTex = Assets.get<Texture>('dragon-corner');
-    if (cornerTex) {
-      const corners: Array<[number, number, number, number, number, number]> = [
-        // ax,  ay,  x,              y,              sx,  sy
-        [0, 0,  -8,            -8,            1,  1],
-        [1, 0,  REEL_W + 8,    -8,           -1,  1],
-        [0, 1,  -8,            REEL_H + 8,    1, -1],
-        [1, 1,  REEL_W + 8,    REEL_H + 8,   -1, -1],
-      ];
-      for (const [ax, ay, x, y, sx, sy] of corners) {
-        const corner = new Sprite(cornerTex);
-        corner.anchor.set(ax, ay);
-        corner.width = 120;
-        corner.height = 120;
-        corner.x = x;
-        corner.y = y;
-        corner.scale.x = Math.sign(sx) * Math.abs(corner.scale.x);
-        corner.scale.y = Math.sign(sy) * Math.abs(corner.scale.y);
-        corner.alpha = 0.30;   // p10-v03: de-gold P1-C
-        this.addChild(corner);
-      }
-    } else {
-      // p10-bug-01: programmatic L-bracket fallback — no white-box artifact on missing asset
-      const positions: Array<[number, number, number, number]> = [
-        [-8,          -8,          1,  1],   // top-left
-        [REEL_W + 8,  -8,         -1,  1],   // top-right
-        [-8,          REEL_H + 8,  1, -1],   // bottom-left
-        [REEL_W + 8,  REEL_H + 8, -1, -1],  // bottom-right
-      ];
-      for (const [x, y, sx, sy] of positions) {
-        const bracket = new Graphics()
-          .moveTo(0, 24).lineTo(0, 0).lineTo(24, 0)
-          .stroke({ width: 3, color: T.GOLD.shadow, alpha: 0.7 });
-        bracket.x = x;
-        bracket.y = y;
-        bracket.scale.set(sx, sy);
-        this.addChild(bracket);
-      }
+    // s12-ui-01c: programmatic L-bracket corner ornaments (no asset dependency)
+    // Replaces dragon-corner.webp Sprite path (p10-bug-01 fallback promoted to primary)
+    const positions: Array<[number, number, number, number]> = [
+      [-8,          -8,          1,  1],   // top-left
+      [REEL_W + 8,  -8,         -1,  1],   // top-right
+      [-8,          REEL_H + 8,  1, -1],   // bottom-left
+      [REEL_W + 8,  REEL_H + 8, -1, -1],  // bottom-right
+    ];
+    for (const [x, y, sx, sy] of positions) {
+      const bracket = new Graphics()
+        .moveTo(0, 24).lineTo(0, 0).lineTo(24, 0)
+        .stroke({ width: 3, color: T.GOLD.shadow, alpha: 0.7 });
+      bracket.x = x;
+      bracket.y = y;
+      bracket.scale.set(sx, sy);
+      this.addChild(bracket);
     }
   }
 
