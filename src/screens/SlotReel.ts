@@ -1,11 +1,29 @@
-import { Assets, Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { GlowFilter } from 'pixi-filters';
 import * as T from '@/config/DesignTokens';
 import { SYMBOLS } from '@/config/SymbolsConfig';
-import { gemForSymbol } from '@/config/GemMapping';
+// gemForSymbol import removed — p11-vA-03: programmatic ball replaces gem sprite
 import { tween, delay, Easings } from '@/systems/tween';
 import type { WayHit } from '@/systems/SlotEngine';
 import { AudioManager } from '@/systems/AudioManager';
+
+// ─── p11-vA-03: Symbol → clan character + ball color mapping ────────────────
+// Clan spirits 0-7: azure 青龍 (0,1) / white 白虎 (2,3) / vermilion 朱雀 (4,5) / black 玄武 (6,7)
+// Special symbols 8-11: Wild 替 / Curse 咒 / Scatter 散 / Jackpot 寶
+const SYMBOL_VISUAL: Record<number, { char: string; color: number }> = {
+  0: { char: '青', color: T.CLAN.azureGlow },
+  1: { char: '青', color: T.CLAN.azureGlow },
+  2: { char: '白', color: T.CLAN.whiteGlow },
+  3: { char: '白', color: T.CLAN.whiteGlow },
+  4: { char: '朱', color: T.CLAN.vermilionGlow },
+  5: { char: '朱', color: T.CLAN.vermilionGlow },
+  6: { char: '玄', color: T.CLAN.blackGlow },
+  7: { char: '玄', color: T.CLAN.blackGlow },
+  8:  { char: '替', color: T.GOLD.glow },      // Wild
+  9:  { char: '咒', color: 0x8b3aaa },          // Curse
+  10: { char: '散', color: 0xff3b6b },          // Scatter
+  11: { char: '寶', color: T.GOLD.base },       // Jackpot
+};
 
 function hasPreMatch(grid: number[][], colLeft: number, colRight: number): boolean {
   const left = new Set<number>();
@@ -26,7 +44,7 @@ export const REEL_H = ROWS * CELL_H + (ROWS - 1) * CELL_GAP + FRAME_PAD * 2;
 
 interface Cell {
   container:     Container;
-  gemSprite:     Sprite;        // SOS2 gem visual (replaces SpiritPortrait)
+  gemBall:       Container;     // p11-vA-03: programmatic glossy ball (shadow+main+highlight+char)
   overlay:       Graphics;
   currentSymbol: number;
   pipsContainer: Container;     // p10-v02: tier pip indicator (1-3 dots, bottom of cell)
@@ -153,11 +171,11 @@ export class SlotReel extends Container {
           .stroke({ width: 1, color: T.SEA.caustic, alpha: 0.20 });
         container.addChild(innerRing);
 
-        // Gem sprite — Texture.WHITE placeholder, overwritten by setCellSymbol()
-        const gemSprite = new Sprite(Texture.WHITE);
-        gemSprite.anchor.set(0.5);
-        gemSprite.y = 0;
-        container.addChild(gemSprite);
+        // p11-vA-03: gemBall Container — children rebuilt per-symbol in setCellSymbol()
+        const gemBall = new Container();
+        gemBall.x = 0;
+        gemBall.y = 0;
+        container.addChild(gemBall);
 
         // p10-v02: tier pip indicator — redrawn per-symbol in refreshCellPips()
         const pipsContainer = new Container();
@@ -171,29 +189,80 @@ export class SlotReel extends Container {
         overlay.alpha = 0;
         container.addChild(overlay);
 
-        colCells.push({ container, gemSprite, overlay, currentSymbol: -1, pipsContainer });
+        colCells.push({ container, gemBall, overlay, currentSymbol: -1, pipsContainer });
         this.setCellSymbol(colCells[r], r % SYMBOLS.length);
       }
       this.cells.push(colCells);
     }
   }
 
+  /**
+   * p11-vA-03: Programmatic glossy ball — replaces gem PNG sprite.
+   * Rebuilds 4 children inside cell.gemBall each call:
+   *   1. Drop shadow (slightly larger dark circle offset +2px Y)
+   *   2. Main ball   (clan color fill + stroke)
+   *   3. Highlight   (upper-left white ellipse for glossy effect)
+   *   4. Chinese char (clan character, white fill + clan stroke)
+   * GlowFilter applied to gemBall for depth glow effect.
+   */
   private setCellSymbol(cell: Cell, symId: number): void {
     if (cell.currentSymbol === symId) return;
     cell.currentSymbol = symId;
-    const sym     = SYMBOLS[symId];
-    const gemInfo = gemForSymbol(sym);
-    const tex     = Assets.get<Texture>(gemInfo.assetKey);
-    if (tex) {
-      cell.gemSprite.texture = tex;
-      // p10-v02: Scale gem to 90% of the smaller cell dimension (was 80%)
-      const targetSize = Math.min(CELL_W, CELL_H) * 0.90;
-      const scale = targetSize / Math.max(tex.width, tex.height);
-      cell.gemSprite.scale.set(scale);
-    }
-    cell.gemSprite.tint = gemInfo.tint;
 
-    // p10-v02: refresh tier pips for the new symbol
+    const visual = SYMBOL_VISUAL[symId] ?? SYMBOL_VISUAL[0]!;
+    const r = Math.min(CELL_W, CELL_H) * 0.38;   // ball radius ≈ 38px
+
+    // Clear previous ball contents
+    cell.gemBall.removeChildren();
+
+    // Layer 1: Drop shadow
+    const shadow = new Graphics()
+      .circle(0, 2, r + 1)
+      .fill({ color: 0x000000, alpha: 0.50 });
+    cell.gemBall.addChild(shadow);
+
+    // Layer 2: Main ball (solid clan color)
+    const main = new Graphics()
+      .circle(0, 0, r)
+      .fill({ color: visual.color, alpha: 1 });
+    cell.gemBall.addChild(main);
+
+    // Layer 3: Glossy highlight — small white ellipse upper-left
+    const highlight = new Graphics()
+      .ellipse(-r * 0.35, -r * 0.35, r * 0.45, r * 0.30)
+      .fill({ color: 0xFFFFFF, alpha: 0.55 });
+    cell.gemBall.addChild(highlight);
+
+    // Layer 4: Chinese character centred on ball
+    const charText = new Text({
+      text: visual.char,
+      style: {
+        fontFamily: '"Noto Serif TC", "Ma Shan Zheng", serif',
+        fontWeight: '700',
+        fontSize: Math.round(r * 0.95),
+        fill: 0xFFFFFF,
+        stroke: { color: visual.color, width: 2 },
+        dropShadow: {
+          color: visual.color,
+          alpha: 0.6,
+          blur: 6,
+          distance: 0,
+        },
+      },
+    });
+    charText.anchor.set(0.5, 0.5);
+    cell.gemBall.addChild(charText);
+
+    // Subtle GlowFilter — clan color depth glow
+    cell.gemBall.filters = [new GlowFilter({
+      color: visual.color,
+      distance: 12,
+      outerStrength: 1.0,
+      innerStrength: 0.2,
+      quality: 0.4,
+    })];
+
+    // p10-v02: refresh tier pips for the new symbol (unchanged)
     this.refreshCellPips(cell, symId);
   }
 
