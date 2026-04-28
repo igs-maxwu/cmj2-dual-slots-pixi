@@ -3,7 +3,6 @@ import type { Screen } from './ScreenManager';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import * as T from '@/config/DesignTokens';
 import { SYMBOLS } from '@/config/SymbolsConfig';
-import { UI_ASSET_KEYS } from '@/config/UiAssets';
 import { addCornerOrnaments } from '@/components/Decorations';
 
 const TRACK_W = 440;
@@ -25,14 +24,11 @@ export class LoadingScreen implements Screen {
     this.drawBackground();
     this.drawTitle();
     this.drawProgress();
-
-    // Pre-load the UI bundle first (small & fast), so decorations paint
-    // onto the SAME loading screen before the heavy spirits load.
-    await this.preloadUi();
+    // s12-ui-06: all decorations are programmatic — no UI preload needed
     this.upgradeToDecoratedLoadingScreen();
 
-    // Gem symbols (5 webp, ~9 KB total) and spirit portraits in parallel
-    // Also preload SOS2 FX webps needed by SpiritAttackChoreographer (d-04)
+    // Spirit portraits + SOS2 FX webps needed by SpiritAttackChoreographer (d-04)
+    // s12-ui-06: preloadGems() removed (gem-shape webp decommissioned in p11-vA-03)
     await Promise.all([this.preloadGems(), this.preloadSpirits(), this.preloadFx()]);
     this.onDone();
   }
@@ -141,20 +137,6 @@ export class LoadingScreen implements Screen {
       .circle(CANVAS_WIDTH / 2, dividerY, 3)
       .fill({ color: T.GOLD.base });
     this.container.addChild(dividerDot);
-  }
-
-  private async preloadUi(): Promise<void> {
-    const base = import.meta.env.BASE_URL;
-    const assets = UI_ASSET_KEYS.map(k => ({
-      alias: k,
-      src:   `${base}assets/ui/${k}.webp`,
-    }));
-    const total = assets.length;
-    this.updateProgress(0, total, 'Loading UI');
-    await Assets.load(assets, (p: number) => {
-      this.updateProgress(Math.round(p * total), total, 'Loading UI');
-    });
-    this.updateProgress(total, total, 'Loading UI');
   }
 
   private async preloadGems(): Promise<void> {
