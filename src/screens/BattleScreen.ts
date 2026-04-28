@@ -72,6 +72,12 @@ const SPIN_BTN_GAP = 16;
 const GHOST_BTN_W  = 110;
 const GHOST_BTN_H  = 46;
 
+// ── chore: PAYLINES decorative indicator (mockup variant-a alignment) ────────
+const PAYLINES_Y      = 935;   // just above SPIN_BTN_Y=970
+const PAYLINES_CELL_W = 14;
+const PAYLINES_CELL_H = 14;
+const PAYLINES_GAP    = 4;
+
 // ─── NineGrid 3×3 formation layout (p11-vA-02) ──────────────────────────────
 // 9 cells per side; 5 spirits placed via seeded Fisher-Yates at mount time.
 // Depth scale: row 0 (back) = 0.78 × SPIRIT_H, row 1 (mid) = 0.94 ×, row 2 (front) = 1.10 ×
@@ -224,6 +230,9 @@ export class BattleScreen implements Screen {
   private skipButton!: Container;
   private autoMode = false;
   private autoTimer?: number;
+  /** chore: PAYLINES decorative indicator */
+  private paylinesContainer!: Container;
+  private paylinesCells: Graphics[] = [];
   /** SPEC §15.8 M12 Jackpot pools — loaded from localStorage on mount, saved each spin (j-02) */
   private jackpotPools!: JackpotPools;
 
@@ -293,6 +302,7 @@ export class BattleScreen implements Screen {
     // drawVsBadge() removed — VS shield lives inside drawBattleArena (p10-v01)
     this.drawLog();
     this.drawSpinButton();          // chore: manual SPIN button (replaces auto-loop)
+    this.drawPaylinesIndicator();   // chore: PAYLINES 1-10 decorative indicator
     // drawBackButton() removed — RETREAT button lives inside drawCompactHeader (p10-v01)
     this.drawCurseHud();
     this.drawFreeSpinOverlay();
@@ -1255,6 +1265,73 @@ export class BattleScreen implements Screen {
     if (import.meta.env.DEV) console.log('[SKIP] (placeholder — animation skip not yet implemented)');
   }
 
+  // ─── chore: PAYLINES decorative indicator ───────────────────────────────
+  private drawPaylinesIndicator(): void {
+    this.paylinesContainer = new Container();
+    this.paylinesCells = [];
+
+    // "PAYLINES" label (left)
+    const label = new Text({
+      text: 'PAYLINES',
+      style: {
+        fontFamily: T.FONT.body, fontWeight: '500', fontSize: 9,
+        fill: T.FG.muted, letterSpacing: 3,
+      },
+    });
+    label.anchor.set(0, 0.5);
+    label.y = 0;
+    this.paylinesContainer.addChild(label);
+
+    // Force text measurement (width may be 0 before first render)
+    // Use fixed offset as label should be ~58px wide at fontSize 9 with letterSpacing 3
+    const labelWidth = 70;   // conservative fixed width for centering
+
+    // 10 cells, each in its own Container at relative x
+    let xOffset = labelWidth + 12;
+    for (let i = 0; i < 10; i++) {
+      const cellRoot = new Container();
+      cellRoot.x = xOffset;
+
+      const cell = new Graphics()
+        .roundRect(0, -PAYLINES_CELL_H / 2, PAYLINES_CELL_W, PAYLINES_CELL_H, 2)
+        .stroke({ width: 1, color: T.FG.muted, alpha: 0.5 });
+      cellRoot.addChild(cell);
+
+      const cellText = new Text({
+        text: String(i + 1),
+        style: { fontFamily: T.FONT.body, fontWeight: '700', fontSize: 7, fill: T.FG.muted },
+      });
+      cellText.anchor.set(0.5, 0.5);
+      cellText.x = PAYLINES_CELL_W / 2;
+      cellText.y = 0;
+      cellRoot.addChild(cellText);
+
+      this.paylinesContainer.addChild(cellRoot);
+      this.paylinesCells.push(cell);
+      xOffset += PAYLINES_CELL_W + PAYLINES_GAP;
+    }
+
+    const totalW = labelWidth + 12 + 10 * PAYLINES_CELL_W + 9 * PAYLINES_GAP;
+    this.paylinesContainer.x = (CANVAS_WIDTH - totalW) / 2;
+    this.paylinesContainer.y = PAYLINES_Y;
+    this.container.addChild(this.paylinesContainer);
+  }
+
+  private updatePaylinesIndicator(activeCount: number): void {
+    const n = Math.min(Math.max(activeCount, 0), 10);
+    this.paylinesCells.forEach((cell, i) => {
+      cell.clear();
+      if (i < n) {
+        cell.roundRect(0, -PAYLINES_CELL_H / 2, PAYLINES_CELL_W, PAYLINES_CELL_H, 2)
+            .fill({ color: T.GOLD.base })
+            .stroke({ width: 1, color: T.GOLD.base });
+      } else {
+        cell.roundRect(0, -PAYLINES_CELL_H / 2, PAYLINES_CELL_W, PAYLINES_CELL_H, 2)
+            .stroke({ width: 1, color: T.FG.muted, alpha: 0.5 });
+      }
+    });
+  }
+
   // ─── Curse stack HUD (k-04) ──────────────────────────────────────────────
   private drawCurseHud(): void {
     // A side — bottom-left of wallet area
@@ -1584,6 +1661,10 @@ export class BattleScreen implements Screen {
         this.reel.highlightWays(spin.sideA.wayHits, spin.sideB.wayHits),
         this.fireJackpots(spin.sideA.wayHits, spin.sideB.wayHits),
       ]);
+
+      // chore: PAYLINES indicator — light up first N cells (N = total wayHit count, max 10)
+      const totalHits = (spin.sideA.wayHits?.length ?? 0) + (spin.sideB.wayHits?.length ?? 0);
+      this.updatePaylinesIndicator(totalHits);
 
       // ── Computation block (pure numerics — no awaiting, runs between stages) ──
       let dmgA = spin.sideA.dmgDealt;
