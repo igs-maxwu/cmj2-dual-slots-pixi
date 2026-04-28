@@ -4,8 +4,6 @@ export const UI_ASSET_KEYS = [
   'btn-normal',
   'btn-ornate',
   'portrait-ring',
-  'corner-ornament',
-  'dragon-corner',
   'win-burst',
   'divider',
   'logo-mark',
