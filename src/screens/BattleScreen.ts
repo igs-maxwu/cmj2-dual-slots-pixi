@@ -2097,27 +2097,54 @@ export class BattleScreen implements Screen {
   }
 
   private async spawnWinBurst(): Promise<void> {
-    const tex = Assets.get<Texture>('win-burst');
-    if (!tex) return;
-    const burst = new Sprite(tex);
-    burst.anchor.set(0.5, 0.5);
-    const size = Math.max(REEL_W, REEL_H) * 1.2;
-    burst.width = size;
-    burst.height = size;
-    burst.x = SLOT_X + REEL_W / 2;
-    burst.y = REEL_ZONE_Y + REEL_H / 2;
-    burst.blendMode = 'add';
+    // s12-ui-05: programmatic radial burst replaces win-burst.webp Sprite
+    const burst = new Container();
+    const cx = SLOT_X + REEL_W / 2;
+    const cy = REEL_ZONE_Y + REEL_H / 2;
+    burst.x = cx;
+    burst.y = cy;
     burst.alpha = 0;
+    burst.blendMode = 'add';
     this.fxLayer.addChild(burst);
 
+    // Layer 1: Concentric circles (3 rings, alpha decreasing outward)
+    const baseR = Math.max(REEL_W, REEL_H) * 0.6;
+    const ring1 = new Graphics()
+      .circle(0, 0, baseR * 0.4)
+      .fill({ color: T.GOLD.glow, alpha: 0.5 });
+    const ring2 = new Graphics()
+      .circle(0, 0, baseR * 0.7)
+      .fill({ color: T.GOLD.base, alpha: 0.30 });
+    const ring3 = new Graphics()
+      .circle(0, 0, baseR)
+      .fill({ color: T.GOLD.shadow, alpha: 0.15 });
+    burst.addChild(ring3);
+    burst.addChild(ring2);
+    burst.addChild(ring1);
+
+    // Layer 2: 12 radial rays
+    const rays = new Graphics();
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2;
+      const inner = baseR * 0.3;
+      const outer = baseR * 1.1;
+      rays.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
+      rays.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
+    }
+    rays.stroke({ width: 3, color: T.GOLD.glow, alpha: 0.8 });
+    burst.addChild(rays);
+
+    // Tween: 700ms — flash up + fade + expand + slight rotation
     await tween(700, p => {
-      // Flash up to full then fade + expand
+      // Alpha envelope: rapid in (0-20%), slow out (20-100%)
       if (p < 0.2) burst.alpha = p / 0.2 * 0.85;
       else          burst.alpha = 0.85 * (1 - (p - 0.2) / 0.8);
-      burst.scale.set(size / tex.width * (1 + p * 0.3));
+      // Scale expand 1.0 → 1.3
+      burst.scale.set(1 + p * 0.3);
+      // Slight rotation
       burst.rotation = p * 0.35;
     });
-    burst.destroy();
+    burst.destroy({ children: true });
   }
 
   // ─── Formation position helper ───────────────────────────────────────────
