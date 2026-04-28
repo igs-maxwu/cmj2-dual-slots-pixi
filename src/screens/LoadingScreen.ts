@@ -28,8 +28,7 @@ export class LoadingScreen implements Screen {
     this.upgradeToDecoratedLoadingScreen();
 
     // Spirit portraits + SOS2 FX webps needed by SpiritAttackChoreographer (d-04)
-    // s12-ui-06: preloadGems() removed (gem-shape webp decommissioned in p11-vA-03)
-    await Promise.all([this.preloadGems(), this.preloadSpirits(), this.preloadFx()]);
+    await Promise.all([this.preloadSpirits(), this.preloadFx()]);
     this.onDone();
   }
 
@@ -137,16 +136,6 @@ export class LoadingScreen implements Screen {
       .circle(CANVAS_WIDTH / 2, dividerY, 3)
       .fill({ color: T.GOLD.base });
     this.container.addChild(dividerDot);
-  }
-
-  private async preloadGems(): Promise<void> {
-    const base = import.meta.env.BASE_URL;
-    const GEM_SHAPES = ['triangle', 'hexagon', 'pentagon', 'square', 'diamond'] as const;
-    const assets = GEM_SHAPES.map(shape => ({
-      alias: `gem-${shape}`,
-      src:   `${base}assets/symbols/gems/gem-${shape}.webp`,
-    }));
-    await Assets.load(assets);
   }
 
   private async preloadSpirits(): Promise<void> {
