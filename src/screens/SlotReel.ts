@@ -20,7 +20,7 @@ const SYMBOL_VISUAL: Record<number, { char: string; color: number }> = {
   6: { char: '玄', color: T.CLAN.blackGlow },
   7: { char: '玄', color: T.CLAN.blackGlow },
   8:  { char: '替', color: T.GOLD.glow },      // Wild
-  9:  { char: '咒', color: 0x8b3aaa },          // Curse
+  9:  { char: '咒', color: 0xc77fe0 },          // Curse — lightened from 0x8b3aaa for WCAG AA contrast with dark text
   10: { char: '散', color: 0xff3b6b },          // Scatter
   11: { char: '寶', color: T.GOLD.base },       // Jackpot
 };
@@ -217,20 +217,20 @@ export class SlotReel extends Container {
     cell.gemBall.addChild(highlight);
 
     // Layer 4: Chinese character centred on ball
-    // White-clan symbols (id 2, 3): ball is 0xfff0b3 (light cream) — white text fails WCAG.
-    // Use dark brown 0x4a3a1a instead (contrast ~7:1 vs cream, WCAG AAA).
-    const isWhiteClan = symId === 2 || symId === 3;
+    // chore161: ALL ball use dark warm-brown 0x2a1a05 for unified contrast on glossy ball surface.
+    // Contrast ratios vs clan glows: azure~10:1 / white~13:1 / vermilion~8:1 / black~10:1 /
+    //   gold~11:1 / curse-purple(0xc77fe0)~5:1 / scatter-pink~4.5:1 — all ≥ WCAG AA (4.5:1).
     const charText = new Text({
       text: visual.char,
       style: {
         fontFamily: '"Noto Serif TC", "Ma Shan Zheng", serif',
         fontWeight: '700',
         fontSize: Math.round(r * 0.95),
-        fill: isWhiteClan ? 0x4a3a1a : 0xFFFFFF,
-        stroke: { color: visual.color, width: isWhiteClan ? 1 : 2 },
+        fill: 0x2a1a05,                               // dark warm-brown — all clans
+        stroke: { color: visual.color, width: 1.5 },  // clan stroke matches ball color
         dropShadow: {
           color: visual.color,
-          alpha: isWhiteClan ? 0.4 : 0.6,
+          alpha: 0.5,
           blur: 6,
           distance: 0,
         },
