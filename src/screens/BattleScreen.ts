@@ -53,22 +53,25 @@ const LOG_Y      = 1100;    // p10-v01: raised from 1150 → 1100
 
 const ROUND_GAP_MS = 500; // pause between rounds
 
-// ─── Free-standing arena layout — Variant B (p10-v01) ───────────────────────
-// Two staggered rows: front row (3 chars, lower) + back row (2 chars, higher = further back)
-// Variant B: taller arena (JP strip only 64px), spirits pushed lower/further apart.
-const SPIRIT_H              = 130;                          // rendered sprite height (px) — back row uses SPIRIT_H * 0.54
-const SPIRIT_H_BACK         = Math.round(SPIRIT_H * 0.54);  // ≈ 70px — back row appears smaller / further
-const ARENA_Y_FRONT         = 510;                          // p10-v01: front-row feet baseline y (was 460)
-const ARENA_Y_BACK          = 290;                          // p10-v01: back-row feet baseline y (was 426)
-const ARENA_SPACING_FRONT_X = 80;                           // p10-v01: horiz gap front spirits (was 72)
-const ARENA_SPACING_BACK_X  = 60;                           // p10-v01: back spirits (was 92)
-const ARENA_A_CENTER_X      = 184;                          // p10-v01: A-side pivot x (was 176)
+// ─── Free-standing arena layout — 3-row (chore: formation-three-row-layout) ──
+// Three staggered rows: front (2 chars, closest) + mid (2 chars) + back (1 char, furthest)
+// Owner feedback: "雀靈應該是九宮格" — 2-row felt crowded and shallow.
+const SPIRIT_H              = 130;                          // front-row sprite height (px)
+const SPIRIT_H_MID          = Math.round(SPIRIT_H * 0.69);  // ≈ 90px — mid row (medium depth)
+const SPIRIT_H_BACK         = Math.round(SPIRIT_H * 0.46);  // ≈ 60px — back row (furthest, smallest)
+const ARENA_Y_FRONT         = 540;                          // front-row feet y (was 510)
+const ARENA_Y_MID           = 380;                          // mid-row feet y (NEW)
+const ARENA_Y_BACK          = 260;                          // back-row feet y (was 290, solo center)
+const ARENA_SPACING_FRONT_X = 110;                          // front: 2 spirits × 130w, gap=2×110=220>130 ✓
+const ARENA_SPACING_MID_X   = 95;                           // mid: 2 spirits × 90w, gap=2×95=190>90 ✓
+// ARENA_SPACING_BACK_X removed — back has 1 spirit at center (xOff=0)
+const ARENA_A_CENTER_X      = 184;                          // A-side pivot x (unchanged)
 const ARENA_B_CENTER_X      = CANVAS_WIDTH - 184;           // B-side mirror
 
 // Per-unit HP bar (inside each spirit container)
 const UNIT_HP_BAR_W     = 64;
 const UNIT_HP_BAR_H     = 6;
-const UNIT_HP_BAR_Y_OFF = -(SPIRIT_H / 2 + 8);   // p10-v01: back-row at y=290, HP bar at 290-73=217 > JP strip bottom 134
+const UNIT_HP_BAR_Y_OFF = -(SPIRIT_H / 2 + 8);   // -73px from feet; back at 260-73=187 > JP strip 134 ✓
 
 // ─── Components for formation display ────────────────────────────────────────
 interface FormationCellRefs {
@@ -399,7 +402,7 @@ export class BattleScreen implements Screen {
     // ── VS shield — hexagon with VS text ─────────────────────────────────
     // Positioned between back-row (y=290) and floor start (y=350) → center at y=380
     const vsCenterX = CANVAS_WIDTH / 2;
-    const vsCenterY = 380;
+    const vsCenterY = 475;   // chore: between mid-feet (380) and front-head (~410), clear of spirits
     const vsR       = 40;   // hexagon circumradius
 
     const vsShield = new Graphics();
@@ -531,24 +534,31 @@ export class BattleScreen implements Screen {
 
   /**
    * Ellipse ground shadows beneath each spirit slot.
-   * p10-v01 Variant B positions derived from updated slotToArenaPos constants:
-   *   ARENA_A_CENTER_X=184, ARENA_SPACING_FRONT_X=80, ARENA_SPACING_BACK_X=60
-   *   A front (slots 1,2,4): x = 184-80=104, 184, 184+80=264
-   *   A back  (slots 0,3):   x = 184-60=124, 184+60=244
-   *   B front (slots 1,2,4): x = 536+80=616, 536, 536-80=456
-   *   B back  (slots 0,3):   x = 536+60=596, 536-60=476
+   * 3-row layout positions (chore: formation-three-row-layout):
+   *   ARENA_A_CENTER_X=184, ARENA_SPACING_FRONT_X=110, ARENA_SPACING_MID_X=95
+   *   A front (slots 3,4): x = 184-110=74, 184+110=294   (2 spirits)
+   *   A mid   (slots 1,2): x = 184-95=89,  184+95=279    (2 spirits)
+   *   A back  (slot 0):    x = 184                        (1 spirit, center)
+   *   B front (slots 3,4): x = 536+110=646, 536-110=426
+   *   B mid   (slots 1,2): x = 536+95=631,  536-95=441
+   *   B back  (slot 0):    x = 536
+   *   Total: 5 shadows per side × 2 = 10 ellipses
    */
   private drawSpiritShadows(): void {
-    const A_FRONT_X = [104, 184, 264];
-    const A_BACK_X  = [124, 244];
-    const B_FRONT_X = [616, 536, 456];
-    const B_BACK_X  = [596, 476];
+    const A_FRONT_X = [74,  294];
+    const A_MID_X   = [89,  279];
+    const A_BACK_X  = [184];
+    const B_FRONT_X = [646, 426];
+    const B_MID_X   = [631, 441];
+    const B_BACK_X  = [536];
 
     const shadow = new Graphics();
     for (const x of A_FRONT_X) shadow.ellipse(x, ARENA_Y_FRONT + 8, 34, 9).fill({ color: 0x000000, alpha: 0.45 });
-    for (const x of A_BACK_X)  shadow.ellipse(x, ARENA_Y_BACK  + 8, 22, 6).fill({ color: 0x000000, alpha: 0.35 });
+    for (const x of A_MID_X)   shadow.ellipse(x, ARENA_Y_MID   + 8, 28, 7).fill({ color: 0x000000, alpha: 0.40 });
+    for (const x of A_BACK_X)  shadow.ellipse(x, ARENA_Y_BACK  + 8, 18, 5).fill({ color: 0x000000, alpha: 0.30 });
     for (const x of B_FRONT_X) shadow.ellipse(x, ARENA_Y_FRONT + 8, 34, 9).fill({ color: 0x000000, alpha: 0.45 });
-    for (const x of B_BACK_X)  shadow.ellipse(x, ARENA_Y_BACK  + 8, 22, 6).fill({ color: 0x000000, alpha: 0.35 });
+    for (const x of B_MID_X)   shadow.ellipse(x, ARENA_Y_MID   + 8, 28, 7).fill({ color: 0x000000, alpha: 0.40 });
+    for (const x of B_BACK_X)  shadow.ellipse(x, ARENA_Y_BACK  + 8, 18, 5).fill({ color: 0x000000, alpha: 0.30 });
     this.container.addChild(shadow);
   }
 
@@ -798,9 +808,13 @@ export class BattleScreen implements Screen {
       container.y = pos.y;
       this.container.addChild(container);
 
-      // p10-v01: back-row spirits use SPIRIT_H_BACK (≈70px) for depth illusion
-      const isBackRow = pos.y === ARENA_Y_BACK;
-      const spiritH   = isBackRow ? SPIRIT_H_BACK : SPIRIT_H;
+      // 3-row: pick spirit height by row — back 60px / mid 90px / front 130px
+      const sizeMap: Record<'back' | 'mid' | 'front', number> = {
+        back:  SPIRIT_H_BACK,
+        mid:   SPIRIT_H_MID,
+        front: SPIRIT_H,
+      };
+      const spiritH = sizeMap[pos.row];
 
       // Ground ellipse glow — breathes via ticker (visible only for alive units)
       const glowRing = new Graphics();
@@ -853,28 +867,32 @@ export class BattleScreen implements Screen {
 
   /**
    * Maps a 3×3 formation slot index to the staggered arena position.
-   * Slot layout mirrors the mockup: front row (3 chars) closer to centre VS,
-   * back row (2 chars) higher up and further from centre (depth illusion).
+   * 3-row layout (chore: formation-three-row-layout):
+   *   slot 0 — BACK center (solo, furthest, smallest)
+   *   slot 1 — MID left
+   *   slot 2 — MID right
+   *   slot 3 — FRONT left
+   *   slot 4 — FRONT right
    * B-side x offsets are mirrored (sprite also flipped via scale.x = -1).
+   * Returns row identifier so drawFormation can pick correct spiritH.
    */
-  private slotToArenaPos(side: 'A' | 'B', slot: number): { x: number; y: number } {
-    const LAYOUT: ReadonlyArray<{ row: 'front' | 'back'; xOff: number }> = [
-      { row: 'back',  xOff: -ARENA_SPACING_BACK_X   },  // slot 0
-      { row: 'front', xOff: -ARENA_SPACING_FRONT_X  },  // slot 1
-      { row: 'front', xOff:  0                      },  // slot 2
-      { row: 'back',  xOff: +ARENA_SPACING_BACK_X   },  // slot 3
-      { row: 'front', xOff: +ARENA_SPACING_FRONT_X  },  // slot 4
-      { row: 'back',  xOff: -ARENA_SPACING_BACK_X  * 1.5 }, // slot 5 (extra)
-      { row: 'front', xOff: -ARENA_SPACING_FRONT_X * 1.5 }, // slot 6 (extra)
-      { row: 'back',  xOff: +ARENA_SPACING_BACK_X  * 1.5 }, // slot 7 (extra)
-      { row: 'front', xOff: +ARENA_SPACING_FRONT_X * 1.5 }, // slot 8 (extra)
+  private slotToArenaPos(side: 'A' | 'B', slot: number): { x: number; y: number; row: 'front' | 'mid' | 'back' } {
+    const LAYOUT: ReadonlyArray<{ row: 'front' | 'mid' | 'back'; xOff: number }> = [
+      { row: 'back',  xOff:  0                    },  // slot 0 — back center (solo)
+      { row: 'mid',   xOff: -ARENA_SPACING_MID_X  },  // slot 1 — mid left
+      { row: 'mid',   xOff: +ARENA_SPACING_MID_X  },  // slot 2 — mid right
+      { row: 'front', xOff: -ARENA_SPACING_FRONT_X},  // slot 3 — front left
+      { row: 'front', xOff: +ARENA_SPACING_FRONT_X},  // slot 4 — front right
+      // slots 5-8: overflow fallback to slot 0 position (unused in 5-pick draft)
     ];
     const entry   = LAYOUT[slot] ?? LAYOUT[0];
     const centerX = side === 'A' ? ARENA_A_CENTER_X : ARENA_B_CENTER_X;
     const mirror  = side === 'B' ? -1 : 1;
+    const yMap    = { back: ARENA_Y_BACK, mid: ARENA_Y_MID, front: ARENA_Y_FRONT };
     return {
-      x: centerX + entry.xOff * mirror,
-      y: entry.row === 'front' ? ARENA_Y_FRONT : ARENA_Y_BACK,
+      x:   centerX + entry.xOff * mirror,
+      y:   yMap[entry.row],
+      row: entry.row,
     };
   }
 
