@@ -33,6 +33,7 @@ import {
 import { playJackpotCeremony } from '@/fx/JackpotCeremony';
 import { playNearWinTeaser } from '@/fx/NearWinTeaser';
 import { playBigWinCeremony } from '@/fx/BigWinCeremony';
+import { playFreeSpinEntryCeremony } from '@/fx/FreeSpinEntryCeremony';
 import type { MatchResult, MatchOutcome } from '@/screens/ResultScreen';
 
 // ─── Portrait layout 720×1280 — Variant A (p11-vA-01) ───────────────────────
@@ -1640,6 +1641,9 @@ export class BattleScreen implements Screen {
         }
         if (scatterThisSpin >= 3) {
           if (!this.inFreeSpin) {
+            // s13-fx-01: ceremony first, then enter free-spin mode
+            await playFreeSpinEntryCeremony(this.container);
+
             // Fresh trigger — this spin and next 4 are free + ×2
             this.inFreeSpin = true;
             this.freeSpinsRemaining = BattleScreen.FREE_SPIN_COUNT;
