@@ -34,6 +34,8 @@ import { playJackpotCeremony } from '@/fx/JackpotCeremony';
 import { playNearWinTeaser } from '@/fx/NearWinTeaser';
 import { playBigWinCeremony } from '@/fx/BigWinCeremony';
 import { playFreeSpinEntryCeremony } from '@/fx/FreeSpinEntryCeremony';
+import { playStreakFlyText } from '@/fx/StreakFlyText';
+import { playJackpotFlyIn } from '@/fx/JackpotFlyIn';
 import type { MatchResult, MatchOutcome } from '@/screens/ResultScreen';
 
 // ─── Portrait layout 720×1280 — Variant A (p11-vA-01) ───────────────────────
@@ -1897,10 +1899,35 @@ export class BattleScreen implements Screen {
 
       // ── M3 Streak Multiplier: applied after Resonance + dragon bonus ─────────
       // Coin and dmg both scaled; wallet credited and cascade kicked here.
-      coinA = Math.floor(coinA * streakMult(this.streakA));
-      coinB = Math.floor(coinB * streakMult(this.streakB));
-      if (dmgA > 0) dmgA = Math.floor(dmgA * streakMult(this.streakA));
-      if (dmgB > 0) dmgB = Math.floor(dmgB * streakMult(this.streakB));
+      const _multA = streakMult(this.streakA);
+      const _multB = streakMult(this.streakB);
+      coinA = Math.floor(coinA * _multA);
+      coinB = Math.floor(coinB * _multB);
+      if (dmgA > 0) dmgA = Math.floor(dmgA * _multA);
+      if (dmgB > 0) dmgB = Math.floor(dmgB * _multB);
+
+      // s13-fx-02: streak multiplier fly-text (fire-and-forget — doesn't block round)
+      const _reelCenterY = REEL_ZONE_Y + REEL_H / 2;
+      if (_multA > 1.0) {
+        void playStreakFlyText(
+          this.fxLayer,
+          _multA,
+          SLOT_X + REEL_W * 0.25,           // A-side reel left quarter
+          _reelCenterY,
+          CANVAS_WIDTH - 132,               // walletAX
+          COMPACT_HDR_H / 2 + 1,            // walletTextA.y (hdr.y=0)
+        );
+      }
+      if (_multB > 1.0) {
+        void playStreakFlyText(
+          this.fxLayer,
+          _multB,
+          SLOT_X + REEL_W * 0.75,           // B-side reel right quarter
+          _reelCenterY,
+          CANVAS_WIDTH - 50,                // walletBX
+          COMPACT_HDR_H / 2 + 1,            // walletTextB.y (hdr.y=0)
+        );
+      }
 
       // ── M10 Free Spin: ×2 win multiplier (after Streak, before wallet credit) ──
       if (this.inFreeSpin) {
@@ -2460,7 +2487,27 @@ export class BattleScreen implements Screen {
     // Full ceremony (j-04)
     await playJackpotCeremony(this.container, tier, award);
 
-    // Wallet text refresh
+    // s13-fx-02: NT$ fly-in from JP marquee centre to both wallets (both sides share halfAward)
+    const _jpCenterX = CANVAS_WIDTH / 2;
+    const _jpCenterY = JP_MARQUEE_Y + JP_MARQUEE_H / 2;
+    await Promise.all([
+      playJackpotFlyIn(
+        this.fxLayer,
+        halfAward,
+        _jpCenterX, _jpCenterY,
+        CANVAS_WIDTH - 132,               // walletAX
+        COMPACT_HDR_H / 2 + 1,            // walletTextA.y
+      ),
+      playJackpotFlyIn(
+        this.fxLayer,
+        halfAward,
+        _jpCenterX, _jpCenterY,
+        CANVAS_WIDTH - 50,                // walletBX
+        COMPACT_HDR_H / 2 + 1,            // walletTextB.y
+      ),
+    ]);
+
+    // Wallet text refresh (cascades from walletA/B already incremented above)
     this.cascadeWallet('A');
     this.cascadeWallet('B');
   }
