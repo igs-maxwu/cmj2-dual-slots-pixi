@@ -94,8 +94,9 @@ const NINE_B_GRID_LEFT_X = CANVAS_WIDTH - NINE_GRID_TOTAL - 32; // B side = 720-
 // Per-unit HP bar (inside each spirit container)
 const UNIT_HP_BAR_W     = 64;
 const UNIT_HP_BAR_H     = 6;
-// HP bar y offset: above cell top edge (cell center is anchor, cell top is -NINE_CELL_SIZE/2)
-const UNIT_HP_BAR_Y_OFF = -(NINE_CELL_SIZE / 2) - 10;       // above cell top by 10px
+// HP bar y offset: below feet (spirit sprite.y = NINE_CELL_SIZE/2, anchor (0.5,1) = feet there)
+// chore: relocate above-head → below-feet for 踏板能量條 visual feel
+const UNIT_HP_BAR_Y_OFF = (NINE_CELL_SIZE / 2) + 10;        // 10px below feet
 
 // ─── Components for formation display ────────────────────────────────────────
 interface FormationCellRefs {
