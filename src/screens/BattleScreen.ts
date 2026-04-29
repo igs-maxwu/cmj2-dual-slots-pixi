@@ -1339,10 +1339,68 @@ export class BattleScreen implements Screen {
     this.openAutoMenu();     // idle → open spin-count selector
   }
 
-  /** Open the spin-count selector popup (Commit 2 implementation). */
+  /** Open the spin-count selector popup — scrim + panel + 4 count options + CANCEL. */
   private openAutoMenu(): void {
     this.autoMenuOpen = true;
-    // Full popup implemented in Commit 2
+    const menu = new Container();
+    menu.zIndex = 500;    // above HUD but below JP/FreeSpin ceremonies
+    this.autoMenuContainer = menu;
+
+    // Scrim — semi-transparent overlay; click to dismiss
+    const scrim = new Graphics()
+      .rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+      .fill({ color: 0x000000, alpha: 0.5 });
+    scrim.eventMode = 'static';
+    scrim.hitArea = new Rectangle(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    scrim.cursor = 'pointer';
+    scrim.on('pointertap', () => this.closeAutoMenu());
+    menu.addChild(scrim);
+
+    // Panel geometry — floats above SPIN button
+    const panelW = 280, panelH = 260;
+    const panelX = (CANVAS_WIDTH - panelW) / 2;
+    const panelY = SPIN_BTN_Y - panelH - 20;
+
+    const panelBg = new Graphics()
+      .roundRect(panelX, panelY, panelW, panelH, 8)
+      .fill({ color: 0x2a1a04, alpha: 1 })
+      .stroke({ width: 1.5, color: T.GOLD.base, alpha: 1 });
+    menu.addChild(panelBg);
+
+    // Title
+    const title = new Text({
+      text: 'AUTO SPINS',
+      style: {
+        fontFamily: T.FONT.body, fontWeight: '600', fontSize: 16,
+        fill: T.GOLD.glow, letterSpacing: 4,
+      },
+    });
+    title.anchor.set(0.5, 0);
+    title.x = panelX + panelW / 2;
+    title.y = panelY + 22;
+    menu.addChild(title);
+
+    // 4 count options — 2×2 grid
+    const counts = [10, 25, 50, 100];
+    const btnW = 110, btnH = 44, gap = 12;
+    const gridX0 = panelX + (panelW - 2 * btnW - gap) / 2;
+    const gridY0 = panelY + 68;
+    counts.forEach((n, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const btn = this.drawGhostButton(`${n}`, () => this.setAutoSpins(n));
+      btn.x = gridX0 + col * (btnW + gap);
+      btn.y = gridY0 + row * (btnH + gap);
+      menu.addChild(btn);
+    });
+
+    // CANCEL button — centred at panel bottom
+    const cancelBtn = this.drawGhostButton('CANCEL', () => this.closeAutoMenu());
+    cancelBtn.x = panelX + (panelW - GHOST_BTN_W) / 2;
+    cancelBtn.y = panelY + panelH - GHOST_BTN_H - 16;
+    menu.addChild(cancelBtn);
+
+    this.container.addChild(menu);
   }
 
   /** Close and destroy the spin-count selector popup. */
