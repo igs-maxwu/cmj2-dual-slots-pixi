@@ -228,9 +228,12 @@ export class BattleScreen implements Screen {
   private spinClickResolve: (() => void) | null = null;
   /** chore: AUTO + SKIP ghost buttons */
   private autoButton!: Container;
+  private autoButtonBg!: Graphics;     // stored for active-state border repaint
+  private autoButtonText!: Text;       // stored for label updates (STOP N / AUTO)
   private skipButton!: Container;
-  private autoMode = false;
-  private autoTimer?: number;
+  private autoSpinsRemaining = 0;      // 0 = AUTO off; >0 = counting down
+  private autoMenuOpen = false;
+  private autoMenuContainer?: Container;
   /** chore: PAYLINES decorative indicator */
   private paylinesContainer!: Container;
   private paylinesCells: Graphics[] = [];
@@ -462,11 +465,9 @@ export class BattleScreen implements Screen {
     this.running = false;
     AudioManager.stopBgm();
     this.vsBadge?.destroy();   // p10-v01: optional — VS is static in Variant B
-    // chore: clear AUTO timer to prevent stale interval after unmount
-    if (this.autoTimer !== undefined) {
-      clearInterval(this.autoTimer);
-      this.autoTimer = undefined;
-    }
+    // chore: clear AUTO mode + menu on unmount
+    this.stopAutoMode();
+    this.closeAutoMenu();
     this.bg.destroyLayers();
     this.bg.destroy({ children: true });
     this.particles.destroy({ children: true });
@@ -1196,8 +1197,8 @@ export class BattleScreen implements Screen {
 
     this.container.addChild(this.spinButton);
 
-    // AUTO button (left of SPIN)
-    this.autoButton = this.drawGhostButton('AUTO', () => this.onAutoClick());
+    // AUTO button (left of SPIN) — dedicated draw so refs are stored for label refresh
+    this.autoButton = this.drawAutoButton();
     this.autoButton.x = (CANVAS_WIDTH - SPIN_BTN_W) / 2 - GHOST_BTN_W - SPIN_BTN_GAP;
     this.autoButton.y = SPIN_BTN_Y + (SPIN_BTN_H - GHOST_BTN_H) / 2;   // vertical centre align
     this.container.addChild(this.autoButton);
@@ -1228,9 +1229,75 @@ export class BattleScreen implements Screen {
 
   private waitForSpinClick(): Promise<void> {
     this.enableSpinButton();
+
+    // AUTO mode: self-resolve after 350 ms so animation rhythm stays intact
+    if (this.autoSpinsRemaining > 0) {
+      return new Promise(resolve => {
+        this.spinClickResolve = resolve;
+        setTimeout(() => {
+          if (this.spinClickResolve === resolve) {
+            this.autoSpinsRemaining -= 1;
+            this.refreshAutoButtonLabel();
+            this.onSpinClick();   // disables button + resolves promise
+            if (this.autoSpinsRemaining <= 0) this.stopAutoMode();
+          }
+        }, 350);
+      });
+    }
+
     return new Promise(resolve => {
       this.spinClickResolve = resolve;
     });
+  }
+
+  /** Stop AUTO mode — resets counter + refreshes button label. */
+  private stopAutoMode(): void {
+    this.autoSpinsRemaining = 0;
+    if (this.autoButtonText) this.refreshAutoButtonLabel();
+  }
+
+  /** Update AUTO button text, border, and text fill to reflect current autoSpinsRemaining. */
+  private refreshAutoButtonLabel(): void {
+    if (!this.autoButtonText || !this.autoButtonBg) return;
+    if (this.autoSpinsRemaining > 0) {
+      this.autoButtonText.text        = `STOP ${this.autoSpinsRemaining}`;
+      this.autoButtonText.style.fill  = T.GOLD.glow;    // gold text when active
+      this.autoButton.alpha = 0.85;
+      this.autoButtonBg.clear()
+        .roundRect(0, 0, GHOST_BTN_W, GHOST_BTN_H, 4)
+        .stroke({ width: 1.5, color: T.GOLD.glow, alpha: 0.9 });
+    } else {
+      this.autoButtonText.text        = 'AUTO';
+      this.autoButtonText.style.fill  = T.FG.muted;     // muted when idle
+      this.autoButton.alpha = 1;
+      this.autoButtonBg.clear()
+        .roundRect(0, 0, GHOST_BTN_W, GHOST_BTN_H, 4)
+        .stroke({ width: 1, color: T.FG.muted, alpha: 0.5 });
+    }
+  }
+
+  /** Dedicated AUTO button — stores bg + text refs for refreshAutoButtonLabel(). */
+  private drawAutoButton(): Container {
+    const btn = new Container();
+    this.autoButtonBg = new Graphics()
+      .roundRect(0, 0, GHOST_BTN_W, GHOST_BTN_H, 4)
+      .stroke({ width: 1, color: T.FG.muted, alpha: 0.5 });
+    btn.addChild(this.autoButtonBg);
+
+    this.autoButtonText = new Text({
+      text: 'AUTO',
+      style: { fontFamily: T.FONT.body, fontWeight: '600', fontSize: 14, fill: T.FG.muted, letterSpacing: 3 },
+    });
+    this.autoButtonText.anchor.set(0.5, 0.5);
+    this.autoButtonText.x = GHOST_BTN_W / 2;
+    this.autoButtonText.y = GHOST_BTN_H / 2;
+    btn.addChild(this.autoButtonText);
+
+    btn.hitArea   = new Rectangle(0, 0, GHOST_BTN_W, GHOST_BTN_H);
+    btn.eventMode = 'static';
+    btn.cursor    = 'pointer';
+    btn.on('pointertap', () => this.onAutoClick());
+    return btn;
   }
 
   /** chore: ghost button helper — transparent bg + 1px muted border (mockup GhostBtn style) */
@@ -1263,19 +1330,114 @@ export class BattleScreen implements Screen {
   }
 
   private onAutoClick(): void {
-    this.autoMode = !this.autoMode;
-    if (this.autoMode) {
-      this.autoButton.alpha = 0.6;   // active state visual
-      // Auto-fire SPIN every 2 s if the button is waiting
-      this.autoTimer = window.setInterval(() => {
-        if (this.spinClickResolve) this.onSpinClick();
-      }, 2000);
-    } else {
-      this.autoButton.alpha = 1;
-      if (this.autoTimer !== undefined) {
-        clearInterval(this.autoTimer);
-        this.autoTimer = undefined;
-      }
+    if (this.autoSpinsRemaining > 0) {
+      this.stopAutoMode();   // running → cancel immediately
+      return;
+    }
+    if (this.autoMenuOpen) {
+      this.closeAutoMenu();  // menu open → toggle close
+      return;
+    }
+    this.openAutoMenu();     // idle → open spin-count selector
+  }
+
+  /** Open the spin-count selector popup — scrim + panel + 4 count options + CANCEL. */
+  private openAutoMenu(): void {
+    this.autoMenuOpen = true;
+    const menu = new Container();
+    menu.zIndex = 500;    // above HUD but below JP/FreeSpin ceremonies
+    this.autoMenuContainer = menu;
+
+    // Scrim — semi-transparent overlay; click to dismiss
+    const scrim = new Graphics()
+      .rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+      .fill({ color: 0x000000, alpha: 0.5 });
+    scrim.eventMode = 'static';
+    scrim.hitArea = new Rectangle(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    scrim.cursor = 'pointer';
+    scrim.on('pointertap', () => this.closeAutoMenu());
+    menu.addChild(scrim);
+
+    // Panel geometry — floats above SPIN button
+    const panelW = 280, panelH = 260;
+    const panelX = (CANVAS_WIDTH - panelW) / 2;
+    const panelY = SPIN_BTN_Y - panelH - 20;
+
+    const panelBg = new Graphics()
+      .roundRect(panelX, panelY, panelW, panelH, 8)
+      .fill({ color: 0x2a1a04, alpha: 1 })
+      .stroke({ width: 1.5, color: T.GOLD.base, alpha: 1 });
+    menu.addChild(panelBg);
+
+    // Title
+    const title = new Text({
+      text: 'AUTO SPINS',
+      style: {
+        fontFamily: T.FONT.body, fontWeight: '600', fontSize: 16,
+        fill: T.GOLD.glow, letterSpacing: 4,
+      },
+    });
+    title.anchor.set(0.5, 0);
+    title.x = panelX + panelW / 2;
+    title.y = panelY + 22;
+    menu.addChild(title);
+
+    // 4 count options — 2×2 grid with hover highlight
+    const counts = [10, 25, 50, 100];
+    const btnW = 110, btnH = 44, gap = 12;
+    const gridX0 = panelX + (panelW - 2 * btnW - gap) / 2;
+    const gridY0 = panelY + 68;
+    counts.forEach((n, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const btn = this.drawGhostButton(`${n}`, () => this.setAutoSpins(n));
+      btn.x = gridX0 + col * (btnW + gap);
+      btn.y = gridY0 + row * (btnH + gap);
+      // Hover highlight — bg fills on pointerover, clears on pointerout
+      const btnBg = btn.getChildAt(0) as Graphics;
+      btn.on('pointerover', () => {
+        btnBg.clear()
+          .roundRect(0, 0, GHOST_BTN_W, GHOST_BTN_H, 4)
+          .fill({ color: T.GOLD.base, alpha: 0.15 })
+          .stroke({ width: 1.5, color: T.GOLD.glow, alpha: 0.8 });
+      });
+      btn.on('pointerout', () => {
+        btnBg.clear()
+          .roundRect(0, 0, GHOST_BTN_W, GHOST_BTN_H, 4)
+          .stroke({ width: 1, color: T.FG.muted, alpha: 0.5 });
+      });
+      menu.addChild(btn);
+    });
+
+    // CANCEL button — centred at panel bottom
+    const cancelBtn = this.drawGhostButton('CANCEL', () => this.closeAutoMenu());
+    cancelBtn.x = panelX + (panelW - GHOST_BTN_W) / 2;
+    cancelBtn.y = panelY + panelH - GHOST_BTN_H - 16;
+    menu.addChild(cancelBtn);
+
+    this.container.addChild(menu);
+  }
+
+  /** Close and destroy the spin-count selector popup. */
+  private closeAutoMenu(): void {
+    this.autoMenuOpen = false;
+    if (this.autoMenuContainer) {
+      this.autoMenuContainer.destroy({ children: true });
+      this.autoMenuContainer = undefined;
+    }
+  }
+
+  /** Start auto-spin with a chosen count. */
+  private setAutoSpins(n: number): void {
+    this.closeAutoMenu();
+    this.autoSpinsRemaining = n;
+    this.refreshAutoButtonLabel();
+    // If currently waiting for a click, kick off immediately
+    if (this.spinClickResolve) {
+      this.autoSpinsRemaining -= 1;
+      this.refreshAutoButtonLabel();
+      this.onSpinClick();
+      if (this.autoSpinsRemaining <= 0) this.stopAutoMode();
     }
   }
 
@@ -1655,6 +1817,8 @@ export class BattleScreen implements Screen {
             this.inFreeSpin = true;
             this.freeSpinsRemaining = BattleScreen.FREE_SPIN_COUNT;
             if (import.meta.env.DEV) console.log(`[FreeSpin] TRIGGERED — ${scatterThisSpin} scatters → 5 spins`);
+            // Stop AUTO on FreeSpin so player notices the event
+            if (this.autoSpinsRemaining > 0) this.stopAutoMode();
           } else {
             // Retrigger during free spin — add 5 more, cap 50
             this.freeSpinsRemaining = Math.min(50, this.freeSpinsRemaining + BattleScreen.FREE_SPIN_COUNT);
@@ -1958,6 +2122,9 @@ export class BattleScreen implements Screen {
     }
 
     if (!this.running) return;
+
+    // Ensure AUTO mode is cleared when match ends naturally
+    this.stopAutoMode();
 
     // ── res-01: Determine outcome + emit MatchResult ──────────────────────────
     const aAlive = isTeamAlive(this.formationA);
@@ -2279,6 +2446,9 @@ export class BattleScreen implements Screen {
     if (import.meta.env.DEV) {
       console.log(`[Jackpot] TRIGGERED tier=${tier} award=${award} (each side +${halfAward})`);
     }
+
+    // Stop AUTO on JP win so player witnesses the ceremony uninterrupted
+    if (this.autoSpinsRemaining > 0) this.stopAutoMode();
 
     // Full ceremony (j-04)
     await playJackpotCeremony(this.container, tier, award);
