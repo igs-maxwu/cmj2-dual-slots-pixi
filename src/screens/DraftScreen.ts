@@ -34,10 +34,10 @@ const MAX_PICKS           = 5;
 
 // ─── Tile sub-zones (relative to tile top-left corner) ──────────────────────
 // chore: portrait circle removed → full-body spirit sprite zone
+// commit 2: name moved to overlay on sprite top; meta to just-below-sprite strip
 const SPIRIT_ZONE_Y  = 8;                      // top padding above sprite
-const SPIRIT_ZONE_H  = 90;                     // sprite area height (fits below-sprite name strip)
-const NAME_Y         = SPIRIT_ZONE_Y + SPIRIT_ZONE_H + 8;  // 106: name strip below sprite
-const META_Y         = NAME_Y + 22;            // 128: weight % below name
+const SPIRIT_ZONE_H  = 115;                    // sprite area height (name is overlay, so can be larger)
+const NAME_OVERLAY_Y = SPIRIT_ZONE_Y + 10;    // 18: name overlay in upper portion of sprite
 const BTN_ZONE_H     = 32;
 const BTN_ZONE_Y     = TILE_H - BTN_ZONE_H - 6;            // 147: bottom-aligned A/B buttons
 const BTN_INSET_X    = 6;
@@ -366,26 +366,37 @@ export class DraftScreen implements Screen {
     spirit.y = SPIRIT_ZONE_Y + SPIRIT_ZONE_H;   // feet at bottom of sprite zone
     tile.addChild(spirit);
 
-    // ── Chinese spirit name ──
+    // ── Chinese spirit name — 24pt overlay on sprite top (mockup style) ──
     const name = new Text({
       text: sym.spiritName,
       style: {
         fontFamily: T.FONT.title, fontWeight: '700',
-        fontSize: T.FONT_SIZE.md, fill: T.FG.cream, letterSpacing: 2,
+        fontSize: 24,
+        fill: T.FG.cream,
+        letterSpacing: 4,
+        stroke: { color: 0x000000, width: 3, alpha: 0.7 },
+        dropShadow: {
+          color:    meta.color,
+          alpha:    0.6,
+          blur:     6,
+          distance: 0,
+        },
       },
     });
     name.anchor.set(0.5, 0);
-    name.x = TILE_W / 2; name.y = NAME_Y;
+    name.x = TILE_W / 2;
+    name.y = NAME_OVERLAY_Y;   // overlay on upper portion of sprite
     tile.addChild(name);
 
-    // ── Meta row: weight + probability ──
+    // ── Meta row: weight + probability — small strip just below sprite ──
     const prob = ((sym.weight / totalW) * 100).toFixed(1);
     const metaTxt = new Text({
-      text: `W:${sym.weight}   ${prob}%`,
-      style: { fontFamily: T.FONT.num, fontSize: T.FONT_SIZE.xs, fill: T.FG.muted },
+      text: `W:${sym.weight}  ${prob}%`,
+      style: { fontFamily: T.FONT.num, fontSize: 9, fill: T.FG.muted, letterSpacing: 1 },
     });
     metaTxt.anchor.set(0.5, 0);
-    metaTxt.x = TILE_W / 2; metaTxt.y = META_Y;
+    metaTxt.x = TILE_W / 2;
+    metaTxt.y = SPIRIT_ZONE_Y + SPIRIT_ZONE_H + 4;   // just below sprite zone
     tile.addChild(metaTxt);
 
     // ── Pick button A ──
