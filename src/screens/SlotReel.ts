@@ -1,4 +1,4 @@
-import { Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
+import { Assets, BlurFilter, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { GlowFilter } from 'pixi-filters';
 import * as T from '@/config/DesignTokens';
 import { SYMBOLS } from '@/config/SymbolsConfig';
@@ -332,6 +332,9 @@ export class SlotReel extends Container {
 
     // Rapid symbol swap while spinning — chore: vertical slide illusion
     // Each swap: gemBall slides from -CELL_H (above) down to 0 (centre) in 65ms
+    // chore: vertical motion blur active during spin (removed on lock by setCellSymbol)
+    const blur = new BlurFilter({ strengthX: 0, strengthY: 16, quality: 2 });
+
     const stopAt = performance.now() + spinMs;
     while (performance.now() < stopAt) {
       const slideDur = 65;
@@ -341,6 +344,7 @@ export class SlotReel extends Container {
       for (const cell of colCells) cell.gemBall.y = -CELL_H;
       for (const cell of colCells) {
         this.setCellSymbol(cell, Math.floor(Math.random() * SYMBOLS.length));
+        cell.gemBall.filters = [blur]; // re-apply after setCellSymbol resets to GlowFilter
       }
 
       // Slide down to centre within 65ms (~60fps sub-steps)
@@ -411,6 +415,9 @@ export class SlotReel extends Container {
     });
 
     // Slow-mo symbol swap: 93ms per frame (0.7× speed) — chore: vertical slide illusion
+    // chore: stronger vertical blur for centre column (more dramatic slow-mo feel)
+    const blur = new BlurFilter({ strengthX: 0, strengthY: 22, quality: 2 });
+
     const stopAt = performance.now() + spinMs;
     while (performance.now() < stopAt) {
       const slideDur = 93;
@@ -420,6 +427,7 @@ export class SlotReel extends Container {
       for (const cell of colCells) cell.gemBall.y = -CELL_H;
       for (const cell of colCells) {
         this.setCellSymbol(cell, Math.floor(Math.random() * SYMBOLS.length));
+        cell.gemBall.filters = [blur]; // re-apply after setCellSymbol resets to GlowFilter
       }
 
       // Slide down to centre within 93ms (~60fps sub-steps)
