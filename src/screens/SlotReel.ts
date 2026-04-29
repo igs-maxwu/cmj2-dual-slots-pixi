@@ -330,14 +330,28 @@ export class SlotReel extends Container {
       for (const cell of colCells) cell.container.alpha = 1 - p * 0.35;
     });
 
-    // Rapid symbol swap while spinning
+    // Rapid symbol swap while spinning — chore: vertical slide illusion
+    // Each swap: gemBall slides from -CELL_H (above) down to 0 (centre) in 65ms
     const stopAt = performance.now() + spinMs;
     while (performance.now() < stopAt) {
+      const slideDur = 65;
+      const slideStart = performance.now();
+
+      // Reset gemBall to top of cell, then swap symbol
+      for (const cell of colCells) cell.gemBall.y = -CELL_H;
       for (const cell of colCells) {
         this.setCellSymbol(cell, Math.floor(Math.random() * SYMBOLS.length));
       }
-      await delay(65);
+
+      // Slide down to centre within 65ms (~60fps sub-steps)
+      while (performance.now() - slideStart < slideDur && performance.now() < stopAt) {
+        const t = Math.min(1, (performance.now() - slideStart) / slideDur);
+        for (const cell of colCells) cell.gemBall.y = -CELL_H * (1 - t);
+        await delay(16);
+      }
     }
+    // Reset gemBall.y before lock — prevents position bleed into final symbol
+    for (const cell of colCells) cell.gemBall.y = 0;
 
     // Lock to final
     for (let r = 0; r < ROWS; r++) this.setCellSymbol(colCells[r], finalGrid[r][col]);
@@ -396,14 +410,27 @@ export class SlotReel extends Container {
       for (const cell of colCells) cell.container.alpha = 1 - p * 0.35;
     });
 
-    // Slow-mo symbol swap: 65ms → 93ms per frame (0.7× speed)
+    // Slow-mo symbol swap: 93ms per frame (0.7× speed) — chore: vertical slide illusion
     const stopAt = performance.now() + spinMs;
     while (performance.now() < stopAt) {
+      const slideDur = 93;
+      const slideStart = performance.now();
+
+      // Reset gemBall to top of cell, then swap symbol
+      for (const cell of colCells) cell.gemBall.y = -CELL_H;
       for (const cell of colCells) {
         this.setCellSymbol(cell, Math.floor(Math.random() * SYMBOLS.length));
       }
-      await delay(93);
+
+      // Slide down to centre within 93ms (~60fps sub-steps)
+      while (performance.now() - slideStart < slideDur && performance.now() < stopAt) {
+        const t = Math.min(1, (performance.now() - slideStart) / slideDur);
+        for (const cell of colCells) cell.gemBall.y = -CELL_H * (1 - t);
+        await delay(16);
+      }
     }
+    // Reset gemBall.y before lock
+    for (const cell of colCells) cell.gemBall.y = 0;
 
     // Lock to final
     for (let r = 0; r < ROWS; r++) this.setCellSymbol(colCells[r], finalGrid[r][col]);
