@@ -1,4 +1,4 @@
-import { Application, Container, FillGradient, Graphics, Text } from 'pixi.js';
+import { Application, Assets, Container, FillGradient, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import type { Screen } from './ScreenManager';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import * as T from '@/config/DesignTokens';
@@ -11,7 +11,6 @@ import {
 import type { SymbolDef } from '@/config/SymbolsConfig';
 import { buildFullPool } from '@/systems/SymbolPool';
 import { calculateScales } from '@/systems/ScaleCalculator';
-import { SpiritPortrait } from '@/components/SpiritPortrait';
 import { UiButton } from '@/components/UiButton';
 import { addCornerOrnaments } from '@/components/Decorations';
 import { AudioManager } from '@/systems/AudioManager';
@@ -21,30 +20,30 @@ import { detectResonance, type ResonanceResult } from '@/systems/Resonance';
 // ─── Clan-grouped layout ────────────────────────────────────────────────────
 const CLAN_ORDER: ClanId[] = ['azure', 'white', 'vermilion', 'black'];
 const TILE_W              = 152;
-const TILE_H              = 152;
+const TILE_H              = 185;   // chore: taller to fit full-body spirit (was 152)
 const TILE_GAP            = 40;    // horizontal gap between the 2 tiles in each row
 const BANNER_H            = 32;
 const BANNER_TO_TILES_GAP = 8;
 const CLAN_ROW_GAP        = 12;    // vertical gap between clan rows
-const ROW_H               = BANNER_H + BANNER_TO_TILES_GAP + TILE_H;   // 192
-const GRID_H              = ROW_H * 4 + CLAN_ROW_GAP * 3;              // 804
+const ROW_H               = BANNER_H + BANNER_TO_TILES_GAP + TILE_H;   // 225
+const GRID_H              = ROW_H * 4 + CLAN_ROW_GAP * 3;              // 936
 const GRID_Y              = 160;   // below title + wallet header
 const TILES_TOTAL_W       = TILE_W * 2 + TILE_GAP;                     // 344
 const TILES_START_X       = Math.round((CANVAS_WIDTH - TILES_TOTAL_W) / 2); // 188
 const MAX_PICKS           = 5;
 
 // ─── Tile sub-zones (relative to tile top-left corner) ──────────────────────
-const PORTRAIT_R  = 26;                        // portrait circle radius
-const PORTRAIT_CX = Math.round(TILE_W / 2);   // 76
-const PORTRAIT_CY = 36;                        // circle centre y (top=10, r=26 → 10+26=36)
-const NAME_Y      = 65;
-const META_Y      = 86;
-const BTN_ZONE_Y  = 110;
-const BTN_ZONE_H  = 32;
-const BTN_INSET_X = 6;
-const BTN_GAP     = 4;
-const BTN_W       = (TILE_W - 2 * BTN_INSET_X - BTN_GAP) / 2;  // 68
-const BADGE_R     = 12;
+// chore: portrait circle removed → full-body spirit sprite zone
+// commit 2: name moved to overlay on sprite top; meta to just-below-sprite strip
+const SPIRIT_ZONE_Y  = 8;                      // top padding above sprite
+const SPIRIT_ZONE_H  = 115;                    // sprite area height (name is overlay, so can be larger)
+const NAME_OVERLAY_Y = SPIRIT_ZONE_Y + 10;    // 18: name overlay in upper portion of sprite
+const BTN_ZONE_H     = 32;
+const BTN_ZONE_Y     = TILE_H - BTN_ZONE_H - 6;            // 147: bottom-aligned A/B buttons
+const BTN_INSET_X    = 6;
+const BTN_GAP        = 4;
+const BTN_W          = (TILE_W - 2 * BTN_INSET_X - BTN_GAP) / 2;  // 68
+const BADGE_R        = 12;
 
 // ─── Module-level helper ─────────────────────────────────────────────────────
 function spiritsByClan(): Record<ClanId, { sym: SymbolDef; idx: number }[]> {
@@ -347,44 +346,57 @@ export class DraftScreen implements Screen {
     const border = new Graphics();
     tile.addChild(border);
 
-    // ── Portrait circle background ──
-    tile.addChild(
-      new Graphics()
-        .circle(PORTRAIT_CX, PORTRAIT_CY, PORTRAIT_R)
-        .fill({ color: meta.color, alpha: 0.28 }),
-    );
-    tile.addChild(
-      new Graphics()
-        .circle(PORTRAIT_CX, PORTRAIT_CY, PORTRAIT_R)
-        .stroke({ width: 1.5, color: meta.color, alpha: 0.90 }),
-    );
+    // ── Clan-color glow backdrop behind sprite ──
+    const glowBg = new Graphics()
+      .roundRect(8, SPIRIT_ZONE_Y, TILE_W - 16, SPIRIT_ZONE_H, 6)
+      .fill({ color: meta.color, alpha: 0.10 });
+    tile.addChild(glowBg);
 
-    // ── Spirit portrait (actual texture) ──
-    const portrait = new SpiritPortrait(idx, 46);
-    portrait.x = PORTRAIT_CX;
-    portrait.y = PORTRAIT_CY;
-    tile.addChild(portrait);
+    // ── Full-body spirit sprite (anchor 0.5,1 = bottom-centre, fits SPIRIT_ZONE) ──
+    // chore: replaces round portrait — reuses same spiritKey as BattleScreen formation
+    const tex = Assets.get<Texture>(sym.spiritKey) ?? Texture.EMPTY;
+    const spirit = new Sprite(tex);
+    spirit.anchor.set(0.5, 1);
+    const aspect = tex.height > 0 ? tex.height / tex.width : 1.6;
+    const targetH = SPIRIT_ZONE_H;
+    const targetW = targetH / aspect;
+    spirit.width  = targetW;
+    spirit.height = targetH;
+    spirit.x = TILE_W / 2;
+    spirit.y = SPIRIT_ZONE_Y + SPIRIT_ZONE_H;   // feet at bottom of sprite zone
+    tile.addChild(spirit);
 
-    // ── Chinese spirit name ──
+    // ── Chinese spirit name — 24pt overlay on sprite top (mockup style) ──
     const name = new Text({
       text: sym.spiritName,
       style: {
         fontFamily: T.FONT.title, fontWeight: '700',
-        fontSize: T.FONT_SIZE.md, fill: T.FG.cream, letterSpacing: 2,
+        fontSize: 24,
+        fill: T.FG.cream,
+        letterSpacing: 4,
+        stroke: { color: 0x000000, width: 3, alpha: 0.7 },
+        dropShadow: {
+          color:    meta.color,
+          alpha:    0.6,
+          blur:     6,
+          distance: 0,
+        },
       },
     });
     name.anchor.set(0.5, 0);
-    name.x = TILE_W / 2; name.y = NAME_Y;
+    name.x = TILE_W / 2;
+    name.y = NAME_OVERLAY_Y;   // overlay on upper portion of sprite
     tile.addChild(name);
 
-    // ── Meta row: weight + probability ──
+    // ── Meta row: weight + probability — small strip just below sprite ──
     const prob = ((sym.weight / totalW) * 100).toFixed(1);
     const metaTxt = new Text({
-      text: `W:${sym.weight}   ${prob}%`,
-      style: { fontFamily: T.FONT.num, fontSize: T.FONT_SIZE.xs, fill: T.FG.muted },
+      text: `W:${sym.weight}  ${prob}%`,
+      style: { fontFamily: T.FONT.num, fontSize: 9, fill: T.FG.muted, letterSpacing: 1 },
     });
     metaTxt.anchor.set(0.5, 0);
-    metaTxt.x = TILE_W / 2; metaTxt.y = META_Y;
+    metaTxt.x = TILE_W / 2;
+    metaTxt.y = SPIRIT_ZONE_Y + SPIRIT_ZONE_H + 4;   // just below sprite zone
     tile.addChild(metaTxt);
 
     // ── Pick button A ──
@@ -641,7 +653,8 @@ export class DraftScreen implements Screen {
       fillColor = teamDeep;  fillAlpha = 0.8;
       strokeColor = T.GOLD.base; labelColor = T.FG.white;
     } else {
-      fillColor = teamDeep;  fillAlpha = 0.45;
+      // chore: darkened normal-state fill 0.45→0.60 for legibility on busy sprite tile bg
+      fillColor = teamDeep;  fillAlpha = 0.60;
       strokeColor = team;    labelColor = teamGlow;
     }
 
