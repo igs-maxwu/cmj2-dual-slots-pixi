@@ -369,26 +369,31 @@ export class DraftScreen implements Screen {
     spirit.y = SPIRIT_ZONE_Y + SPIRIT_ZONE_H;   // feet at bottom of sprite zone
     tile.addChild(spirit);
 
-    // ── Chinese spirit name — 24pt overlay on sprite top (mockup style) ──
+    // ── Name strip ABOVE sprite — dedicated clan-color backdrop (no longer overlay) ──
+    const nameBg = new Graphics()
+      .roundRect(8, NAME_STRIP_Y, TILE_W - 16, NAME_STRIP_H, 6)
+      .fill({ color: meta.color, alpha: 0.18 })
+      .stroke({ width: 1, color: meta.color, alpha: 0.55 });
+    tile.addChild(nameBg);
+
     const name = new Text({
       text: sym.spiritName,
       style: {
         fontFamily: T.FONT.title, fontWeight: '700',
-        fontSize: 24,
+        fontSize: 22,                                       // 24→22: fits strip cleanly
         fill: T.FG.cream,
         letterSpacing: 4,
-        stroke: { color: 0x000000, width: 3, alpha: 0.7 },
         dropShadow: {
-          color:    meta.color,
+          color:    meta.color,                             // clan-color atmosphere
           alpha:    0.6,
           blur:     6,
           distance: 0,
         },
       },
     });
-    name.anchor.set(0.5, 0);
+    name.anchor.set(0.5, 0.5);
     name.x = TILE_W / 2;
-    name.y = SPIRIT_ZONE_Y + 10;   // temporary — replaced in commit 2 (name strip)
+    name.y = NAME_STRIP_Y + NAME_STRIP_H / 2;              // strip vertical centre
     tile.addChild(name);
 
     // ── Meta row: weight + probability — small strip just below sprite ──
@@ -399,7 +404,7 @@ export class DraftScreen implements Screen {
     });
     metaTxt.anchor.set(0.5, 0);
     metaTxt.x = TILE_W / 2;
-    metaTxt.y = SPIRIT_ZONE_Y + SPIRIT_ZONE_H + 4;   // just below sprite zone
+    metaTxt.y = META_Y;
     tile.addChild(metaTxt);
 
     // ── Pick button A ──
