@@ -19,30 +19,33 @@ import { detectResonance, type ResonanceResult } from '@/systems/Resonance';
 
 // ─── Clan-grouped layout ────────────────────────────────────────────────────
 const CLAN_ORDER: ClanId[] = ['azure', 'white', 'vermilion', 'black'];
-const TILE_W              = 152;
-const TILE_H              = 185;   // chore: taller to fit full-body spirit (was 152)
-const TILE_GAP            = 40;    // horizontal gap between the 2 tiles in each row
+// chore: widen tile to use canvas horizontal space (was 152px → large wasted margin)
+// CANVAS_WIDTH 720 - 52px*2 side margin - 24px gap = 592 / 2 ≈ 296 each tile
+const TILE_W              = 296;        // was 152 — uses ~82% canvas width
+const TILE_H              = 185;        // unchanged (200 overflows goButton past 1280px canvas)
+const TILE_GAP            = 24;         // was 40 — tighter gap, tile width compensates
 const BANNER_H            = 32;
 const BANNER_TO_TILES_GAP = 8;
 const CLAN_ROW_GAP        = 12;    // vertical gap between clan rows
 const ROW_H               = BANNER_H + BANNER_TO_TILES_GAP + TILE_H;   // 225
 const GRID_H              = ROW_H * 4 + CLAN_ROW_GAP * 3;              // 936
 const GRID_Y              = 160;   // below title + wallet header
-const TILES_TOTAL_W       = TILE_W * 2 + TILE_GAP;                     // 344
-const TILES_START_X       = Math.round((CANVAS_WIDTH - TILES_TOTAL_W) / 2); // 188
+const TILES_TOTAL_W       = TILE_W * 2 + TILE_GAP;                     // 616
+const TILES_START_X       = Math.round((CANVAS_WIDTH - TILES_TOTAL_W) / 2); // 52
 const MAX_PICKS           = 5;
 
 // ─── Tile sub-zones (relative to tile top-left corner) ──────────────────────
-// chore: portrait circle removed → full-body spirit sprite zone
-// commit 2: name moved to overlay on sprite top; meta to just-below-sprite strip
-const SPIRIT_ZONE_Y  = 8;                      // top padding above sprite
-const SPIRIT_ZONE_H  = 115;                    // sprite area height (name is overlay, so can be larger)
-const NAME_OVERLAY_Y = SPIRIT_ZONE_Y + 10;    // 18: name overlay in upper portion of sprite
+// chore: name strip ABOVE sprite (dedicated, no longer overlay hiding character)
+const NAME_STRIP_Y   = 8;                                    // top margin before name strip
+const NAME_STRIP_H   = 28;                                   // 22pt text + 3px pad each side
+const SPIRIT_ZONE_Y  = NAME_STRIP_Y + NAME_STRIP_H + 4;     // 40: sprite zone starts here
+const SPIRIT_ZONE_H  = 85;                                   // sprite area height
+const META_Y         = SPIRIT_ZONE_Y + SPIRIT_ZONE_H + 2;   // 127: weight strip just below sprite
 const BTN_ZONE_H     = 32;
-const BTN_ZONE_Y     = TILE_H - BTN_ZONE_H - 6;            // 147: bottom-aligned A/B buttons
+const BTN_ZONE_Y     = TILE_H - BTN_ZONE_H - 6;             // 147: bottom-aligned A/B buttons
 const BTN_INSET_X    = 6;
 const BTN_GAP        = 4;
-const BTN_W          = (TILE_W - 2 * BTN_INSET_X - BTN_GAP) / 2;  // 68
+const BTN_W          = (TILE_W - 2 * BTN_INSET_X - BTN_GAP) / 2;  // 140
 const BADGE_R        = 12;
 
 // ─── Module-level helper ─────────────────────────────────────────────────────
@@ -385,7 +388,7 @@ export class DraftScreen implements Screen {
     });
     name.anchor.set(0.5, 0);
     name.x = TILE_W / 2;
-    name.y = NAME_OVERLAY_Y;   // overlay on upper portion of sprite
+    name.y = SPIRIT_ZONE_Y + 10;   // temporary — replaced in commit 2 (name strip)
     tile.addChild(name);
 
     // ── Meta row: weight + probability — small strip just below sprite ──
