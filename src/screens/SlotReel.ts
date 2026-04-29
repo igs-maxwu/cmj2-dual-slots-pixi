@@ -563,6 +563,60 @@ export class SlotReel extends Container {
       .fill(0xffffff);
   }
 
+  /**
+   * Draw an animated arrow from one cell to another (SlotReel-local coords).
+   * Starts a fire-and-forget 100ms fade-in and returns the Graphics ref for
+   * the caller to manage cleanup (fade-out + destroy).
+   */
+  private drawArrow(from: Cell, to: Cell, tint: number): Graphics {
+    const arrow = new Graphics();
+    arrow.alpha = 0;
+    this.addChild(arrow);
+
+    const fx = from.container.x;
+    const fy = from.container.y;
+    const tx = to.container.x;
+    const ty = to.container.y;
+    const dx = tx - fx;
+    const dy = ty - fy;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const ux = dx / len;
+    const uy = dy / len;
+
+    // Inset endpoints so line doesn't overlap cell centre markers
+    const inset = 32;
+    const sx = fx + ux * inset;
+    const sy = fy + uy * inset;
+    const ex = tx - ux * inset;
+    const ey = ty - uy * inset;
+
+    // Glow underlay (thick, semi-transparent)
+    arrow
+      .moveTo(sx, sy).lineTo(ex, ey)
+      .stroke({ width: 8, color: tint, alpha: 0.35, cap: 'round' });
+
+    // Main line
+    arrow
+      .moveTo(sx, sy).lineTo(ex, ey)
+      .stroke({ width: 3, color: tint, alpha: 1, cap: 'round' });
+
+    // Arrowhead triangle at endpoint
+    const headSize = 14;
+    const perpX = -uy;
+    const perpY =  ux;
+    arrow
+      .moveTo(ex, ey)
+      .lineTo(ex - ux * headSize + perpX * headSize * 0.5, ey - uy * headSize + perpY * headSize * 0.5)
+      .lineTo(ex - ux * headSize - perpX * headSize * 0.5, ey - uy * headSize - perpY * headSize * 0.5)
+      .closePath()
+      .fill({ color: tint, alpha: 1 });
+
+    // Fire-and-forget fade-in (runs concurrently with caller's popCell await)
+    void tween(100, t => { arrow.alpha = t; });
+
+    return arrow;
+  }
+
   // ─── Ways win highlights ─────────────────────────────────────────────────
   async highlightWays(hitA: WayHit[], hitB: WayHit[]): Promise<void> {
     const pulses: Promise<void>[] = [];
