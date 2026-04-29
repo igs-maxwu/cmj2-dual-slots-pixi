@@ -2205,17 +2205,23 @@ export class BattleScreen implements Screen {
       const draftedHits    = hits.filter(h => !h.isMercenary);
       const mercenaryHits  = hits.filter(h =>  h.isMercenary);
 
+      // chore: cellsA/B are 5-elem dense (active spirits only); formation is 9-elem sparse.
+      // Use compact active arrays so findIndex / filter-index align with cell index space.
+      const activeAttackers = attackerFormation.filter(u => u !== null);
+      const activeDefenders = defenderFormation.filter(u => u !== null);
+
       // Best drafted → full T0 (one per side)
       const bestDrafted = draftedHits.reduce<WayHit | null>((b, h) =>
         !b || h.matchCount * h.numWays > b.matchCount * b.numWays ? h : b, null);
 
       if (bestDrafted) {
-        const slot = attackerFormation.findIndex(
+        // chore: use activeAttackers (matches cellsA index space 0..4)
+        const slot = activeAttackers.findIndex(
           u => u && u.alive && u.symbolId === bestDrafted.symbolId);
         if (slot >= 0) {
           const origin  = attackerCells[slot].container;
           const targets = defenderCells
-            .filter((_, i) => defenderFormation[i]?.alive)
+            .filter((_, i) => activeDefenders[i]?.alive)   // chore: activeDefenders aligned with defenderCells
             .slice(0, 3)
             .map(c => ({ x: c.container.x, y: c.container.y }));
           if (targets.length > 0) {
@@ -2233,7 +2239,7 @@ export class BattleScreen implements Screen {
       // Each mercenary hit → lightweight flash (all run concurrently)
       for (const mh of mercenaryHits) {
         const targets = defenderCells
-          .filter((_, i) => defenderFormation[i]?.alive)
+          .filter((_, i) => activeDefenders[i]?.alive)     // chore: aligned with defenderCells
           .slice(0, 3)
           .map(c => ({ x: c.container.x, y: c.container.y }));
         if (targets.length > 0) {
