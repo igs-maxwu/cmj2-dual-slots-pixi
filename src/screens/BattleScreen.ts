@@ -1802,6 +1802,8 @@ export class BattleScreen implements Screen {
             this.inFreeSpin = true;
             this.freeSpinsRemaining = BattleScreen.FREE_SPIN_COUNT;
             if (import.meta.env.DEV) console.log(`[FreeSpin] TRIGGERED — ${scatterThisSpin} scatters → 5 spins`);
+            // Stop AUTO on FreeSpin so player notices the event
+            if (this.autoSpinsRemaining > 0) this.stopAutoMode();
           } else {
             // Retrigger during free spin — add 5 more, cap 50
             this.freeSpinsRemaining = Math.min(50, this.freeSpinsRemaining + BattleScreen.FREE_SPIN_COUNT);
@@ -2105,6 +2107,9 @@ export class BattleScreen implements Screen {
     }
 
     if (!this.running) return;
+
+    // Ensure AUTO mode is cleared when match ends naturally
+    this.stopAutoMode();
 
     // ── res-01: Determine outcome + emit MatchResult ──────────────────────────
     const aAlive = isTeamAlive(this.formationA);
@@ -2426,6 +2431,9 @@ export class BattleScreen implements Screen {
     if (import.meta.env.DEV) {
       console.log(`[Jackpot] TRIGGERED tier=${tier} award=${award} (each side +${halfAward})`);
     }
+
+    // Stop AUTO on JP win so player witnesses the ceremony uninterrupted
+    if (this.autoSpinsRemaining > 0) this.stopAutoMode();
 
     // Full ceremony (j-04)
     await playJackpotCeremony(this.container, tier, award);
