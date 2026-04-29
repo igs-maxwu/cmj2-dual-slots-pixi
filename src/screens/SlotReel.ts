@@ -1,4 +1,4 @@
-import { Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
+import { Assets, BlurFilter, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { GlowFilter } from 'pixi-filters';
 import * as T from '@/config/DesignTokens';
 import { SYMBOLS } from '@/config/SymbolsConfig';
@@ -68,10 +68,16 @@ export type { WayHit } from '@/systems/SlotEngine';
 export class SlotReel extends Container {
   private cells: Cell[][] = [];
 
+  // chore: light streak layer (gold strips top/bottom edges, visible during spin)
+  private streakLayer?: Container;
+  private streakA?: Graphics;
+  private streakB?: Graphics;
+
   constructor() {
     super();
     this.buildFrame();
     this.buildCells();
+    this.buildLightStreaks();
   }
 
   // ─── Build ──────────────────────────────────────────────────────────────
@@ -286,6 +292,33 @@ export class SlotReel extends Container {
     }
   }
 
+  // ─── Light streaks ───────────────────────────────────────────────────────
+  /** Gold strip bars at top/bottom edges of each column — fade in/out on spin. */
+  private buildLightStreaks(): void {
+    this.streakLayer = new Container();
+    this.streakLayer.visible = false;
+    this.addChild(this.streakLayer);
+
+    this.streakA = new Graphics();
+    this.streakB = new Graphics();
+
+    for (let c = 0; c < COLS; c++) {
+      const cx = FRAME_PAD + c * (CELL_W + CELL_GAP) + CELL_W / 2;
+      // Top streak — just inside the top frame edge
+      this.streakA
+        .rect(cx - 8, FRAME_PAD - 4, 16, 12)
+        .fill({ color: T.GOLD.glow, alpha: 1 });
+      // Bottom streak — just inside the bottom frame edge
+      this.streakB
+        .rect(cx - 8, REEL_H - FRAME_PAD - 8, 16, 12)
+        .fill({ color: T.GOLD.glow, alpha: 1 });
+    }
+    this.streakA.alpha = 0;
+    this.streakB.alpha = 0;
+    this.streakLayer.addChild(this.streakA);
+    this.streakLayer.addChild(this.streakB);
+  }
+
   // ─── Spin ────────────────────────────────────────────────────────────────
   /**
    * Spec-locked stop times (measured from spin() call, settle phase excluded):
@@ -297,6 +330,15 @@ export class SlotReel extends Container {
    * Each group is separated by 500 ms.
    */
   async spin(finalGrid: number[][]): Promise<void> {
+    // chore: light streak fade-in at spin start
+    if (this.streakLayer) {
+      this.streakLayer.visible = true;
+      void tween(180, t => {
+        if (this.streakA) this.streakA.alpha = t * 0.6;
+        if (this.streakB) this.streakB.alpha = t * 0.6;
+      });
+    }
+
     // Outer pair — start immediately, lock at t ≈ 600ms
     const p04 = Promise.all([
       this.spinColumn(0, finalGrid, 510),
@@ -320,6 +362,15 @@ export class SlotReel extends Container {
     const p2 = this.spinColumnCenter(2, finalGrid, 310, teaser);
 
     await Promise.all([p04, p13, p2]);
+
+    // chore: light streak fade-out at spin end
+    if (this.streakLayer) {
+      await tween(180, t => {
+        if (this.streakA) this.streakA.alpha = (1 - t) * 0.6;
+        if (this.streakB) this.streakB.alpha = (1 - t) * 0.6;
+      });
+      this.streakLayer.visible = false;
+    }
   }
 
   private async spinColumn(col: number, finalGrid: number[][], spinMs: number): Promise<void> {
@@ -330,14 +381,32 @@ export class SlotReel extends Container {
       for (const cell of colCells) cell.container.alpha = 1 - p * 0.35;
     });
 
-    // Rapid symbol swap while spinning
+    // Rapid symbol swap while spinning — chore: vertical slide illusion
+    // Each swap: gemBall slides from -CELL_H (above) down to 0 (centre) in 65ms
+    // chore: vertical motion blur active during spin (removed on lock by setCellSymbol)
+    const blur = new BlurFilter({ strengthX: 0, strengthY: 16, quality: 2 });
+
     const stopAt = performance.now() + spinMs;
     while (performance.now() < stopAt) {
+      const slideDur = 65;
+      const slideStart = performance.now();
+
+      // Reset gemBall to top of cell, then swap symbol
+      for (const cell of colCells) cell.gemBall.y = -CELL_H;
       for (const cell of colCells) {
         this.setCellSymbol(cell, Math.floor(Math.random() * SYMBOLS.length));
+        cell.gemBall.filters = [blur]; // re-apply after setCellSymbol resets to GlowFilter
       }
-      await delay(65);
+
+      // Slide down to centre within 65ms (~60fps sub-steps)
+      while (performance.now() - slideStart < slideDur && performance.now() < stopAt) {
+        const t = Math.min(1, (performance.now() - slideStart) / slideDur);
+        for (const cell of colCells) cell.gemBall.y = -CELL_H * (1 - t);
+        await delay(16);
+      }
     }
+    // Reset gemBall.y before lock — prevents position bleed into final symbol
+    for (const cell of colCells) cell.gemBall.y = 0;
 
     // Lock to final
     for (let r = 0; r < ROWS; r++) this.setCellSymbol(colCells[r], finalGrid[r][col]);
@@ -396,14 +465,31 @@ export class SlotReel extends Container {
       for (const cell of colCells) cell.container.alpha = 1 - p * 0.35;
     });
 
-    // Slow-mo symbol swap: 65ms → 93ms per frame (0.7× speed)
+    // Slow-mo symbol swap: 93ms per frame (0.7× speed) — chore: vertical slide illusion
+    // chore: stronger vertical blur for centre column (more dramatic slow-mo feel)
+    const blur = new BlurFilter({ strengthX: 0, strengthY: 22, quality: 2 });
+
     const stopAt = performance.now() + spinMs;
     while (performance.now() < stopAt) {
+      const slideDur = 93;
+      const slideStart = performance.now();
+
+      // Reset gemBall to top of cell, then swap symbol
+      for (const cell of colCells) cell.gemBall.y = -CELL_H;
       for (const cell of colCells) {
         this.setCellSymbol(cell, Math.floor(Math.random() * SYMBOLS.length));
+        cell.gemBall.filters = [blur]; // re-apply after setCellSymbol resets to GlowFilter
       }
-      await delay(93);
+
+      // Slide down to centre within 93ms (~60fps sub-steps)
+      while (performance.now() - slideStart < slideDur && performance.now() < stopAt) {
+        const t = Math.min(1, (performance.now() - slideStart) / slideDur);
+        for (const cell of colCells) cell.gemBall.y = -CELL_H * (1 - t);
+        await delay(16);
+      }
     }
+    // Reset gemBall.y before lock
+    for (const cell of colCells) cell.gemBall.y = 0;
 
     // Lock to final
     for (let r = 0; r < ROWS; r++) this.setCellSymbol(colCells[r], finalGrid[r][col]);
