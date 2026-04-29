@@ -515,6 +515,54 @@ export class SlotReel extends Container {
     for (const cell of colCells) cell.overlay.alpha = 0;
   }
 
+  // ─── Win-trace helpers ───────────────────────────────────────────────────
+
+  /**
+   * Pop all cells in each column sequentially (column 0 first, then 1, …).
+   * Each column's cells pop in parallel; columns are awaited in order.
+   */
+  private async popCellSequence(
+    targets: Cell[][],
+    tint: number,
+    stepMs: number = 100,
+  ): Promise<void> {
+    for (const colTargets of targets) {
+      await Promise.all(colTargets.map(cell => this.popCell(cell, tint, stepMs)));
+    }
+  }
+
+  /** Scale + glow pulse on a single cell. Restores state on completion. */
+  private async popCell(cell: Cell, tint: number, durMs: number): Promise<void> {
+    const baseScale = cell.container.scale.x;
+
+    // Tint overlay
+    cell.overlay.clear()
+      .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
+      .fill(tint);
+
+    // Temp glow — save/restore original gemBall filters (set by setCellSymbol)
+    const savedFilters = cell.gemBall.filters ? [...cell.gemBall.filters] : null;
+    const glow = new GlowFilter({
+      color: tint, distance: 14, outerStrength: 2.5, innerStrength: 0.6, quality: 0.5,
+    });
+    cell.gemBall.filters = [glow];
+
+    await tween(durMs, t => {
+      const p = Easings.pulse(t);
+      cell.container.scale.set(baseScale + 0.3 * p);
+      cell.overlay.alpha = p * 0.7;
+      glow.outerStrength = p * 4;
+    });
+
+    // Restore
+    cell.container.scale.set(baseScale);
+    cell.gemBall.filters = savedFilters;
+    cell.overlay.alpha = 0;
+    cell.overlay.clear()
+      .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
+      .fill(0xffffff);
+  }
+
   // ─── Ways win highlights ─────────────────────────────────────────────────
   async highlightWays(hitA: WayHit[], hitB: WayHit[]): Promise<void> {
     const pulses: Promise<void>[] = [];
