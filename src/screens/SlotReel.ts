@@ -515,6 +515,108 @@ export class SlotReel extends Container {
     for (const cell of colCells) cell.overlay.alpha = 0;
   }
 
+  // ─── Win-trace helpers ───────────────────────────────────────────────────
+
+  /**
+   * Pop all cells in each column sequentially (column 0 first, then 1, …).
+   * Each column's cells pop in parallel; columns are awaited in order.
+   */
+  private async popCellSequence(
+    targets: Cell[][],
+    tint: number,
+    stepMs: number = 100,
+  ): Promise<void> {
+    for (const colTargets of targets) {
+      await Promise.all(colTargets.map(cell => this.popCell(cell, tint, stepMs)));
+    }
+  }
+
+  /** Scale + glow pulse on a single cell. Restores state on completion. */
+  private async popCell(cell: Cell, tint: number, durMs: number): Promise<void> {
+    const baseScale = cell.container.scale.x;
+
+    // Tint overlay
+    cell.overlay.clear()
+      .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
+      .fill(tint);
+
+    // Temp glow — save/restore original gemBall filters (set by setCellSymbol)
+    const savedFilters = cell.gemBall.filters ? [...cell.gemBall.filters] : null;
+    const glow = new GlowFilter({
+      color: tint, distance: 14, outerStrength: 2.5, innerStrength: 0.6, quality: 0.5,
+    });
+    cell.gemBall.filters = [glow];
+
+    await tween(durMs, t => {
+      const p = Easings.pulse(t);
+      cell.container.scale.set(baseScale + 0.3 * p);
+      cell.overlay.alpha = p * 0.7;
+      glow.outerStrength = p * 4;
+    });
+
+    // Restore
+    cell.container.scale.set(baseScale);
+    cell.gemBall.filters = savedFilters;
+    cell.overlay.alpha = 0;
+    cell.overlay.clear()
+      .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
+      .fill(0xffffff);
+  }
+
+  /**
+   * Draw an animated arrow from one cell to another (SlotReel-local coords).
+   * Starts a fire-and-forget 100ms fade-in and returns the Graphics ref for
+   * the caller to manage cleanup (fade-out + destroy).
+   */
+  private drawArrow(from: Cell, to: Cell, tint: number): Graphics {
+    const arrow = new Graphics();
+    arrow.alpha = 0;
+    this.addChild(arrow);
+
+    const fx = from.container.x;
+    const fy = from.container.y;
+    const tx = to.container.x;
+    const ty = to.container.y;
+    const dx = tx - fx;
+    const dy = ty - fy;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const ux = dx / len;
+    const uy = dy / len;
+
+    // Inset endpoints so line doesn't overlap cell centre markers
+    const inset = 32;
+    const sx = fx + ux * inset;
+    const sy = fy + uy * inset;
+    const ex = tx - ux * inset;
+    const ey = ty - uy * inset;
+
+    // Glow underlay (thick, semi-transparent)
+    arrow
+      .moveTo(sx, sy).lineTo(ex, ey)
+      .stroke({ width: 8, color: tint, alpha: 0.35, cap: 'round' });
+
+    // Main line
+    arrow
+      .moveTo(sx, sy).lineTo(ex, ey)
+      .stroke({ width: 3, color: tint, alpha: 1, cap: 'round' });
+
+    // Arrowhead triangle at endpoint
+    const headSize = 14;
+    const perpX = -uy;
+    const perpY =  ux;
+    arrow
+      .moveTo(ex, ey)
+      .lineTo(ex - ux * headSize + perpX * headSize * 0.5, ey - uy * headSize + perpY * headSize * 0.5)
+      .lineTo(ex - ux * headSize - perpX * headSize * 0.5, ey - uy * headSize - perpY * headSize * 0.5)
+      .closePath()
+      .fill({ color: tint, alpha: 1 });
+
+    // Fire-and-forget fade-in (runs concurrently with caller's popCell await)
+    void tween(100, t => { arrow.alpha = t; });
+
+    return arrow;
+  }
+
   // ─── Ways win highlights ─────────────────────────────────────────────────
   async highlightWays(hitA: WayHit[], hitB: WayHit[]): Promise<void> {
     const pulses: Promise<void>[] = [];
@@ -528,62 +630,40 @@ export class SlotReel extends Container {
     const anchorCol = side === 'A' ? 0 : COLS - 1;
     const tint      = side === 'A' ? T.TEAM.azureGlow : T.TEAM.vermilionGlow;
 
-    const targets: Cell[] = [];
+    // Build targets indexed by column offset — targets[i] = cells at column (anchorCol + i*dir)
+    const targets: Cell[][] = [];
     for (let offset = 0; offset < hit.hitCells.length; offset++) {
       const actualCol = anchorCol + offset * dir;
-      for (const row of hit.hitCells[offset]) {
-        targets.push(this.cells[actualCol][row]);
+      targets.push(hit.hitCells[offset].map(row => this.cells[actualCol][row]));
+    }
+
+    // chore: sequential connect-the-dots trace — pop col-by-col with arrow connectors
+    const arrows: Graphics[] = [];
+    const STEP_MS = 100;
+
+    for (let i = 0; i < targets.length; i++) {
+      if (i === 0) {
+        // First column: just pop (no arrow yet)
+        await Promise.all(targets[0].map(c => this.popCell(c, tint, STEP_MS)));
+      } else {
+        // Draw arrow from rep-cell of previous col to rep-cell of current col (fire-and-forget fade-in)
+        const fromCell = targets[i - 1][0];
+        const toCell   = targets[i][0];
+        const arrow = this.drawArrow(fromCell, toCell, tint);
+        arrows.push(arrow);
+        // Pop current column concurrently with arrow fade-in (both 100ms)
+        await Promise.all(targets[i].map(c => this.popCell(c, tint, STEP_MS)));
       }
     }
 
-    // Existing overlay tint — kept for backwards-compat with other systems
-    for (const cell of targets) {
-      cell.overlay.clear()
-        .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
-        .fill(tint);
-    }
+    // Hold final state with all arrows visible
+    await delay(300);
 
-    // d-06: win-frame sprite on each hit cell with shared GlowFilter pulse
-    // One GlowFilter per pulseWay call; shared across frames in this wave —
-    // multiple concurrent pulseWay calls each have their own isolated glow instance.
-    const tex = Assets.get<Texture>('sos2-win-frame');
-    const frames: Sprite[] = [];
-    let glow: GlowFilter | null = null;
-    if (tex && tex !== Texture.EMPTY) {
-      glow = new GlowFilter({
-        color: tint, distance: 8, outerStrength: 0, innerStrength: 0.3, quality: 0.4,
-      });
-      for (const cell of targets) {
-        const f = new Sprite(tex);
-        f.anchor.set(0.5);
-        f.tint = tint;
-        f.width  = CELL_W + 8;   // slight visual padding beyond cell boundary
-        f.height = CELL_H + 8;
-        f.alpha = 0;
-        f.filters = [glow];       // share one filter instance — no per-frame rebuild
-        cell.container.addChild(f);
-        frames.push(f);
-      }
-    }
-
-    // Pulse: overlay alpha + frame alpha + glow outerStrength all driven by Easings.pulse
-    await tween(330, p => {
-      const a = Easings.pulse(p);
-      for (const cell of targets) cell.overlay.alpha = a * 0.7;
-      if (glow && frames.length) {
-        glow.outerStrength = a * 3.5;
-        for (const f of frames) f.alpha = a;
-      }
+    // Fade out arrows then destroy
+    await tween(220, t => {
+      for (const a of arrows) a.alpha = 1 - t;
     });
-
-    // Cleanup: restore overlay; destroy all frame sprites (unrefs glow filter)
-    for (const cell of targets) {
-      cell.overlay.alpha = 0;
-      cell.overlay.clear()
-        .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
-        .fill(0xffffff);
-    }
-    for (const f of frames) f.destroy();
+    for (const a of arrows) a.destroy();
   }
 
   // ─── Jackpot particles ───────────────────────────────────────────────────
