@@ -1256,17 +1256,19 @@ export class BattleScreen implements Screen {
     if (this.autoButtonText) this.refreshAutoButtonLabel();
   }
 
-  /** Update AUTO button text and border to reflect current autoSpinsRemaining. */
+  /** Update AUTO button text, border, and text fill to reflect current autoSpinsRemaining. */
   private refreshAutoButtonLabel(): void {
     if (!this.autoButtonText || !this.autoButtonBg) return;
     if (this.autoSpinsRemaining > 0) {
-      this.autoButtonText.text = `STOP ${this.autoSpinsRemaining}`;
+      this.autoButtonText.text        = `STOP ${this.autoSpinsRemaining}`;
+      this.autoButtonText.style.fill  = T.GOLD.glow;    // gold text when active
       this.autoButton.alpha = 0.85;
       this.autoButtonBg.clear()
         .roundRect(0, 0, GHOST_BTN_W, GHOST_BTN_H, 4)
         .stroke({ width: 1.5, color: T.GOLD.glow, alpha: 0.9 });
     } else {
-      this.autoButtonText.text = 'AUTO';
+      this.autoButtonText.text        = 'AUTO';
+      this.autoButtonText.style.fill  = T.FG.muted;     // muted when idle
       this.autoButton.alpha = 1;
       this.autoButtonBg.clear()
         .roundRect(0, 0, GHOST_BTN_W, GHOST_BTN_H, 4)
@@ -1380,7 +1382,7 @@ export class BattleScreen implements Screen {
     title.y = panelY + 22;
     menu.addChild(title);
 
-    // 4 count options — 2×2 grid
+    // 4 count options — 2×2 grid with hover highlight
     const counts = [10, 25, 50, 100];
     const btnW = 110, btnH = 44, gap = 12;
     const gridX0 = panelX + (panelW - 2 * btnW - gap) / 2;
@@ -1391,6 +1393,19 @@ export class BattleScreen implements Screen {
       const btn = this.drawGhostButton(`${n}`, () => this.setAutoSpins(n));
       btn.x = gridX0 + col * (btnW + gap);
       btn.y = gridY0 + row * (btnH + gap);
+      // Hover highlight — bg fills on pointerover, clears on pointerout
+      const btnBg = btn.getChildAt(0) as Graphics;
+      btn.on('pointerover', () => {
+        btnBg.clear()
+          .roundRect(0, 0, GHOST_BTN_W, GHOST_BTN_H, 4)
+          .fill({ color: T.GOLD.base, alpha: 0.15 })
+          .stroke({ width: 1.5, color: T.GOLD.glow, alpha: 0.8 });
+      });
+      btn.on('pointerout', () => {
+        btnBg.clear()
+          .roundRect(0, 0, GHOST_BTN_W, GHOST_BTN_H, 4)
+          .stroke({ width: 1, color: T.FG.muted, alpha: 0.5 });
+      });
       menu.addChild(btn);
     });
 
