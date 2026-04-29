@@ -653,7 +653,8 @@ export class DraftScreen implements Screen {
       fillColor = teamDeep;  fillAlpha = 0.8;
       strokeColor = T.GOLD.base; labelColor = T.FG.white;
     } else {
-      fillColor = teamDeep;  fillAlpha = 0.45;
+      // chore: darkened normal-state fill 0.45→0.60 for legibility on busy sprite tile bg
+      fillColor = teamDeep;  fillAlpha = 0.60;
       strokeColor = team;    labelColor = teamGlow;
     }
 
