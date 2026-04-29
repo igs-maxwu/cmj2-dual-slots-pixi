@@ -1,4 +1,4 @@
-import { Application, Container, FillGradient, Graphics, Text } from 'pixi.js';
+import { Application, Assets, Container, FillGradient, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import type { Screen } from './ScreenManager';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import * as T from '@/config/DesignTokens';
@@ -11,7 +11,6 @@ import {
 import type { SymbolDef } from '@/config/SymbolsConfig';
 import { buildFullPool } from '@/systems/SymbolPool';
 import { calculateScales } from '@/systems/ScaleCalculator';
-import { SpiritPortrait } from '@/components/SpiritPortrait';
 import { UiButton } from '@/components/UiButton';
 import { addCornerOrnaments } from '@/components/Decorations';
 import { AudioManager } from '@/systems/AudioManager';
@@ -21,30 +20,30 @@ import { detectResonance, type ResonanceResult } from '@/systems/Resonance';
 // ─── Clan-grouped layout ────────────────────────────────────────────────────
 const CLAN_ORDER: ClanId[] = ['azure', 'white', 'vermilion', 'black'];
 const TILE_W              = 152;
-const TILE_H              = 152;
+const TILE_H              = 185;   // chore: taller to fit full-body spirit (was 152)
 const TILE_GAP            = 40;    // horizontal gap between the 2 tiles in each row
 const BANNER_H            = 32;
 const BANNER_TO_TILES_GAP = 8;
 const CLAN_ROW_GAP        = 12;    // vertical gap between clan rows
-const ROW_H               = BANNER_H + BANNER_TO_TILES_GAP + TILE_H;   // 192
-const GRID_H              = ROW_H * 4 + CLAN_ROW_GAP * 3;              // 804
+const ROW_H               = BANNER_H + BANNER_TO_TILES_GAP + TILE_H;   // 225
+const GRID_H              = ROW_H * 4 + CLAN_ROW_GAP * 3;              // 936
 const GRID_Y              = 160;   // below title + wallet header
 const TILES_TOTAL_W       = TILE_W * 2 + TILE_GAP;                     // 344
 const TILES_START_X       = Math.round((CANVAS_WIDTH - TILES_TOTAL_W) / 2); // 188
 const MAX_PICKS           = 5;
 
 // ─── Tile sub-zones (relative to tile top-left corner) ──────────────────────
-const PORTRAIT_R  = 26;                        // portrait circle radius
-const PORTRAIT_CX = Math.round(TILE_W / 2);   // 76
-const PORTRAIT_CY = 36;                        // circle centre y (top=10, r=26 → 10+26=36)
-const NAME_Y      = 65;
-const META_Y      = 86;
-const BTN_ZONE_Y  = 110;
-const BTN_ZONE_H  = 32;
-const BTN_INSET_X = 6;
-const BTN_GAP     = 4;
-const BTN_W       = (TILE_W - 2 * BTN_INSET_X - BTN_GAP) / 2;  // 68
-const BADGE_R     = 12;
+// chore: portrait circle removed → full-body spirit sprite zone
+const SPIRIT_ZONE_Y  = 8;                      // top padding above sprite
+const SPIRIT_ZONE_H  = 90;                     // sprite area height (fits below-sprite name strip)
+const NAME_Y         = SPIRIT_ZONE_Y + SPIRIT_ZONE_H + 8;  // 106: name strip below sprite
+const META_Y         = NAME_Y + 22;            // 128: weight % below name
+const BTN_ZONE_H     = 32;
+const BTN_ZONE_Y     = TILE_H - BTN_ZONE_H - 6;            // 147: bottom-aligned A/B buttons
+const BTN_INSET_X    = 6;
+const BTN_GAP        = 4;
+const BTN_W          = (TILE_W - 2 * BTN_INSET_X - BTN_GAP) / 2;  // 68
+const BADGE_R        = 12;
 
 // ─── Module-level helper ─────────────────────────────────────────────────────
 function spiritsByClan(): Record<ClanId, { sym: SymbolDef; idx: number }[]> {
@@ -347,23 +346,25 @@ export class DraftScreen implements Screen {
     const border = new Graphics();
     tile.addChild(border);
 
-    // ── Portrait circle background ──
-    tile.addChild(
-      new Graphics()
-        .circle(PORTRAIT_CX, PORTRAIT_CY, PORTRAIT_R)
-        .fill({ color: meta.color, alpha: 0.28 }),
-    );
-    tile.addChild(
-      new Graphics()
-        .circle(PORTRAIT_CX, PORTRAIT_CY, PORTRAIT_R)
-        .stroke({ width: 1.5, color: meta.color, alpha: 0.90 }),
-    );
+    // ── Clan-color glow backdrop behind sprite ──
+    const glowBg = new Graphics()
+      .roundRect(8, SPIRIT_ZONE_Y, TILE_W - 16, SPIRIT_ZONE_H, 6)
+      .fill({ color: meta.color, alpha: 0.10 });
+    tile.addChild(glowBg);
 
-    // ── Spirit portrait (actual texture) ──
-    const portrait = new SpiritPortrait(idx, 46);
-    portrait.x = PORTRAIT_CX;
-    portrait.y = PORTRAIT_CY;
-    tile.addChild(portrait);
+    // ── Full-body spirit sprite (anchor 0.5,1 = bottom-centre, fits SPIRIT_ZONE) ──
+    // chore: replaces round portrait — reuses same spiritKey as BattleScreen formation
+    const tex = Assets.get<Texture>(sym.spiritKey) ?? Texture.EMPTY;
+    const spirit = new Sprite(tex);
+    spirit.anchor.set(0.5, 1);
+    const aspect = tex.height > 0 ? tex.height / tex.width : 1.6;
+    const targetH = SPIRIT_ZONE_H;
+    const targetW = targetH / aspect;
+    spirit.width  = targetW;
+    spirit.height = targetH;
+    spirit.x = TILE_W / 2;
+    spirit.y = SPIRIT_ZONE_Y + SPIRIT_ZONE_H;   // feet at bottom of sprite zone
+    tile.addChild(spirit);
 
     // ── Chinese spirit name ──
     const name = new Text({
