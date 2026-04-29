@@ -34,19 +34,29 @@ const TILES_TOTAL_W       = TILE_W * 2 + TILE_GAP;                     // 616
 const TILES_START_X       = Math.round((CANVAS_WIDTH - TILES_TOTAL_W) / 2); // 52
 const MAX_PICKS           = 5;
 
-// ─── Tile sub-zones (relative to tile top-left corner) ──────────────────────
-// chore: name strip ABOVE sprite (dedicated, no longer overlay hiding character)
-const NAME_STRIP_Y   = 8;                                    // top margin before name strip
-const NAME_STRIP_H   = 28;                                   // 22pt text + 3px pad each side
-const SPIRIT_ZONE_Y  = NAME_STRIP_Y + NAME_STRIP_H + 4;     // 40: sprite zone starts here
-const SPIRIT_ZONE_H  = 85;                                   // sprite area height
-const META_Y         = SPIRIT_ZONE_Y + SPIRIT_ZONE_H + 2;   // 127: weight strip just below sprite
-const BTN_ZONE_H     = 32;
-const BTN_ZONE_Y     = TILE_H - BTN_ZONE_H - 6;             // 147: bottom-aligned A/B buttons
-const BTN_INSET_X    = 6;
-const BTN_GAP        = 4;
-const BTN_W          = (TILE_W - 2 * BTN_INSET_X - BTN_GAP) / 2;  // 140
-const BADGE_R        = 12;
+// ─── Tile sub-zones — horizontal split ──────────────────────────────────────
+// chore: LEFT info column (name + meta + A/B) | RIGHT sprite column (2× taller)
+const TILE_PAD      = 8;
+const COL_GAP       = 8;
+const INFO_COL_W    = 100;
+const SPRITE_COL_W  = TILE_W - 2 * TILE_PAD - INFO_COL_W - COL_GAP;  // 172
+const SPRITE_COL_X  = TILE_PAD + INFO_COL_W + COL_GAP;                // 116
+const SPRITE_COL_Y  = TILE_PAD;                                        // 8
+const SPRITE_COL_H  = TILE_H - 2 * TILE_PAD;                          // 169 (~2× old 85px)
+
+// Info column zones (x = TILE_PAD to TILE_PAD+INFO_COL_W = 8..108)
+const INFO_NAME_Y   = TILE_PAD + 6;                                    // 14
+const INFO_NAME_H   = 32;
+const INFO_META_Y   = INFO_NAME_Y + INFO_NAME_H + 4;                   // 50
+
+// A/B buttons stack vertically at info-column bottom
+const BTN_ZONE_H    = 32;
+const BTN_GAP_VERT  = 4;
+const BTN_A_Y       = TILE_H - TILE_PAD - 2 * BTN_ZONE_H - BTN_GAP_VERT;  // 109
+const BTN_B_Y       = TILE_H - TILE_PAD - BTN_ZONE_H;                      // 145
+const BTN_W         = INFO_COL_W - 8;                                        // 92
+const BTN_X         = TILE_PAD + 4;                                          // 12
+const BADGE_R       = 12;
 
 // ─── Module-level helper ─────────────────────────────────────────────────────
 function spiritsByClan(): Record<ClanId, { sym: SymbolDef; idx: number }[]> {
@@ -349,29 +359,30 @@ export class DraftScreen implements Screen {
     const border = new Graphics();
     tile.addChild(border);
 
-    // ── Clan-color glow backdrop behind sprite ──
+    // ── RIGHT: clan-color glow backdrop for sprite column ──
     const glowBg = new Graphics()
-      .roundRect(8, SPIRIT_ZONE_Y, TILE_W - 16, SPIRIT_ZONE_H, 6)
+      .roundRect(SPRITE_COL_X, SPRITE_COL_Y, SPRITE_COL_W, SPRITE_COL_H, 6)
       .fill({ color: meta.color, alpha: 0.10 });
     tile.addChild(glowBg);
 
-    // ── Full-body spirit sprite (anchor 0.5,1 = bottom-centre, fits SPIRIT_ZONE) ──
-    // chore: replaces round portrait — reuses same spiritKey as BattleScreen formation
+    // ── RIGHT: full-body spirit sprite — fills right column (anchor 0.5,1 = feet) ──
     const tex = Assets.get<Texture>(sym.spiritKey) ?? Texture.EMPTY;
     const spirit = new Sprite(tex);
     spirit.anchor.set(0.5, 1);
     const aspect = tex.height > 0 ? tex.height / tex.width : 1.6;
-    const targetH = SPIRIT_ZONE_H;
-    const targetW = targetH / aspect;
-    spirit.width  = targetW;
-    spirit.height = targetH;
-    spirit.x = TILE_W / 2;
-    spirit.y = SPIRIT_ZONE_Y + SPIRIT_ZONE_H;   // feet at bottom of sprite zone
+    const fitH    = SPRITE_COL_H - 8;
+    const fitW    = fitH / aspect;
+    const finalW  = Math.min(fitW, SPRITE_COL_W - 8);
+    const finalH  = finalW === fitW ? fitH : finalW * aspect;
+    spirit.width  = finalW;
+    spirit.height = finalH;
+    spirit.x = SPRITE_COL_X + SPRITE_COL_W / 2;
+    spirit.y = SPRITE_COL_Y + SPRITE_COL_H - 4;            // feet near sprite-zone bottom
     tile.addChild(spirit);
 
-    // ── Name strip ABOVE sprite — dedicated clan-color backdrop (no longer overlay) ──
+    // ── LEFT: name strip in info column — clan-color backdrop ──
     const nameBg = new Graphics()
-      .roundRect(8, NAME_STRIP_Y, TILE_W - 16, NAME_STRIP_H, 6)
+      .roundRect(TILE_PAD + 2, INFO_NAME_Y, INFO_COL_W - 4, INFO_NAME_H, 6)
       .fill({ color: meta.color, alpha: 0.18 })
       .stroke({ width: 1, color: meta.color, alpha: 0.55 });
     tile.addChild(nameBg);
@@ -380,36 +391,31 @@ export class DraftScreen implements Screen {
       text: sym.spiritName,
       style: {
         fontFamily: T.FONT.title, fontWeight: '700',
-        fontSize: 22,                                       // 24→22: fits strip cleanly
+        fontSize: 20,                                       // 22→20: fits narrower info col
         fill: T.FG.cream,
-        letterSpacing: 4,
-        dropShadow: {
-          color:    meta.color,                             // clan-color atmosphere
-          alpha:    0.6,
-          blur:     6,
-          distance: 0,
-        },
+        letterSpacing: 2,
+        dropShadow: { color: meta.color, alpha: 0.6, blur: 6, distance: 0 },
       },
     });
     name.anchor.set(0.5, 0.5);
-    name.x = TILE_W / 2;
-    name.y = NAME_STRIP_Y + NAME_STRIP_H / 2;              // strip vertical centre
+    name.x = TILE_PAD + INFO_COL_W / 2;                    // 8 + 50 = 58 (info col centre)
+    name.y = INFO_NAME_Y + INFO_NAME_H / 2;                // 14 + 16 = 30
     tile.addChild(name);
 
-    // ── Meta row: weight + probability — small strip just below sprite ──
+    // ── LEFT: meta text — two-line in narrow info column ──
     const prob = ((sym.weight / totalW) * 100).toFixed(1);
     const metaTxt = new Text({
-      text: `W:${sym.weight}  ${prob}%`,
-      style: { fontFamily: T.FONT.num, fontSize: 9, fill: T.FG.muted, letterSpacing: 1 },
+      text: `W:${sym.weight}\n${prob}%`,
+      style: { fontFamily: T.FONT.num, fontSize: 9, fill: T.FG.muted, letterSpacing: 1, align: 'center' },
     });
     metaTxt.anchor.set(0.5, 0);
-    metaTxt.x = TILE_W / 2;
-    metaTxt.y = META_Y;
+    metaTxt.x = TILE_PAD + INFO_COL_W / 2;
+    metaTxt.y = INFO_META_Y;
     tile.addChild(metaTxt);
 
-    // ── Pick button A ──
+    // ── LEFT: Pick button A (top of vertical stack) ──
     const btnA = new Container();
-    btnA.x = BTN_INSET_X; btnA.y = BTN_ZONE_Y;
+    btnA.x = BTN_X; btnA.y = BTN_A_Y;
     const btnABg = new Graphics();
     btnA.addChild(btnABg);
     const btnALbl = new Text({
@@ -423,9 +429,9 @@ export class DraftScreen implements Screen {
     btnA.cursor    = 'pointer';
     tile.addChild(btnA);
 
-    // ── Pick button B ──
+    // ── LEFT: Pick button B (below A) ──
     const btnB = new Container();
-    btnB.x = BTN_INSET_X + BTN_W + BTN_GAP; btnB.y = BTN_ZONE_Y;
+    btnB.x = BTN_X; btnB.y = BTN_B_Y;
     const btnBBg = new Graphics();
     btnB.addChild(btnBBg);
     const btnBLbl = new Text({
