@@ -36,6 +36,7 @@ import { playBigWinCeremony } from '@/fx/BigWinCeremony';
 import { playFreeSpinEntryCeremony } from '@/fx/FreeSpinEntryCeremony';
 import { playStreakFlyText } from '@/fx/StreakFlyText';
 import { playJackpotFlyIn } from '@/fx/JackpotFlyIn';
+import { playFreeSpinRetriggerCeremony } from '@/fx/FreeSpinRetriggerCeremony';
 import type { MatchResult, MatchOutcome } from '@/screens/ResultScreen';
 
 // ─── Portrait layout 720×1280 — Variant A (p11-vA-01) ───────────────────────
@@ -1635,10 +1636,16 @@ export class BattleScreen implements Screen {
       });
     }
 
-    // Retrigger pulse: freeSpinsRemaining jumped UP (not decremented)
+    // Retrigger ceremony: freeSpinsRemaining jumped UP (not decremented)
+    // chore: full-screen 「MORE SPINS!」ceremony replaces simple scale pulse
     if (isIn && this.freeSpinsRemaining > this.prevFreeSpinsRemaining) {
+      const addedRounds = this.freeSpinsRemaining - this.prevFreeSpinsRemaining;
+      // Fire-and-forget — refreshFreeSpinOverlay is sync; ceremony runs above via zIndex=2000
+      void playFreeSpinRetriggerCeremony(this.fxLayer, addedRounds);
+
+      // Retain mild banner pulse so the banner still reacts after ceremony ends
       void tween(250, t => {
-        const s = 1 + 0.25 * Math.sin(Math.PI * t);   // 1.0 → 1.25 → 1.0
+        const s = 1 + 0.10 * Math.sin(Math.PI * t);   // 1.0 → 1.10 → 1.0 (mild)
         this.freeSpinBanner!.scale.set(s);
       }, Easings.easeOut);
     }
