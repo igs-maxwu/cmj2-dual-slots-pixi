@@ -2239,19 +2239,18 @@ export class BattleScreen implements Screen {
         const slot = activeAttackers.findIndex(
           u => u && u.alive && u.symbolId === bestDrafted.symbolId);
         if (slot >= 0) {
-          const origin  = attackerCells[slot].container;
           const targets = defenderCells
             .filter((_, i) => activeDefenders[i]?.alive)   // chore: activeDefenders aligned with defenderCells
             .slice(0, 3)
             .map(c => ({ x: c.container.x, y: c.container.y }));
           if (targets.length > 0) {
             animations.push(attackTimeline({
-              stage:    this.container,
-              symbolId: bestDrafted.symbolId,
-              spiritKey: SYMBOLS[bestDrafted.symbolId].spiritKey,
-              originX: origin.x, originY: origin.y,
+              stage:           this.container,
+              spiritContainer: attackerCells[slot].container,  // chore: animate formation spirit directly
+              symbolId:        bestDrafted.symbolId,
+              spiritKey:       SYMBOLS[bestDrafted.symbolId].spiritKey,
               targetPositions: targets,
-              side: side,                           // chore: pass side for clash positioning
+              side,
             }));
           }
         }

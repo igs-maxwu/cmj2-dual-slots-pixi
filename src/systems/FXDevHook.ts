@@ -29,17 +29,23 @@ export function installFxDevHook(app: Application): void {
       console.warn(`[DEV_FX] Unknown signature: "${name}". Call __DEV_FX.list() to see options.`);
       return;
     }
-    void attackTimeline({
-      stage:           app.stage,
-      symbolId:        spirit.symbolId,
-      spiritKey:       spirit.spiritKey,
-      originX:         Math.round(CANVAS_WIDTH  * 0.20),
-      originY:         Math.round(CANVAS_HEIGHT * 0.50),
-      targetPositions: [
-        { x: Math.round(CANVAS_WIDTH * 0.35), y: Math.round(CANVAS_HEIGHT * 0.72) },
-        { x: Math.round(CANVAS_WIDTH * 0.50), y: Math.round(CANVAS_HEIGHT * 0.72) },
-        { x: Math.round(CANVAS_WIDTH * 0.65), y: Math.round(CANVAS_HEIGHT * 0.72) },
-      ],
+    // chore: attackTimeline now animates a spiritContainer directly — use temp container for dev hook
+    import('pixi.js').then(({ Container }) => {
+      const devSpirit = new Container();
+      devSpirit.x = Math.round(CANVAS_WIDTH  * 0.20);
+      devSpirit.y = Math.round(CANVAS_HEIGHT * 0.50);
+      app.stage.addChild(devSpirit);
+      void attackTimeline({
+        stage:           app.stage,
+        spiritContainer: devSpirit,
+        symbolId:        spirit.symbolId,
+        spiritKey:       spirit.spiritKey,
+        targetPositions: [
+          { x: Math.round(CANVAS_WIDTH * 0.35), y: Math.round(CANVAS_HEIGHT * 0.72) },
+          { x: Math.round(CANVAS_WIDTH * 0.50), y: Math.round(CANVAS_HEIGHT * 0.72) },
+          { x: Math.round(CANVAS_WIDTH * 0.65), y: Math.round(CANVAS_HEIGHT * 0.72) },
+        ],
+      }).then(() => devSpirit.destroy());
     });
   };
 
