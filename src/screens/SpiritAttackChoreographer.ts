@@ -15,8 +15,6 @@
 import { Assets, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import { tween, delay, Easings } from '@/systems/tween';
-import { SYMBOLS } from '@/config/SymbolsConfig';
-import { SpiritPortrait } from '@/components/SpiritPortrait'; // retained — other callers may exist
 import { applyGlow, applyBloom, applyShockwave, removeFilter } from '@/fx/GlowWrapper';
 import { AudioManager } from '@/systems/AudioManager';
 
@@ -122,15 +120,14 @@ interface Phase4Ctx {
 // ─── Public API ────────────────────────────────────────────────────────────
 
 export interface AttackOptions {
-  stage:   Container;
-  symbolId: number;
-  spiritKey: string;
-  originX: number;
-  originY: number;
+  stage:           Container;   // fx layer (signature animations drawn here)
+  spiritContainer: Container;   // chore: animate this directly — was: create new clone avatar
+  symbolId:        number;      // for signature dispatch
+  spiritKey:       string;      // for personality lookup + signature dispatch
   targetPositions: { x: number; y: number }[];
-  particleColor?: number;
+  particleColor?:  number;
   shakeIntensity?: number;
-  side?: 'A' | 'B';   // chore: clash positioning — A centre-left right-facing, B centre-right left-facing
+  side?: 'A' | 'B';            // clash positioning — A centre-left, B centre-right
 }
 
 export async function attackTimeline(opts: AttackOptions): Promise<void> {
@@ -147,56 +144,51 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
     : Math.round(CANVAS_WIDTH / 2 + CLASH_OFFSET);
   const centerY = Math.round(CANVAS_HEIGHT * 0.42);
 
-  const { stage, symbolId, originX, originY, targetPositions } = opts;
+  const { stage, spiritContainer, targetPositions } = opts;
+  const avatar = spiritContainer;   // alias — animate formation spirit directly (no clone)
 
-  // chore: full-body spirit sprite replaces SpiritPortrait round avatar
-  const spiritKey = SYMBOLS[symbolId]?.spiritKey ?? opts.spiritKey;
-  const tex = Assets.get<Texture>(`spirit-${spiritKey}`)
-           ?? Texture.from(`${import.meta.env.BASE_URL}assets/spirits/${spiritKey}.webp`);
-  // hotfix: wrap Sprite in Container so phase scale.set() doesn't overwrite Pixi 8 Sprite size
-  // (Pixi 8 Sprite.width/.height setter writes through to scale internally — clobbered by phase tweens)
-  const avatarSprite = new Sprite(tex);
-  avatarSprite.anchor.set(0.5, 1);              // feet at y reference
-  const aspect = tex.height / tex.width || 1.6;
-  avatarSprite.height = 120;
-  avatarSprite.width  = 120 / aspect;
+  // chore: save container's original state to fully restore after attack
+  const origX      = avatar.x;
+  const origY      = avatar.y;
+  const origScaleX = avatar.scale.x;
+  const origScaleY = avatar.scale.y;
+  const origZIndex = avatar.zIndex;
+  // base scale for this slot (e.g. 0.85 back / 1.10 front) — phases multiply on top
+  const origAbsScale = Math.abs(origScaleX) || 1.0;
 
-  const avatar = new Container();               // outer container — all phase animation goes here
-  avatar.addChild(avatarSprite);
-  // +60 aligns sprite centre (120/2) with original anchor point so arc/return coords stay valid
-  const originYAdj = originY + 60;
-  avatar.x = originX;
-  avatar.y = originYAdj;
+  // Bring spirit to top during attack so it renders above all other formation elements
+  avatar.zIndex = 1500;
+  if (avatar.parent) avatar.parent.sortableChildren = true;
+
   // NOTE: spirit .webp assets face LEFT natively (chibi art convention).
   // A (centre-left)  needs scale.x=-1 to flip right (toward B).
   // B (centre-right) keeps scale.x=+1 (native left-facing, toward A).
   const faceDir = side === 'A' ? -1 : 1;
-  stage.addChild(avatar);
 
-  // Phase 1: Prepare — smaller scale multiplier for 120px sprite (was 0.40 for 64px portrait)
+  // Phase 1: Prepare — scale up from base scale
   await tween(D.prepare, p => {
-    const s = 1.0 + Easings.easeOut(p) * 0.20;
-    avatar.scale.set(faceDir * s, s);   // preserve facing on x-axis
+    const s = origAbsScale * (1.0 + Easings.easeOut(p) * 0.20);
+    avatar.scale.set(faceDir * s, s);
   });
 
-  // Phase 2: Leap
+  // Phase 2: Leap from formation slot to clash centre
   await tween(D.leap, p => {
     const ep = Easings.easeInOut(p);
-    avatar.x = originX + (centerX - originX) * ep;
+    avatar.x = origX + (centerX - origX) * ep;
     const arc = -personality.arcHeight * 4 * p * (1 - p);
-    avatar.y = originYAdj + (centerY - originYAdj) * ep + arc;
-    const s = 1.20 + ep * 0.10;
+    avatar.y = origY + (centerY - origY) * ep + arc;
+    const s = origAbsScale * (1.20 + ep * 0.10);
     avatar.scale.set(faceDir * s, s);
   });
   avatar.x = centerX;
   avatar.y = centerY;
 
-  // Phase 3: Hold
+  // Phase 3: Hold — scale pulse at clash centre
   await tween(D.hold, p => {
-    const s = 1.30 + Math.sin(p * Math.PI * 5) * 0.04;
+    const s = origAbsScale * (1.30 + Math.sin(p * Math.PI * 5) * 0.04);
     avatar.scale.set(faceDir * s, s);
   });
-  avatar.scale.set(faceDir * 1.30, 1.30);
+  avatar.scale.set(faceDir * origAbsScale * 1.30, origAbsScale * 1.30);
 
   // Phase 4: Fire — dispatch on signature
   const ctx: Phase4Ctx = {
@@ -223,17 +215,20 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
     }
   }
 
-  // Phase 5: Return
-  const retX = originX;
-  const retY = originYAdj;
+  // Phase 5: Return to formation slot
   await tween(D.return, p => {
     const ep = Easings.easeOut(p);
-    avatar.x = centerX + (retX - centerX) * ep;
-    avatar.y = centerY + (retY - centerY) * ep;
-    avatar.scale.set(faceDir * (1.30 - ep * 0.30), 1.30 - ep * 0.30);  // 1.30 → 1.0, preserve facing
+    avatar.x = centerX + (origX - centerX) * ep;
+    avatar.y = centerY + (origY - centerY) * ep;
+    const s = origAbsScale * (1.30 - ep * 0.30);   // 1.30 → 1.0 multiplier
+    avatar.scale.set(faceDir * s, s);
   });
 
-  avatar.destroy({ children: true });
+  // Restore original container state exactly (no destroy — it's the live formation container)
+  avatar.x = origX;
+  avatar.y = origY;
+  avatar.scale.set(origScaleX, origScaleY);   // restores sign + base scale
+  avatar.zIndex = origZIndex;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
