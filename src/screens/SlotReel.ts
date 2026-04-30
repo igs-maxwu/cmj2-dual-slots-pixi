@@ -186,6 +186,24 @@ export class SlotReel extends Container {
   }
 
   /**
+   * Force-apply the default GlowFilter that setCellSymbol normally installs.
+   * Called at spin lock sites to guarantee BlurFilter cleanup even when
+   * setCellSymbol early-returns (finalSymbol === currentSymbol case).
+   * Params mirror line 249 setCellSymbol — keep in sync if those change.
+   */
+  private resetGemBallFilter(cell: Cell): void {
+    const visual = SYMBOL_VISUAL[cell.currentSymbol];
+    if (!visual) return;
+    cell.gemBall.filters = [new GlowFilter({
+      color: visual.color,
+      distance: 12,
+      outerStrength: 1.0,
+      innerStrength: 0.2,
+      quality: 0.4,
+    })];
+  }
+
+  /**
    * p11-vA-03: Programmatic glossy ball — replaces gem PNG sprite.
    * Rebuilds 4 children inside cell.gemBall each call:
    *   1. Drop shadow (slightly larger dark circle offset +2px Y)
@@ -409,7 +427,10 @@ export class SlotReel extends Container {
     for (const cell of colCells) cell.gemBall.y = 0;
 
     // Lock to final
-    for (let r = 0; r < ROWS; r++) this.setCellSymbol(colCells[r], finalGrid[r][col]);
+    for (let r = 0; r < ROWS; r++) {
+      this.setCellSymbol(colCells[r], finalGrid[r][col]);
+      this.resetGemBallFilter(colCells[r]); // chore: force BlurFilter cleanup (handles setCellSymbol early-return)
+    }
     for (const cell of colCells) cell.container.alpha = 1;
 
     // Anticipation compress (cells squish down slightly before snap)
@@ -492,7 +513,10 @@ export class SlotReel extends Container {
     for (const cell of colCells) cell.gemBall.y = 0;
 
     // Lock to final
-    for (let r = 0; r < ROWS; r++) this.setCellSymbol(colCells[r], finalGrid[r][col]);
+    for (let r = 0; r < ROWS; r++) {
+      this.setCellSymbol(colCells[r], finalGrid[r][col]);
+      this.resetGemBallFilter(colCells[r]); // chore: force BlurFilter cleanup
+    }
     for (const cell of colCells) cell.container.alpha = 1;
 
     // Anticipation compress — center column squishes more than outer cols
