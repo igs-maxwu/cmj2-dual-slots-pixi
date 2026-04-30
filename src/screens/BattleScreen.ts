@@ -387,8 +387,9 @@ export class BattleScreen implements Screen {
     this.container.addChild(warmGlow);
 
     // ── Perspective floor lines (compact — fits 310px window) ─────────────
-    // floorTop below mid-row cells: mid cell bottom = NINE_GRID_TOP_Y + 2*NINE_STEP (≈473)
-    const floorTop  = NINE_GRID_TOP_Y + 2 * NINE_STEP;  // ≈473: below mid-row cell bottom
+    // chore: floor below new front row bottom (was 3-row layout NINE_GRID_TOP_Y+2*NINE_STEP=513)
+    // New front row: Y center = 305+104+40=449, bottom = 449+40=489
+    const floorTop  = NINE_GRID_TOP_Y + NINE_STEP + NINE_CELL_SIZE;  // 305+104+80 = 489
     const floorBot  = ARENA_BOT - 10;             // ≈585
     const floorH    = floorBot - floorTop;
     const vanishX   = CANVAS_WIDTH / 2;
