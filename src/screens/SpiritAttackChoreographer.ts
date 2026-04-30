@@ -167,8 +167,10 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
   const originYAdj = originY + 60;
   avatar.x = originX;
   avatar.y = originYAdj;
-  // chore: facing direction — A faces right (toward B), B faces left (toward A)
-  const faceDir = side === 'A' ? 1 : -1;
+  // chore: spirit webp native facing left → invert clash facing
+  // A on left needs flip (+1→right, toward B); B on right keeps native (-1→left, toward A) was wrong
+  // A on left needs flip to face right (toward B); B on right keeps native face-left (toward A)
+  const faceDir = side === 'A' ? -1 : 1;
   stage.addChild(avatar);
 
   // Phase 1: Prepare — smaller scale multiplier for 120px sprite (was 0.40 for 64px portrait)
