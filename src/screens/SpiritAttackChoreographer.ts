@@ -153,11 +153,16 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
   const spiritKey = SYMBOLS[symbolId]?.spiritKey ?? opts.spiritKey;
   const tex = Assets.get<Texture>(`spirit-${spiritKey}`)
            ?? Texture.from(`${import.meta.env.BASE_URL}assets/spirits/${spiritKey}.webp`);
-  const avatar = new Sprite(tex);
-  avatar.anchor.set(0.5, 1);                    // feet at y reference
+  // hotfix: wrap Sprite in Container so phase scale.set() doesn't overwrite Pixi 8 Sprite size
+  // (Pixi 8 Sprite.width/.height setter writes through to scale internally — clobbered by phase tweens)
+  const avatarSprite = new Sprite(tex);
+  avatarSprite.anchor.set(0.5, 1);              // feet at y reference
   const aspect = tex.height / tex.width || 1.6;
-  avatar.height = 120;
-  avatar.width  = 120 / aspect;
+  avatarSprite.height = 120;
+  avatarSprite.width  = 120 / aspect;
+
+  const avatar = new Container();               // outer container — all phase animation goes here
+  avatar.addChild(avatarSprite);
   // +60 aligns sprite centre (120/2) with original anchor point so arc/return coords stay valid
   const originYAdj = originY + 60;
   avatar.x = originX;
@@ -226,7 +231,7 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
     avatar.scale.set(faceDir * (1.30 - ep * 0.30), 1.30 - ep * 0.30);  // 1.30 → 1.0, preserve facing
   });
 
-  avatar.destroy();
+  avatar.destroy({ children: true });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
