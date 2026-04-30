@@ -7,22 +7,22 @@ import { tween, delay, Easings } from '@/systems/tween';
 import type { WayHit } from '@/systems/SlotEngine';
 import { AudioManager } from '@/systems/AudioManager';
 
-// ─── p11-vA-03: Symbol → clan character + ball color mapping ────────────────
-// Clan spirits 0-7: azure 青龍 (0,1) / white 白虎 (2,3) / vermilion 朱雀 (4,5) / black 玄武 (6,7)
-// Special symbols 8-11: Wild 替 / Curse 咒 / Scatter 散 / Jackpot 寶
+// ─── chore: SYMBOL_VISUAL redesign — same-clan same-color, unique last-char per spirit ────────────
+// Spirit ID 0-7: last char of spiritName (from SymbolsConfig) + clan color from DesignTokens CLAN palette
+// Specials: W / S / JP (clear labels); Curse kept at id 9 visually (weight=0 so never spawns — Path L)
 const SYMBOL_VISUAL: Record<number, { char: string; color: number }> = {
-  0: { char: '青', color: T.CLAN.azureGlow },
-  1: { char: '青', color: T.CLAN.azureGlow },
-  2: { char: '白', color: T.CLAN.whiteGlow },
-  3: { char: '白', color: T.CLAN.whiteGlow },
-  4: { char: '朱', color: T.CLAN.vermilionGlow },
-  5: { char: '朱', color: T.CLAN.vermilionGlow },
-  6: { char: '玄', color: T.CLAN.blackGlow },
-  7: { char: '玄', color: T.CLAN.blackGlow },
-  8:  { char: '替', color: T.GOLD.glow },      // Wild
-  9:  { char: '咒', color: 0xc77fe0 },          // Curse — lightened from 0x8b3aaa for WCAG AA contrast with dark text
-  10: { char: '散', color: 0xff3b6b },          // Scatter
-  11: { char: '寶', color: T.GOLD.base },       // Jackpot
+  0: { char: '寅', color: T.CLAN.whiteGlow     },  // 寅       — white tiger (白虎)
+  1: { char: '鸞', color: T.CLAN.vermilionGlow },  // 朱鸞 末字 — vermilion bird (朱雀)
+  2: { char: '雨', color: T.CLAN.blackGlow     },  // 朝雨 末字 — black tortoise (玄武)
+  3: { char: '璋', color: T.CLAN.azureGlow     },  // 孟辰璋 末字 — azure dragon (青龍)
+  4: { char: '嵐', color: T.CLAN.azureGlow     },  // 蒼嵐 末字 — azure dragon (青龍)
+  5: { char: '洛', color: T.CLAN.whiteGlow     },  // 珞洛 末字 — white tiger (白虎)
+  6: { char: '羽', color: T.CLAN.vermilionGlow },  // 凌羽 末字 — vermilion bird (朱雀)
+  7: { char: '墨', color: T.CLAN.blackGlow     },  // 玄墨 末字 — black tortoise (玄武)
+  8:  { char: 'W',  color: T.GOLD.glow         },  // Wild
+  9:  { char: '咒', color: 0xc77fe0            },  // Curse — weight=0 (Path L disabled); kept for M6 restore path
+  10: { char: 'S',  color: 0xff3b6b            },  // Scatter
+  11: { char: 'JP', color: T.GOLD.base         },  // Jackpot
 };
 
 function hasPreMatch(grid: number[][], colLeft: number, colRight: number): boolean {
@@ -244,12 +244,14 @@ export class SlotReel extends Container {
     // chore161: ALL ball use dark warm-brown 0x2a1a05 for unified contrast on glossy ball surface.
     // Contrast ratios vs clan glows: azure~10:1 / white~13:1 / vermilion~8:1 / black~10:1 /
     //   gold~11:1 / curse-purple(0xc77fe0)~5:1 / scatter-pink~4.5:1 — all ≥ WCAG AA (4.5:1).
+    // chore: shrink fontSize for multi-char labels (e.g. "JP") so they fit inside the ball circle
+    const isMultiChar = visual.char.length > 1;
     const charText = new Text({
       text: visual.char,
       style: {
         fontFamily: '"Noto Serif TC", "Ma Shan Zheng", serif',
         fontWeight: '700',
-        fontSize: Math.round(r * 0.95),
+        fontSize: Math.round(r * (isMultiChar ? 0.65 : 0.95)),
         fill: 0x2a1a05,                               // dark warm-brown — all clans
         stroke: { color: visual.color, width: 1.5 },  // clan stroke matches ball color
         dropShadow: {
