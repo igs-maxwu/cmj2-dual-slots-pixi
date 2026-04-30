@@ -83,34 +83,31 @@ const PAYLINES_CELL_H = 14;
 const PAYLINES_GAP    = 4;
 
 // ─── NineGrid 3×3 formation layout (p11-vA-02) ──────────────────────────────
-// 9 cells per side; 5 spirits placed via seeded Fisher-Yates at mount time.
-// Depth scale: row 0 (back) = 0.78 × SPIRIT_H, row 1 (mid) = 0.94 ×, row 2 (front) = 1.10 ×
-const SPIRIT_H           = 130;                              // source sprite height (px) at scale 1.0
-// chore: 2-row formation layout (was 3-row NineGrid 5-of-9)
-// Back row 3 spirits + front row 2 spirits (col 1 of front row EMPTY for clash zone clearance)
-// Per side scale: back=0.85 / front=1.10 (was 3-tier 0.78/0.94/1.10)
-const NINE_CELL_SIZE     = 80;                               // cell square side (px)
-const NINE_GAP           = 24;                               // gap between cells (px)
-const NINE_STEP          = NINE_CELL_SIZE + NINE_GAP;        // = 104 px per cell step
-const NINE_GRID_TOTAL    = 3 * NINE_CELL_SIZE + 2 * NINE_GAP; // = 288 px grid total width
-const NINE_GRID_TOP_Y    = 305;                              // grid top y (arena 285 + 20 label pad)
-// chore: pulled toward outer edges to widen centre clash zone (was 32 / 400, now 16 / 416)
-const NINE_A_GRID_LEFT_X = 16;                               // A side grid left edge x
-const NINE_B_GRID_LEFT_X = CANVAS_WIDTH - NINE_GRID_TOTAL - 16; // B side = 720-288-16 = 416
+// chore: 5-slot zigzag formation — outer/inner col alternating across 5 rows
+// Owner-confirmed layout 2026-04-30: scale gradient bottom→top (row 4 nearest = largest)
+// Each side: 3 spirits in outer col (rows 0/2/4) + 2 spirits in inner col (rows 1/3)
+// Centre clash zone: x 200–520 = 320px clear
+const SPIRIT_H    = 130;                              // source sprite height (px) at scale 1.0
+const ROW_Y_BASE  = 320;                              // topmost row centre Y
+const ROW_Y_STEP  = 50;                               // 5 rows × 50px = 200px formation height (320..520)
+const COL_X_OUTER_A = 60;                             // A side outer col x (near left edge)
+const COL_X_INNER_A = 160;                            // A side inner col x (closer to centre)
+const COL_X_OUTER_B = CANVAS_WIDTH - 60;             // B mirror outer col x (660)
+const COL_X_INNER_B = CANVAS_WIDTH - 160;            // B mirror inner col x (560)
 
-// chore: deterministic slot→cell mapping (replaces Fisher-Yates 5-of-9)
-// Slots 0-2 = back row L/M/R; Slots 3-4 = front row L/R (front col 1 EMPTY for clash zone)
-const SLOT_TO_GRID_POS: { col: number; row: number }[] = [
-  { col: 0, row: 0 },   // slot 0: back-left
-  { col: 1, row: 0 },   // slot 1: back-mid
-  { col: 2, row: 0 },   // slot 2: back-right
-  { col: 0, row: 1 },   // slot 3: front-left
-  { col: 2, row: 1 },   // slot 4: front-right (front col 1 EMPTY)
+// 5-slot zigzag position spec: outer→inner→outer→inner→outer, scale 0.85→1.10 bottom→top
+const SLOT_TO_POS_SPEC: { col: 'outer' | 'inner'; row: number; scale: number }[] = [
+  { col: 'outer', row: 0, scale: 0.85 },   // slot 0: outer top      (back)
+  { col: 'inner', row: 1, scale: 0.91 },   // slot 1: inner row 1
+  { col: 'outer', row: 2, scale: 0.97 },   // slot 2: outer row 2
+  { col: 'inner', row: 3, scale: 1.04 },   // slot 3: inner row 3
+  { col: 'outer', row: 4, scale: 1.10 },   // slot 4: outer bottom   (front)
 ];
 
-// chore: 2-row depth scale (was 3-row 0.78/0.94/1.10)
-const ROW_SCALE_BACK  = 0.85;
-const ROW_SCALE_FRONT = 1.10;
+// chore: NINE_CELL_SIZE / NINE_GAP / NINE_STEP kept — referenced by HP bar offset + drawFormation internals
+const NINE_CELL_SIZE = 80;   // (deprecated as grid metric — kept for UNIT_HP_BAR_Y_OFF + spirit container sizing)
+const NINE_GAP       = 24;   // (deprecated)
+const NINE_STEP      = NINE_CELL_SIZE + NINE_GAP;  // (deprecated)
 
 // Per-unit HP bar (inside each spirit container)
 const UNIT_HP_BAR_W     = 64;
@@ -387,9 +384,8 @@ export class BattleScreen implements Screen {
     this.container.addChild(warmGlow);
 
     // ── Perspective floor lines (compact — fits 310px window) ─────────────
-    // chore: floor below new front row bottom (was 3-row layout NINE_GRID_TOP_Y+2*NINE_STEP=513)
-    // New front row: Y center = 305+104+40=449, bottom = 449+40=489
-    const floorTop  = NINE_GRID_TOP_Y + NINE_STEP + NINE_CELL_SIZE;  // 305+104+80 = 489
+    // chore: floor below front-most slot (slot 4 at ROW_Y_BASE+4*ROW_Y_STEP=520, visual bottom ~565)
+    const floorTop  = ROW_Y_BASE + 4 * ROW_Y_STEP + 45;  // 320+200+45 = 565
     const floorBot  = ARENA_BOT - 10;             // ≈585
     const floorH    = floorBot - floorTop;
     const vanishX   = CANVAS_WIDTH / 2;
@@ -456,10 +452,10 @@ export class BattleScreen implements Screen {
     bannerBText.y = labelY + labelH / 2;
     this.container.addChild(bannerBText);
 
-    // ── VS — circle at arena center, between A and B grids ──────────────
-    // A grid right edge: NINE_A_GRID_LEFT_X + NINE_GRID_TOTAL = 280
-    // B grid left edge:  NINE_B_GRID_LEFT_X = 440   → VS at x=360 (canvas center) is safe
-    // y=415: between back-row top (305+40=345) and mid-row center (305+84+40=429)
+    // ── VS — circle at arena center, within 320px clash zone ────────────
+    // A inner col right edge: COL_X_INNER_A=160+40=200; B inner col left edge: COL_X_INNER_B=560-40=520
+    // Clash zone: x 200–520 = 320px clear; VS at x=360 (canvas center) is safe
+    // y=415: between slot 0 top (320) and slot 2 mid (420)
     const vsCenterX = CANVAS_WIDTH / 2;
     const vsCenterY = ARENA_TOP_Y + 130;   // 285 + 130 = 415
 
@@ -522,8 +518,8 @@ export class BattleScreen implements Screen {
   /** 8 radial lines from a vanishing point above the arena + 3 horizontal depth bands.
    *  p10-v01: background grid floor only — detailed arena floor is in drawBattleArena(). */
   private drawPerspectiveFloor(): void {
-    // Horizon aligns with back-row cell top: NINE_GRID_TOP_Y + 0*NINE_STEP = 305; subtract 30 for perspective
-    const horizonY  = NINE_GRID_TOP_Y - 30;  // p11-vA-02: align horizon with NineGrid back-row top
+    // Horizon aligns just above topmost spirit (slot 0 at ROW_Y_BASE=320); subtract 30 for perspective
+    const horizonY  = ROW_Y_BASE - 30;  // = 290
     const vanishX   = CANVAS_WIDTH / 2;
     const bottomY   = CANVAS_HEIGHT;
     const goldColor = T.GOLD.shadow;
@@ -1008,25 +1004,23 @@ export class BattleScreen implements Screen {
   }
 
   /**
-   * p11-vA-02: Maps a formation slot index (0-4) to NineGrid cell center position.
-   * Grid: 3×3 cells, row 0 = back (furthest), row 2 = front (closest).
-   * B-side col is mirrored so front faces A (col 0 is rightmost for B).
-   * Returns { x, y, row: 0|1|2, scale } where scale = 0.78 + (row/2)*0.32.
+   * Maps a formation slot index (0-4) to arena position.
+   * Layout: 5-slot zigzag — outer/inner col alternating across 5 rows.
+   * Slot 0/2/4 = outer col (rows 0/2/4); Slot 1/3 = inner col (rows 1/3).
+   * Scale gradient: row 0 (top, back) = 0.85 → row 4 (bottom, front) = 1.10.
+   * B-side mirrors outer/inner x so spirits face inward toward A.
    */
   private slotToArenaPos(side: 'A' | 'B', slot: number): { x: number; y: number; row: number; scale: number } {
-    // chore: deterministic slot→position via SLOT_TO_GRID_POS (no more Fisher-Yates gridPlacement)
-    const pos = SLOT_TO_GRID_POS[slot] ?? SLOT_TO_GRID_POS[0]!;
-    const { col, row } = pos;
-    const mirroredCol = side === 'B' ? (2 - col) : col;
+    // chore: 5-slot zigzag — deterministic col/row/scale from SLOT_TO_POS_SPEC
+    const spec = SLOT_TO_POS_SPEC[slot] ?? SLOT_TO_POS_SPEC[0]!;
+    const { col, row, scale } = spec;
 
-    const gridLeftX = side === 'A' ? NINE_A_GRID_LEFT_X : NINE_B_GRID_LEFT_X;
-    const cellX     = gridLeftX + mirroredCol * NINE_STEP + NINE_CELL_SIZE / 2;
-    const cellY     = NINE_GRID_TOP_Y + row * NINE_STEP + NINE_CELL_SIZE / 2;
+    const x = side === 'A'
+      ? (col === 'outer' ? COL_X_OUTER_A : COL_X_INNER_A)
+      : (col === 'outer' ? COL_X_OUTER_B : COL_X_INNER_B);
+    const y = ROW_Y_BASE + row * ROW_Y_STEP;
 
-    // chore: 2-row scale (back=0.85 / front=1.10)
-    const scale = row === 0 ? ROW_SCALE_BACK : ROW_SCALE_FRONT;
-
-    return { x: cellX, y: cellY, row, scale };
+    return { x, y, row, scale };
   }
 
   /** chore: Reel header strip — ● A · YOUR TURN | ◇ SHARED BOARD ◇ | B · WAITING ○ */
