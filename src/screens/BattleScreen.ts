@@ -86,13 +86,31 @@ const PAYLINES_GAP    = 4;
 // 9 cells per side; 5 spirits placed via seeded Fisher-Yates at mount time.
 // Depth scale: row 0 (back) = 0.78 × SPIRIT_H, row 1 (mid) = 0.94 ×, row 2 (front) = 1.10 ×
 const SPIRIT_H           = 130;                              // source sprite height (px) at scale 1.0
+// chore: 2-row formation layout (was 3-row NineGrid 5-of-9)
+// Back row 3 spirits + front row 2 spirits (col 1 of front row EMPTY for clash zone clearance)
+// Per side scale: back=0.85 / front=1.10 (was 3-tier 0.78/0.94/1.10)
 const NINE_CELL_SIZE     = 80;                               // cell square side (px)
-const NINE_GAP           = 24;                               // gap between cells (px) — chore: 4→24 for row/col separation
+const NINE_GAP           = 24;                               // gap between cells (px)
 const NINE_STEP          = NINE_CELL_SIZE + NINE_GAP;        // = 104 px per cell step
-const NINE_GRID_TOTAL    = 3 * NINE_CELL_SIZE + 2 * NINE_GAP; // = 288 px grid total width/height
+const NINE_GRID_TOTAL    = 3 * NINE_CELL_SIZE + 2 * NINE_GAP; // = 288 px grid total width
 const NINE_GRID_TOP_Y    = 305;                              // grid top y (arena 285 + 20 label pad)
-const NINE_A_GRID_LEFT_X = 32;                               // A side grid left edge x
-const NINE_B_GRID_LEFT_X = CANVAS_WIDTH - NINE_GRID_TOTAL - 32; // B side = 720-288-32 = 400
+// chore: pulled toward outer edges to widen centre clash zone (was 32 / 400, now 16 / 416)
+const NINE_A_GRID_LEFT_X = 16;                               // A side grid left edge x
+const NINE_B_GRID_LEFT_X = CANVAS_WIDTH - NINE_GRID_TOTAL - 16; // B side = 720-288-16 = 416
+
+// chore: deterministic slot→cell mapping (replaces Fisher-Yates 5-of-9)
+// Slots 0-2 = back row L/M/R; Slots 3-4 = front row L/R (front col 1 EMPTY for clash zone)
+const SLOT_TO_GRID_POS: { col: number; row: number }[] = [
+  { col: 0, row: 0 },   // slot 0: back-left
+  { col: 1, row: 0 },   // slot 1: back-mid
+  { col: 2, row: 0 },   // slot 2: back-right
+  { col: 0, row: 1 },   // slot 3: front-left
+  { col: 2, row: 1 },   // slot 4: front-right (front col 1 EMPTY)
+];
+
+// chore: 2-row depth scale (was 3-row 0.78/0.94/1.10)
+const ROW_SCALE_BACK  = 0.85;
+const ROW_SCALE_FRONT = 1.10;
 
 // Per-unit HP bar (inside each spirit container)
 const UNIT_HP_BAR_W     = 64;
@@ -1021,19 +1039,17 @@ export class BattleScreen implements Screen {
    * Returns { x, y, row: 0|1|2, scale } where scale = 0.78 + (row/2)*0.32.
    */
   private slotToArenaPos(side: 'A' | 'B', slot: number): { x: number; y: number; row: number; scale: number } {
-    const placement = side === 'A' ? this.gridPlacementA : this.gridPlacementB;
-    const cellIdx   = placement[slot] ?? placement[0] ?? 0;  // fallback if slot >= 5
-    const row       = Math.floor(cellIdx / 3);                // 0=back, 1=mid, 2=front
-    const col       = cellIdx % 3;
+    // chore: deterministic slot→position via SLOT_TO_GRID_POS (no more Fisher-Yates gridPlacement)
+    const pos = SLOT_TO_GRID_POS[slot] ?? SLOT_TO_GRID_POS[0]!;
+    const { col, row } = pos;
     const mirroredCol = side === 'B' ? (2 - col) : col;
 
     const gridLeftX = side === 'A' ? NINE_A_GRID_LEFT_X : NINE_B_GRID_LEFT_X;
     const cellX     = gridLeftX + mirroredCol * NINE_STEP + NINE_CELL_SIZE / 2;
     const cellY     = NINE_GRID_TOP_Y + row * NINE_STEP + NINE_CELL_SIZE / 2;
 
-    // Depth scale: back=0.78, mid=0.94, front=1.10
-    const t     = row / 2;
-    const scale = 0.78 + t * 0.32;
+    // chore: 2-row scale (back=0.85 / front=1.10)
+    const scale = row === 0 ? ROW_SCALE_BACK : ROW_SCALE_FRONT;
 
     return { x: cellX, y: cellY, row, scale };
   }
