@@ -314,15 +314,10 @@ export class BattleScreen implements Screen {
     this.refreshJackpotMarquee();   // j-05: show loaded pool values immediately
     this.drawZoneSeparator();       // p11-vA-01: 「戰」 gold separator line between JP hero and arena
     this.drawBattleArena();         // p11-vA-01: 310px arena (was 520px Variant B)
-    // p11-vA-02: seed NineGrid placements before drawing formation
-    const seedBase = performance.now().toString();
-    this.gridPlacementA = this.computeGridPlacement(`${seedBase}-A`);
-    this.gridPlacementB = this.computeGridPlacement(`${seedBase}-B`);
-    if (import.meta.env.DEV) {
-      console.log(`[NineGrid] A placement: [${this.gridPlacementA.join(',')}]`);
-      console.log(`[NineGrid] B placement: [${this.gridPlacementB.join(',')}]`);
-    }
-    this.drawSpiritShadows();    // chore: moved here from drawBackground() so shadows use seeded placement
+    // chore: deterministic slot mapping replaces Fisher-Yates (formation 2-row layout)
+    this.gridPlacementA = [0, 1, 2, 3, 4];
+    this.gridPlacementB = [0, 1, 2, 3, 4];
+    this.drawSpiritShadows();
     this.drawFormation('A');
     this.drawFormation('B');
     this.drawReelHeader();          // chore: ● A · YOUR TURN | ◇ SHARED BOARD ◇ | B · WAITING ○
@@ -911,28 +906,7 @@ export class BattleScreen implements Screen {
       .then(() => tween(half, t => { text.scale.set(target - (target - 1) * t); }, Easings.easeIn));
   }
 
-  // ─── NineGrid seeded placement (p11-vA-02) ───────────────────────────────
-  /**
-   * FNV-1a hash seeded Fisher-Yates shuffle → select 5 of 9 cells (sorted).
-   * Same seed → same placement (deterministic). Different mount seed → different result.
-   */
-  private computeGridPlacement(seed: string): number[] {
-    let h = 2166136261;
-    for (let i = 0; i < seed.length; i++) {
-      h ^= seed.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    const rand = () => {
-      h ^= h << 13; h ^= h >>> 17; h ^= h << 5;
-      return ((h >>> 0) % 1000) / 1000;
-    };
-    const cells = [0, 1, 2, 3, 4, 5, 6, 7, 8];
-    for (let i = cells.length - 1; i > 0; i--) {
-      const j = Math.floor(rand() * (i + 1));
-      [cells[i], cells[j]] = [cells[j]!, cells[i]!];
-    }
-    return cells.slice(0, 5).sort((a, b) => a - b);
-  }
+  // chore: computeGridPlacement (Fisher-Yates) removed — slot mapping now deterministic via SLOT_TO_GRID_POS
 
   // ─── NineGrid formation render (p11-vA-02) ───────────────────────────────
   /**
