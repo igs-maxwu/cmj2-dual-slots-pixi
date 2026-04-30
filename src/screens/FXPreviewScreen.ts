@@ -130,14 +130,19 @@ export class FXPreviewScreen implements Screen {
 
   private async playSignatureLoop(spiritKey: string, symbolId: number): Promise<void> {
     while (this.looping) {
+      // chore: attackTimeline now animates a spiritContainer directly — use temp container for preview
+      const previewSpirit = new Container();
+      previewSpirit.x = Math.round(CANVAS_WIDTH  * 0.20);
+      previewSpirit.y = Math.round(CANVAS_HEIGHT * 0.50);
+      this.stage.addChild(previewSpirit);
       await attackTimeline({
         stage:           this.stage,
+        spiritContainer: previewSpirit,
         symbolId,
         spiritKey,
-        originX:         Math.round(CANVAS_WIDTH  * 0.20),
-        originY:         Math.round(CANVAS_HEIGHT * 0.50),
         targetPositions: this.targetPositions(),
       });
+      previewSpirit.destroy();
       if (!this.looping) break;
       // 800 ms pause; Space key resolves early via _pauseResolve
       await new Promise<void>(resolve => {
