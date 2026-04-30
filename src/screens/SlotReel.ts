@@ -148,6 +148,14 @@ export class SlotReel extends Container {
         container.pivot.set(0, 0);
         this.addChild(container);
 
+        // chore: rect mask clips BlurFilter/Y-slide overflow to cell bounds during spin.
+        // Must be a child of container so it tracks container scale changes (popCell pulse, BackOut settle).
+        const cellMask = new Graphics()
+          .rect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H)
+          .fill(0xffffff);
+        container.addChild(cellMask);
+        container.mask = cellMask;
+
         const cellBg = new Graphics()
           .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
           .fill({ color: T.SEA.deep, alpha: 0.55 })
