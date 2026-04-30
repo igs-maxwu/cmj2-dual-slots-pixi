@@ -130,6 +130,7 @@ export interface AttackOptions {
   targetPositions: { x: number; y: number }[];
   particleColor?: number;
   shakeIntensity?: number;
+  side?: 'A' | 'B';   // chore: clash positioning — A centre-left right-facing, B centre-right left-facing
 }
 
 export async function attackTimeline(opts: AttackOptions): Promise<void> {
@@ -138,7 +139,12 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
   const shakeIntensity = opts.shakeIntensity ?? personality.shakeIntensity;
   const D = personality.duration;
 
-  const centerX = Math.round(CANVAS_WIDTH  / 2);
+  // chore: side-aware clash position — A leaps to centre-left, B to centre-right (140px gap between them)
+  const side = opts.side ?? 'A';
+  const CLASH_OFFSET = 70;
+  const centerX = side === 'A'
+    ? Math.round(CANVAS_WIDTH / 2 - CLASH_OFFSET)
+    : Math.round(CANVAS_WIDTH / 2 + CLASH_OFFSET);
   const centerY = Math.round(CANVAS_HEIGHT * 0.42);
 
   const { stage, symbolId, originX, originY, targetPositions } = opts;
@@ -156,11 +162,14 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
   const originYAdj = originY + 60;
   avatar.x = originX;
   avatar.y = originYAdj;
+  // chore: facing direction — A faces right (toward B), B faces left (toward A)
+  const faceDir = side === 'A' ? 1 : -1;
   stage.addChild(avatar);
 
   // Phase 1: Prepare — smaller scale multiplier for 120px sprite (was 0.40 for 64px portrait)
   await tween(D.prepare, p => {
-    avatar.scale.set(1.0 + Easings.easeOut(p) * 0.20);
+    const s = 1.0 + Easings.easeOut(p) * 0.20;
+    avatar.scale.set(faceDir * s, s);   // preserve facing on x-axis
   });
 
   // Phase 2: Leap
@@ -169,16 +178,18 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
     avatar.x = originX + (centerX - originX) * ep;
     const arc = -personality.arcHeight * 4 * p * (1 - p);
     avatar.y = originYAdj + (centerY - originYAdj) * ep + arc;
-    avatar.scale.set(1.20 + ep * 0.10);
+    const s = 1.20 + ep * 0.10;
+    avatar.scale.set(faceDir * s, s);
   });
   avatar.x = centerX;
   avatar.y = centerY;
 
   // Phase 3: Hold
   await tween(D.hold, p => {
-    avatar.scale.set(1.30 + Math.sin(p * Math.PI * 5) * 0.04);
+    const s = 1.30 + Math.sin(p * Math.PI * 5) * 0.04;
+    avatar.scale.set(faceDir * s, s);
   });
-  avatar.scale.set(1.30);
+  avatar.scale.set(faceDir * 1.30, 1.30);
 
   // Phase 4: Fire — dispatch on signature
   const ctx: Phase4Ctx = {
@@ -212,7 +223,7 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
     const ep = Easings.easeOut(p);
     avatar.x = centerX + (retX - centerX) * ep;
     avatar.y = centerY + (retY - centerY) * ep;
-    avatar.scale.set(1.30 - ep * 0.30);  // 1.30 → 1.0
+    avatar.scale.set(faceDir * (1.30 - ep * 0.30), 1.30 - ep * 0.30);  // 1.30 → 1.0, preserve facing
   });
 
   avatar.destroy();

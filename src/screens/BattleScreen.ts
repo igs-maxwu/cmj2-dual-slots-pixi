@@ -2235,6 +2235,7 @@ export class BattleScreen implements Screen {
       defenderCells: typeof this.cellsB,
       attackerFormation: typeof this.formationA,
       defenderFormation: typeof this.formationB,
+      side: 'A' | 'B',                             // chore: clash positioning
     ): void => {
       const draftedHits    = hits.filter(h => !h.isMercenary);
       const mercenaryHits  = hits.filter(h =>  h.isMercenary);
@@ -2265,6 +2266,7 @@ export class BattleScreen implements Screen {
               spiritKey: SYMBOLS[bestDrafted.symbolId].spiritKey,
               originX: origin.x, originY: origin.y,
               targetPositions: targets,
+              side: side,                           // chore: pass side for clash positioning
             }));
           }
         }
@@ -2287,8 +2289,8 @@ export class BattleScreen implements Screen {
       }
     };
 
-    addSide(hitA, this.cellsA, this.cellsB, this.formationA, this.formationB);
-    addSide(hitB, this.cellsB, this.cellsA, this.formationB, this.formationA);
+    addSide(hitA, this.cellsA, this.cellsB, this.formationA, this.formationB, 'A');
+    addSide(hitB, this.cellsB, this.cellsA, this.formationB, this.formationA, 'B');
 
     await Promise.all(animations);
   }
