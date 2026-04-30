@@ -641,6 +641,36 @@ export class SlotReel extends Container {
     return arrow;
   }
 
+  /**
+   * Draw a ring frame around a winning cell. Returns the Graphics for
+   * caller-managed cleanup (fades with arrows after hold).
+   */
+  private drawWinRing(cell: Cell, tint: number): Graphics {
+    const ring = new Graphics();
+    const r = Math.min(CELL_W, CELL_H) * 0.48; // slightly larger than ball radius
+
+    // Outer glow underlay
+    ring.circle(0, 0, r + 4)
+      .stroke({ width: 6, color: tint, alpha: 0.30 });
+    // Main stroke
+    ring.circle(0, 0, r)
+      .stroke({ width: 2.5, color: tint, alpha: 1 });
+
+    ring.x = cell.container.x;
+    ring.y = cell.container.y;
+    ring.alpha = 0;
+    ring.scale.set(1.15); // start slightly larger, pop-in to 1.0
+    this.addChild(ring);
+
+    // Fire-and-forget pop-in (concurrent with popCell)
+    void tween(120, t => {
+      ring.alpha = t;
+      ring.scale.set(1.15 - 0.15 * t);
+    }, Easings.easeOut);
+
+    return ring;
+  }
+
   // ─── Ways win highlights ─────────────────────────────────────────────────
   async highlightWays(hitA: WayHit[], hitB: WayHit[]): Promise<void> {
     const pulses: Promise<void>[] = [];
@@ -661,33 +691,36 @@ export class SlotReel extends Container {
       targets.push(hit.hitCells[offset].map(row => this.cells[actualCol][row]));
     }
 
-    // chore: sequential connect-the-dots trace — pop col-by-col with arrow connectors
+    // chore: sequential connect-the-dots trace — pop + ring per col, arrow between cols
     const arrows: Graphics[] = [];
+    const rings:  Graphics[] = [];
     const STEP_MS = 100;
 
     for (let i = 0; i < targets.length; i++) {
-      if (i === 0) {
-        // First column: just pop (no arrow yet)
-        await Promise.all(targets[0].map(c => this.popCell(c, tint, STEP_MS)));
-      } else {
-        // Draw arrow from rep-cell of previous col to rep-cell of current col (fire-and-forget fade-in)
-        const fromCell = targets[i - 1][0];
-        const toCell   = targets[i][0];
-        const arrow = this.drawArrow(fromCell, toCell, tint);
-        arrows.push(arrow);
-        // Pop current column concurrently with arrow fade-in (both 100ms)
-        await Promise.all(targets[i].map(c => this.popCell(c, tint, STEP_MS)));
+      // Draw arrow from previous column rep-cell (skip on first column)
+      if (i > 0) {
+        arrows.push(this.drawArrow(targets[i - 1][0], targets[i][0], tint));
       }
+
+      // Draw ring on every matched cell in this column (fire-and-forget pop-in)
+      for (const cell of targets[i]) {
+        rings.push(this.drawWinRing(cell, tint));
+      }
+
+      // Pop all matched cells in this column (concurrent with ring/arrow fade-in)
+      await Promise.all(targets[i].map(c => this.popCell(c, tint, STEP_MS)));
     }
 
-    // Hold final state with all arrows visible
+    // Hold final state — all rings + arrows visible
     await delay(300);
 
-    // Fade out arrows then destroy
+    // Fade out rings + arrows together, then destroy
     await tween(220, t => {
       for (const a of arrows) a.alpha = 1 - t;
+      for (const r of rings)  r.alpha  = 1 - t;
     });
     for (const a of arrows) a.destroy();
+    for (const r of rings)  r.destroy();
   }
 
   // ─── Jackpot particles ───────────────────────────────────────────────────
