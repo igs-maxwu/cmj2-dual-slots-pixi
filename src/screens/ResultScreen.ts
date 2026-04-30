@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Text } from 'pixi.js';
+import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
 import { GlowFilter } from 'pixi-filters';
 import type { Screen } from './ScreenManager';
 import { goldText } from '@/components/GoldText';
@@ -228,6 +228,8 @@ export class ResultScreen implements Screen {
       .roundRect(btnX, btnY, btnW, btnH, 14)
       .fill({ color: T.GOLD.base })
       .stroke({ width: 2, color: T.GOLD.shadow });
+    // chore: Pixi 8 explicit hitArea — auto hit-test on offset roundRect unreliable (chore #151 lesson)
+    bg.hitArea   = new Rectangle(btnX, btnY, btnW, btnH);
     bg.eventMode = 'static';
     bg.cursor    = 'pointer';
     bg.on('pointertap', () => this.onReturn());

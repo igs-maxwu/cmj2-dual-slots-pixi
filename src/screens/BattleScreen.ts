@@ -1827,8 +1827,8 @@ export class BattleScreen implements Screen {
             this.inFreeSpin = true;
             this.freeSpinsRemaining = BattleScreen.FREE_SPIN_COUNT;
             if (import.meta.env.DEV) console.log(`[FreeSpin] TRIGGERED — ${scatterThisSpin} scatters → 5 spins`);
-            // Stop AUTO on FreeSpin so player notices the event
-            if (this.autoSpinsRemaining > 0) this.stopAutoMode();
+            // chore: do NOT stop AUTO on FreeSpin — entry ceremony (s13-fx-01) already provides 2.3s
+            // visual notification; AUTO should auto-play through free spins (industry-standard behavior)
           } else {
             // Retrigger during free spin — add 5 more, cap 50
             this.freeSpinsRemaining = Math.min(50, this.freeSpinsRemaining + BattleScreen.FREE_SPIN_COUNT);
