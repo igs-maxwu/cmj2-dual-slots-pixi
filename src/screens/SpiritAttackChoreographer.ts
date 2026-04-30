@@ -167,9 +167,9 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
   const originYAdj = originY + 60;
   avatar.x = originX;
   avatar.y = originYAdj;
-  // chore: spirit webp native facing left → invert clash facing
-  // A on left needs flip (+1→right, toward B); B on right keeps native (-1→left, toward A) was wrong
-  // A on left needs flip to face right (toward B); B on right keeps native face-left (toward A)
+  // NOTE: spirit .webp assets face LEFT natively (chibi art convention).
+  // A (centre-left)  needs scale.x=-1 to flip right (toward B).
+  // B (centre-right) keeps scale.x=+1 (native left-facing, toward A).
   const faceDir = side === 'A' ? -1 : 1;
   stage.addChild(avatar);
 
