@@ -2243,6 +2243,12 @@ export class BattleScreen implements Screen {
             .filter((_, i) => activeDefenders[i]?.alive)   // chore: activeDefenders aligned with defenderCells
             .slice(0, 3)
             .map(c => ({ x: c.container.x, y: c.container.y }));
+          // pre-compute target slot indices for defenderHitReact
+          const targetSlots = defenderCells
+            .map((_, i) => (activeDefenders[i]?.alive ? i : -1))
+            .filter(i => i >= 0)
+            .slice(0, 3);
+          const targetSide = side === 'A' ? 'B' : 'A';
           if (targets.length > 0) {
             animations.push(attackTimeline({
               stage:           this.container,
@@ -2251,6 +2257,17 @@ export class BattleScreen implements Screen {
               spiritKey:       SYMBOLS[bestDrafted.symbolId].spiritKey,
               targetPositions: targets,
               side,
+              // chore #185-G: hit reactions fire concurrent with Phase 4 signature fx
+              onFireImpact: () => {
+                const color = SYMBOLS[bestDrafted.symbolId].color;
+                targets.forEach((tp, i) => {
+                  this.spawnHitBurst(tp.x, tp.y, color);
+                  const targetSlot = targetSlots[i];
+                  if (targetSlot !== undefined) {
+                    this.defenderHitReact(targetSide, targetSlot);
+                  }
+                });
+              },
             }));
           }
         }
