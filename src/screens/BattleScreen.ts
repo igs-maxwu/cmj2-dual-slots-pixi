@@ -1686,7 +1686,7 @@ export class BattleScreen implements Screen {
     banner.x = side === 'A' ? Math.round(CANVAS_WIDTH * 0.27) : Math.round(CANVAS_WIDTH * 0.73);
     banner.y = 380;
     banner.alpha = 0;
-    banner.zIndex = 1000;
+    banner.zIndex = 3500;   // chore #193: above fxLayer (z=3000) so always topmost
     this.container.addChild(banner);
 
     await tween(200, t => { banner.alpha = t; }, Easings.easeOut);
