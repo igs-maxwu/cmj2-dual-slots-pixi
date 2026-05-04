@@ -1,4 +1,4 @@
-import { Application, Assets, Container, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js';
+import { Application, Assets, BlurFilter, Container, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js';
 import type { Screen } from './ScreenManager';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import * as T from '@/config/DesignTokens';
@@ -274,6 +274,12 @@ export class BattleScreen implements Screen {
 
   // ─── Screen lifecycle ────────────────────────────────────────────────────
   async onMount(app: Application, stage: Container): Promise<void> {
+    // chore #190: warm-up Pixi filter shader compile to avoid 305ms rAF violation on first attack/spin.
+    // BlurFilter (SlotReel spin blur) + GlowFilter (VS badge, spin button, spirit glow) both compile
+    // GLSL shaders on first instantiation — doing it here during mount amortises the cost.
+    { const f = new BlurFilter({ strength: 0 }); f.destroy(); }
+    { const f = new GlowFilter({ distance: 4, outerStrength: 0 }); f.destroy(); }
+
     // p-02: demo mode — ?demo=1 enables scripted 5-spin capture sequence
     const params = new URLSearchParams(window.location.search);
     this.demoMode = params.get('demo') === '1';
