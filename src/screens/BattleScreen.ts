@@ -1645,23 +1645,45 @@ export class BattleScreen implements Screen {
 
   // ─── Resonance banner (r-04) — fire-and-forget at match start ───────────
   private async playResonanceBanner(): Promise<void> {
-    if (this.resonanceA.tier === 'NONE') return;
+    // chore #191: dual-side display — A on left blue / B on right red (was A-only golden centred)
+    const promises: Promise<void>[] = [];
+    if (this.resonanceA.tier !== 'NONE') promises.push(this.playSideResonanceBanner('A'));
+    if (this.resonanceB.tier !== 'NONE') promises.push(this.playSideResonanceBanner('B'));
+    await Promise.all(promises);
+  }
 
+  /** chore #191: one side's resonance banner — side determines x position + team colour */
+  private async playSideResonanceBanner(side: 'A' | 'B'): Promise<void> {
     const meta = T.CLAN_META;
+    const reso = side === 'A' ? this.resonanceA : this.resonanceB;
+    const teamColor = side === 'A' ? T.TEAM.azureGlow : T.TEAM.vermilionGlow;
+
     let bannerText: string;
-    if (this.resonanceA.tier === 'SOLO') {
-      const clan = this.resonanceA.boostedClans[0];
+    if (reso.tier === 'SOLO') {
+      const clan = reso.boostedClans[0];
       bannerText = `♪ ${meta[clan].cn} 共鳴  ×1.5`;
     } else {
       // DUAL
-      const c1 = this.resonanceA.boostedClans[0];
-      const c2 = this.resonanceA.boostedClans[1];
+      const c1 = reso.boostedClans[0];
+      const c2 = reso.boostedClans[1];
       bannerText = `♪ ${meta[c1].cn} × ${meta[c2].cn}  雙重共鳴  ×1.5`;
     }
 
-    const banner = goldText(bannerText, { fontSize: T.FONT_SIZE.h2, withShadow: true });
+    // Native Text with team-glow colour (A blue / B red) — goldText replaced
+    const banner = new Text({
+      text: bannerText,
+      style: {
+        fontFamily: T.FONT.title,
+        fontWeight: '900',
+        fontSize: T.FONT_SIZE.h2,
+        fill: teamColor,
+        stroke: { color: 0x000000, width: 4, join: 'round' },
+        dropShadow: { color: 0x000000, blur: 2, distance: 2, alpha: 0.6 },
+      },
+    });
     banner.anchor.set(0.5, 0.5);
-    banner.x = CANVAS_WIDTH / 2;
+    // A: left quarter ~194px; B: right quarter ~525px — clear of VS badge centre
+    banner.x = side === 'A' ? Math.round(CANVAS_WIDTH * 0.27) : Math.round(CANVAS_WIDTH * 0.73);
     banner.y = 380;
     banner.alpha = 0;
     banner.zIndex = 1000;
