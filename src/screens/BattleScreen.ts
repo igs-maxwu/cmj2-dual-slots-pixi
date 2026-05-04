@@ -2225,7 +2225,8 @@ export class BattleScreen implements Screen {
   /**
    * For each side:
    *   - Best DRAFTED hit  → full T0 attackTimeline (one per side, prevents visual clutter)
-   *   - All MERCENARY hits → lightweight mercenaryWeakFx (all concurrent, cheap)
+   *   - MERCENARY hit + proxy alive → attackTimeline with first-alive proxy spirit (chore #186)
+   *   - MERCENARY hit + all dead   → lightweight mercenaryWeakFx fallback (dmg already 0)
    *
    * All animations run in parallel via Promise.all.
    */
