@@ -1851,8 +1851,28 @@ export class BattleScreen implements Screen {
       this.updatePaylinesIndicator(totalHits);
 
       // ── Computation block (pure numerics — no awaiting, runs between stages) ──
+
+      // chore #187 spec note (2026-05-04 owner-approved STRICT mercenary):
+      //   Mercenary (unpicked spirits) score nothing — no coin, no dmg, no reel trace (SlotEngine gate).
+      //   Drafted hit damage gated on matching alive spirit (coin unchanged — coin is a reel event).
+      //   Wild ×2 multiplier preserved (Wild substitutes drafted symbol → isMercenary=false).
+      //   RTP impact: ~30% downgrade for mercenary base layer; sim verification post-merge required.
+      const aliveASymbols = new Set(
+        this.formationA.filter(u => u !== null && u.alive).map(u => u!.symbolId),
+      );
+      const aliveBSymbols = new Set(
+        this.formationB.filter(u => u !== null && u.alive).map(u => u!.symbolId),
+      );
+
       let dmgA = spin.sideA.dmgDealt;
       let dmgB = spin.sideB.dmgDealt;
+
+      // chore #187: gate base dmgDealt — zero it out if no drafted hit has a matching alive spirit
+      // (all wayHits are drafted post-#187; base is their aggregate; alive-gate applies per-symbol)
+      const draftedAliveA = spin.sideA.wayHits.some(wh => aliveASymbols.has(wh.symbolId));
+      const draftedAliveB = spin.sideB.wayHits.some(wh => aliveBSymbols.has(wh.symbolId));
+      if (!draftedAliveA) dmgA = 0;
+      if (!draftedAliveB) dmgB = 0;
 
       // ── M5 Resonance: ×1.5 on wayHits whose symbol clan is in boostedClans ──
       // Resonance first (per-wayHit clan-specific), Dragon bonus after.
@@ -1860,7 +1880,10 @@ export class BattleScreen implements Screen {
         for (const wh of spin.sideA.wayHits) {
           if (resonanceMultForClan(this.resonanceA, SYMBOLS[wh.symbolId].clan as ClanId) > 1) {
             coinA += Math.floor(wh.rawCoin * 0.5 * (this.cfg.betA / 100));
-            dmgA  += Math.floor(wh.rawDmg  * 0.5 * (this.cfg.betA / 100));
+            // chore #187: dmg alive-gate — only if matching alive spirit exists
+            if (aliveASymbols.has(wh.symbolId)) {
+              dmgA += Math.floor(wh.rawDmg * 0.5 * (this.cfg.betA / 100));
+            }
           }
         }
       }
@@ -1868,7 +1891,9 @@ export class BattleScreen implements Screen {
         for (const wh of spin.sideB.wayHits) {
           if (resonanceMultForClan(this.resonanceB, SYMBOLS[wh.symbolId].clan as ClanId) > 1) {
             coinB += Math.floor(wh.rawCoin * 0.5 * (this.cfg.betB / 100));
-            dmgB  += Math.floor(wh.rawDmg  * 0.5 * (this.cfg.betB / 100));
+            if (aliveBSymbols.has(wh.symbolId)) {
+              dmgB += Math.floor(wh.rawDmg * 0.5 * (this.cfg.betB / 100));
+            }
           }
         }
       }
