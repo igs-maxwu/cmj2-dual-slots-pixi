@@ -2231,8 +2231,8 @@ export class BattleScreen implements Screen {
 
   /**
    * For each side:
-   *   - Best DRAFTED hit  → full T0 attackTimeline (one per side, prevents visual clutter)
-   *   - All MERCENARY hits → lightweight mercenaryWeakFx (all concurrent, cheap)
+   *   - Best DRAFTED hit + alive matching spirit → full T0 attackTimeline (one per side)
+   *   - MERCENARY hits → intentional dead code post-chore #187 (SlotEngine drops them entirely)
    *
    * All animations run in parallel via Promise.all.
    */
@@ -2298,20 +2298,10 @@ export class BattleScreen implements Screen {
         }
       }
 
-      // Each mercenary hit → lightweight flash (all run concurrently)
-      for (const mh of mercenaryHits) {
-        const targets = defenderCells
-          .filter((_, i) => activeDefenders[i]?.alive)     // chore: aligned with defenderCells
-          .slice(0, 3)
-          .map(c => ({ x: c.container.x, y: c.container.y }));
-        if (targets.length > 0) {
-          animations.push(mercenaryWeakFx(
-            this.container,
-            targets,
-            Math.max(1, Math.floor(mh.rawDmg)),
-            SYMBOLS[mh.symbolId].color,
-          ));
-        }
+      // chore #187 (strict spec): mercenary wayHits no longer exist post-SlotEngine fix.
+      // mercenaryHits will always be empty — this block is intentional dead code.
+      if (import.meta.env.DEV && mercenaryHits.length > 0) {
+        console.warn('[BattleScreen] Unexpected mercenary wayHits after chore #187 strict spec', mercenaryHits);
       }
     };
 
