@@ -176,15 +176,20 @@ export class SlotEngine {
 
       if (matchCount < 3) continue;
 
-      const base            = PAYOUT_BASE[matchCount] ?? 0;
-      const mult            = SlotEngine.scaledMult(symId, poolTotalW, coinScale, dmgScale, fairnessExp);
-      const isMercenary     = !isDrafted.has(symId);
-      const mercenaryMult   = isMercenary ? 0.30 : 1.0;
-      const wildMult        = wildUsed ? 2.0 : 1.0;   // SPEC §15 M1 — way with wild ×2
-      const rawCoin         = base * numWays * mult.coinMult * mercenaryMult * wildMult;
-      const rawDmg          = base * numWays * mult.dmgMult  * mercenaryMult * wildMult;
+      // chore #187 (owner-approved 2026-05-04, strict spec):
+      // Mercenary spirits (not drafted) score nothing — no wayHit, no coin, no dmg, no reel trace.
+      // Wild substitution path preserved: when Wild substitutes a drafted symbol, wayHit symId
+      // is the drafted spirit (isMercenary=false) → still scores normally with wildMult ×2.
+      const isMercenary = !isDrafted.has(symId);
+      if (isMercenary) continue;
 
-      wayHits.push({ symbolId: symId, matchCount, numWays, hitCells, rawCoin, rawDmg, isMercenary, wildUsed });
+      const base     = PAYOUT_BASE[matchCount] ?? 0;
+      const mult     = SlotEngine.scaledMult(symId, poolTotalW, coinScale, dmgScale, fairnessExp);
+      const wildMult = wildUsed ? 2.0 : 1.0;   // SPEC §15 M1 — way with wild ×2
+      const rawCoin  = base * numWays * mult.coinMult * wildMult;
+      const rawDmg   = base * numWays * mult.dmgMult  * wildMult;
+
+      wayHits.push({ symbolId: symId, matchCount, numWays, hitCells, rawCoin, rawDmg, isMercenary: false, wildUsed });
       totalCoin += rawCoin;
       totalDmg  += rawDmg;
     }
