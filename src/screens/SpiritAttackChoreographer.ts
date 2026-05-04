@@ -142,7 +142,8 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
   const centerX = side === 'A'
     ? Math.round(CANVAS_WIDTH / 2 - CLASH_OFFSET)
     : Math.round(CANVAS_WIDTH / 2 + CLASH_OFFSET);
-  const centerY = Math.round(CANVAS_HEIGHT * 0.42);
+  // chore: raise centerY to mid-formation near VS badge (was CANVAS_HEIGHT*0.42=538, below front row)
+  const centerY = 420;
 
   const { stage, spiritContainer, targetPositions } = opts;
   const avatar = spiritContainer;   // alias — animate formation spirit directly (no clone)
@@ -160,15 +161,16 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
   avatar.zIndex = 1500;
   if (avatar.parent) avatar.parent.sortableChildren = true;
 
-  // NOTE: spirit .webp assets face LEFT natively (chibi art convention).
-  // A (centre-left)  needs scale.x=-1 to flip right (toward B).
-  // B (centre-right) keeps scale.x=+1 (native left-facing, toward A).
-  const faceDir = side === 'A' ? -1 : 1;
+  // chore: drawFormation (BattleScreen) already flips A side sprite child (sprite.scale.x *= -1).
+  // Container scale.x is uniform positive in formation. Preserve its original sign during attack
+  // so the pre-oriented sprite child facing stays intact. Previous faceDir A:-1 caused double-flip
+  // (container flipped) × (sprite child already flipped) = net no-flip → A appeared facing left.
+  const baseSign = Math.sign(origScaleX) || 1;
 
   // Phase 1: Prepare — scale up from base scale
   await tween(D.prepare, p => {
     const s = origAbsScale * (1.0 + Easings.easeOut(p) * 0.20);
-    avatar.scale.set(faceDir * s, s);
+    avatar.scale.set(baseSign * s, s);
   });
 
   // Phase 2: Leap from formation slot to clash centre
@@ -178,7 +180,7 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
     const arc = -personality.arcHeight * 4 * p * (1 - p);
     avatar.y = origY + (centerY - origY) * ep + arc;
     const s = origAbsScale * (1.20 + ep * 0.10);
-    avatar.scale.set(faceDir * s, s);
+    avatar.scale.set(baseSign * s, s);
   });
   avatar.x = centerX;
   avatar.y = centerY;
@@ -186,9 +188,9 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
   // Phase 3: Hold — scale pulse at clash centre
   await tween(D.hold, p => {
     const s = origAbsScale * (1.30 + Math.sin(p * Math.PI * 5) * 0.04);
-    avatar.scale.set(faceDir * s, s);
+    avatar.scale.set(baseSign * s, s);
   });
-  avatar.scale.set(faceDir * origAbsScale * 1.30, origAbsScale * 1.30);
+  avatar.scale.set(baseSign * origAbsScale * 1.30, origAbsScale * 1.30);
 
   // Phase 4: Fire — dispatch on signature
   const ctx: Phase4Ctx = {
@@ -221,7 +223,7 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
     avatar.x = centerX + (origX - centerX) * ep;
     avatar.y = centerY + (origY - centerY) * ep;
     const s = origAbsScale * (1.30 - ep * 0.30);   // 1.30 → 1.0 multiplier
-    avatar.scale.set(faceDir * s, s);
+    avatar.scale.set(baseSign * s, s);
   });
 
   // Restore original container state exactly (no destroy — it's the live formation container)
