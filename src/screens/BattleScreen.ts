@@ -2566,22 +2566,40 @@ export class BattleScreen implements Screen {
     const cx  = pos.x;
     const cy  = pos.y - SPIRIT_H / 2;
 
+    // chore #185-C: bigger + double-stroke + scale punch for impact
     const txt = new Text({
       text: `-${amount}`,
       style: {
-        fontFamily: T.FONT.num, fontWeight: '700', fontSize: T.FONT_SIZE.xl,
-        fill: T.CTA.red, stroke: { color: 0x000, width: 4 },
+        fontFamily: T.FONT.num, fontWeight: '700',
+        fontSize: 34,                                              // was T.FONT_SIZE.xl ~22-26
+        fill: T.CTA.red,
+        stroke: { color: 0x000, width: 5 },                        // thicker outline
+        dropShadow: {
+          color: 0x000000, alpha: 0.7, blur: 6, distance: 2,       // drop shadow for legibility
+        },
       },
     });
     txt.anchor.set(0.5, 0.5);
     txt.x = cx; txt.y = cy;
+    txt.scale.set(0);                                              // start scale 0
     this.fxLayer.addChild(txt);
 
-    await tween(600, p => {
-      txt.y = cy - p * 60;
-      txt.alpha = 1 - Math.max(0, (p - 0.4) / 0.6);
-      txt.scale.set(1 + p * 0.2);
+    // Stage 1 (0-200ms): scale punch 0 → 1.5 (overshoot)
+    await tween(200, p => {
+      txt.scale.set(p * 1.5);
+      txt.y = cy - p * 12;                                         // small initial rise
     }, Easings.easeOut);
+
+    // Stage 2 (200-400ms): scale 1.5 → 1.0 (settle)
+    await tween(200, p => {
+      txt.scale.set(1.5 - p * 0.5);
+    }, Easings.easeOut);
+
+    // Stage 3 (400-800ms): float up + fade
+    await tween(400, p => {
+      txt.y = (cy - 12) - p * 60;                                  // continued rise
+      txt.alpha = 1 - p;
+    }, Easings.easeIn);
 
     txt.destroy();
   }
