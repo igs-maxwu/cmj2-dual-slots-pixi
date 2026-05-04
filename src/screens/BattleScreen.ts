@@ -152,7 +152,11 @@ export class BattleScreen implements Screen {
   private jpMinorText!: Text;
   private jpMajorText!: Text;
   private jpGrandText!: Text;
-  private fxLayer = new Container();    // damage numbers live here
+  private fxLayer = (() => {
+    const c = new Container();
+    c.zIndex = 3000;   // chore #189: above attack avatar (z=1500) so dmg numbers + hit burst always render on top
+    return c;
+  })();    // damage numbers + hit burst live here
   private reel!: SlotReel;
   private formationA: FormationGrid = [];
   private formationB: FormationGrid = [];
