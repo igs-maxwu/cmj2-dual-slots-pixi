@@ -349,13 +349,14 @@ export class SlotReel extends Container {
 
   // ─── Spin ────────────────────────────────────────────────────────────────
   /**
-   * Spec-locked stop times (measured from spin() call, settle phase excluded):
+   * Spec (chore #192+#193): ALL 5 reels start simultaneously at t=0; stops staggered in 3 stages.
+   *   R1+R5  lock at t ≈ 0.6 s  (fade 90ms + swap 510ms, lock = 600ms)
+   *   R2+R4  lock at t ≈ 1.1 s  (fade 90ms + swap 1010ms, lock = 1100ms)
+   *   R3     lock at t ≈ 1.6 s  (fade 90ms + swap 1520ms = 1610ms)
+   *                              (pre-flash overlay parallel, 200/400ms — visual only, no lock impact)
+   *                              (teaser: same lock t≈1610ms — pre-flash 400ms still parallel)
    *
-   *   R1+R5  lock at t = 0.6 s   (start t=0,    fade 90ms + swap 510ms)
-   *   R2+R4  lock at t = 1.1 s   (start t=500ms, fade 90ms + swap 510ms)
-   *   R3     lock at t = 1.6 s   (start t=1000ms, pre-flash 200ms + fade 90ms + swap 310ms)
-   *
-   * Each group is separated by 500 ms.
+   * Owner spec 2026-05-04: "大家一起轉，1+5 一起停，2+4 一起停，第 3 輪最後停"
    */
   async spin(finalGrid: number[][]): Promise<void> {
     // chore: light streak fade-in at spin start
@@ -367,27 +368,24 @@ export class SlotReel extends Container {
       });
     }
 
-    // Outer pair — start immediately, lock at t ≈ 600ms
-    const p04 = Promise.all([
-      this.spinColumn(0, finalGrid, 510),
-      this.spinColumn(4, finalGrid, 510),
-    ]);
-
-    // Inner pair — start 500ms later, lock at t ≈ 1100ms
-    await delay(500);
-    const p13 = Promise.all([
-      this.spinColumn(1, finalGrid, 510),
-      this.spinColumn(3, finalGrid, 510),
-    ]);
-
     // B4 teaser: if either outer/inner pair on one side shares a symbol,
     // escalate the center pre-flash to tease a possible 3-way.
     const teaser = hasPreMatch(finalGrid, 0, 1) || hasPreMatch(finalGrid, 4, 3);
 
-    // Center — start 500ms after inner, lock at t ≈ 1600ms (or ≈ 1800ms if teaser)
-    // (spinColumnCenter adds 200ms/400ms pre-flash + 90ms fade before swap)
-    await delay(500);
-    const p2 = this.spinColumnCenter(2, finalGrid, 310, teaser);
+    // chore #192+#193: ALL 5 reels start simultaneously; stops staggered in 3 stages
+    // Stage 1 (t≈600ms):  cols 0+4 lock first  (fade 90 + swap 510)
+    // Stage 2 (t≈1100ms): cols 1+3 lock second (fade 90 + swap 1010)
+    // Stage 3 (t≈1610ms): col 2   locks last   (fade 90 + swap 1520; pre-flash overlay is parallel)
+    const p04 = Promise.all([
+      this.spinColumn(0, finalGrid, 510),     // lock t=600ms
+      this.spinColumn(4, finalGrid, 510),
+    ]);
+    const p13 = Promise.all([
+      this.spinColumn(1, finalGrid, 1010),    // chore #192: was 510, lock t=1100ms
+      this.spinColumn(3, finalGrid, 1010),
+    ]);
+    // chore #193: pre-flash now parallel → fade(90)+swap(1520)=1610ms; was 200+90+310=600 from t=1000
+    const p2 = this.spinColumnCenter(2, finalGrid, 1520, teaser);
 
     await Promise.all([p04, p13, p2]);
 
@@ -480,18 +478,21 @@ export class SlotReel extends Container {
         .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
         .fill(flashFill);
     }
-    await tween(flashMs, p => {
+    // chore #193: fire-and-forget — pre-flash overlay runs IN PARALLEL with swap (not before)
+    // center col spins simultaneously with outer/inner; flash is purely cosmetic while reels turn
+    void tween(flashMs, p => {
       const a = Easings.pulse(p) * flashPeak;
       for (const cell of colCells) cell.overlay.alpha = a;
+    }).then(() => {
+      for (const cell of colCells) {
+        cell.overlay.alpha = 0;
+        cell.overlay.clear()
+          .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
+          .fill(0xffffff);
+      }
     });
-    for (const cell of colCells) {
-      cell.overlay.alpha = 0;
-      cell.overlay.clear()
-        .roundRect(-CELL_W / 2, -CELL_H / 2, CELL_W, CELL_H, T.RADIUS.sm)
-        .fill(0xffffff);
-    }
 
-    // Spin-up fade
+    // Spin-up fade (proceeds immediately — does NOT wait for pre-flash)
     await tween(90, p => {
       for (const cell of colCells) cell.container.alpha = 1 - p * 0.35;
     });
