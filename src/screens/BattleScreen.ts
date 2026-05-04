@@ -82,8 +82,8 @@ const PAYLINES_CELL_W = 14;
 const PAYLINES_CELL_H = 14;
 const PAYLINES_GAP    = 4;
 
-// ─── NineGrid 3×3 formation layout (p11-vA-02) ──────────────────────────────
-// chore: 5-slot zigzag formation — outer/inner col alternating across 5 rows
+// ─── Formation layout (chore #181: 5-slot zigzag) ───────────────────────────
+// Each side: 3 spirits in outer col (rows 0/2/4) + 2 spirits in inner col (rows 1/3)
 // Owner-confirmed layout 2026-04-30: scale gradient bottom→top (row 4 nearest = largest)
 // Each side: 3 spirits in outer col (rows 0/2/4) + 2 spirits in inner col (rows 1/3)
 // Centre clash zone: x 200–520 = 320px clear
@@ -138,9 +138,6 @@ export class BattleScreen implements Screen {
   private _breatheTick: (() => void) | null = null;
   private cellsA: FormationCellRefs[] = [];
   private cellsB: FormationCellRefs[] = [];
-  /** p11-vA-02: NineGrid — which of the 9 cells (0-8) each side's 5 spirits occupy */
-  private gridPlacementA: number[] = [];
-  private gridPlacementB: number[] = [];
   private walletA = 10000;
   private walletB = 10000;
   private displayedWalletA = 10000;
@@ -321,9 +318,6 @@ export class BattleScreen implements Screen {
     this.refreshJackpotMarquee();   // j-05: show loaded pool values immediately
     this.drawZoneSeparator();       // p11-vA-01: 「戰」 gold separator line between JP hero and arena
     this.drawBattleArena();         // p11-vA-01: 310px arena (was 520px Variant B)
-    // chore: deterministic slot mapping replaces Fisher-Yates (formation 2-row layout)
-    this.gridPlacementA = [0, 1, 2, 3, 4];
-    this.gridPlacementB = [0, 1, 2, 3, 4];
     this.drawSpiritShadows();
     this.drawFormation('A');
     this.drawFormation('B');
@@ -513,7 +507,7 @@ export class BattleScreen implements Screen {
   // chore/visual: removed drawGridOverlay() + drawEdgeVignette() — not present in mockup variant-a
   private drawBackground(): void {
     this.drawPerspectiveFloor();
-    // NOTE: drawSpiritShadows() is called separately in onMount AFTER gridPlacementA/B are seeded
+    // NOTE: drawSpiritShadows() is called separately in onMount after drawBattleArena()
   }
 
   /** Solid base is provided by AmbientBackground; this layer adds the water-ink grid. */
@@ -577,9 +571,8 @@ export class BattleScreen implements Screen {
   }
 
   /**
-   * p11-vA-02: Ground shadows derived dynamically from NineGrid placement.
-   * One ellipse per occupied cell — size and alpha scale with depth (row 0=small/faint, row 2=large/dark).
-   * Called AFTER gridPlacementA/B are seeded in onMount.
+   * Ground shadows derived dynamically from 5-slot zigzag formation positions.
+   * One ellipse per spirit — size + alpha scale with depth (row 0 small/faint → row 4 large/dark).
    */
   private drawSpiritShadows(): void {
     const shadow = new Graphics();
@@ -915,10 +908,10 @@ export class BattleScreen implements Screen {
 
   // chore: computeGridPlacement (Fisher-Yates) removed — slot mapping now deterministic via SLOT_TO_GRID_POS
 
-  // ─── NineGrid formation render (p11-vA-02) ───────────────────────────────
+  // ─── Formation render (chore #181: 5-slot zigzag) ────────────────────────
   /**
-   * Draws the 5 spirits for one side onto NineGrid cells.
-   * Sprites are addChild'd sorted back→front (row 0 first, row 2 last) for correct z-order
+   * Draws the 5 spirits for one side into the zigzag formation.
+   * Sprites are addChild'd sorted back→front (row 0 first, row 4 last) for correct z-order
    * so front-row spirits visually appear in front of back-row ones.
    * B-side col mirroring handled in slotToArenaPos — no extra flip needed here.
    */
