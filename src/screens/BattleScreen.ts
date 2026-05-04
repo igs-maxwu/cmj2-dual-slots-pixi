@@ -2243,6 +2243,12 @@ export class BattleScreen implements Screen {
             .filter((_, i) => activeDefenders[i]?.alive)   // chore: activeDefenders aligned with defenderCells
             .slice(0, 3)
             .map(c => ({ x: c.container.x, y: c.container.y }));
+          // pre-compute target slot indices for defenderHitReact
+          const targetSlots = defenderCells
+            .map((_, i) => (activeDefenders[i]?.alive ? i : -1))
+            .filter(i => i >= 0)
+            .slice(0, 3);
+          const targetSide = side === 'A' ? 'B' : 'A';
           if (targets.length > 0) {
             animations.push(attackTimeline({
               stage:           this.container,
@@ -2251,6 +2257,17 @@ export class BattleScreen implements Screen {
               spiritKey:       SYMBOLS[bestDrafted.symbolId].spiritKey,
               targetPositions: targets,
               side,
+              // chore #185-G: hit reactions fire concurrent with Phase 4 signature fx
+              onFireImpact: () => {
+                const color = SYMBOLS[bestDrafted.symbolId].color;
+                targets.forEach((tp, i) => {
+                  this.spawnHitBurst(tp.x, tp.y, color);
+                  const targetSlot = targetSlots[i];
+                  if (targetSlot !== undefined) {
+                    this.defenderHitReact(targetSide, targetSlot);
+                  }
+                });
+              },
             }));
           }
         }
@@ -2505,6 +2522,60 @@ export class BattleScreen implements Screen {
     this.cascadeWallet('B');
   }
 
+  /**
+   * chore #185-B: Radial impact burst at target position (centre circle + 12 rays).
+   * 180ms scale 0→1.5 + alpha 1→0. Uses fxLayer. Fire-and-forget.
+   */
+  private spawnHitBurst(x: number, y: number, color: number): void {
+    const burst = new Graphics();
+    // Centre filled circle
+    burst.circle(0, 0, 16).fill({ color, alpha: 0.9 });
+    // 12 radial rays
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      burst.moveTo(0, 0)
+        .lineTo(Math.cos(a) * 32, Math.sin(a) * 32)
+        .stroke({ width: 4, color, alpha: 0.85 });
+    }
+    burst.x = x;
+    burst.y = y;
+    burst.alpha = 1;
+    burst.scale.set(0);
+    this.fxLayer.addChild(burst);
+
+    void tween(180, p => {
+      burst.alpha = 1 - p;
+      burst.scale.set(p * 1.5);
+    }, Easings.easeOut).then(() => { if (!burst.destroyed) burst.destroy(); });
+  }
+
+  /**
+   * chore #185-A: Defender shake + red tint flash 250ms.
+   * Shakes container x by ±6px sine decay; overlays a red translucent rect that fades out.
+   */
+  private defenderHitReact(side: 'A' | 'B', slotIndex: number): void {
+    const cells = side === 'A' ? this.cellsA : this.cellsB;
+    const ref = cells[slotIndex];
+    if (!ref) return;
+    const c = ref.container;
+    const origX = c.x;
+
+    // Red overlay anchored at sprite feet (covers spirit body area)
+    const overlay = new Graphics()
+      .rect(-NINE_CELL_SIZE / 2, -SPIRIT_H, NINE_CELL_SIZE, SPIRIT_H)
+      .fill({ color: 0xff3030, alpha: 0.55 });
+    c.addChild(overlay);
+
+    void tween(250, p => {
+      const shakeAmp = 6 * (1 - p);
+      c.x = origX + Math.sin(p * Math.PI * 6) * shakeAmp;
+      overlay.alpha = 0.55 * (1 - p);
+    }, Easings.easeOut).then(() => {
+      c.x = origX;
+      if (!overlay.destroyed) overlay.destroy();
+    });
+  }
+
   private async popDamage(side: 'A' | 'B', slotIndex: number, amount: number): Promise<void> {
     if (amount <= 0) return;
     // Use staggered arena position: torso centre = feet y − SPIRIT_H/2
@@ -2512,22 +2583,40 @@ export class BattleScreen implements Screen {
     const cx  = pos.x;
     const cy  = pos.y - SPIRIT_H / 2;
 
+    // chore #185-C: bigger + double-stroke + scale punch for impact
     const txt = new Text({
       text: `-${amount}`,
       style: {
-        fontFamily: T.FONT.num, fontWeight: '700', fontSize: T.FONT_SIZE.xl,
-        fill: T.CTA.red, stroke: { color: 0x000, width: 4 },
+        fontFamily: T.FONT.num, fontWeight: '700',
+        fontSize: 34,                                              // was T.FONT_SIZE.xl ~22-26
+        fill: T.CTA.red,
+        stroke: { color: 0x000, width: 5 },                        // thicker outline
+        dropShadow: {
+          color: 0x000000, alpha: 0.7, blur: 6, distance: 2,       // drop shadow for legibility
+        },
       },
     });
     txt.anchor.set(0.5, 0.5);
     txt.x = cx; txt.y = cy;
+    txt.scale.set(0);                                              // start scale 0
     this.fxLayer.addChild(txt);
 
-    await tween(600, p => {
-      txt.y = cy - p * 60;
-      txt.alpha = 1 - Math.max(0, (p - 0.4) / 0.6);
-      txt.scale.set(1 + p * 0.2);
+    // Stage 1 (0-200ms): scale punch 0 → 1.5 (overshoot)
+    await tween(200, p => {
+      txt.scale.set(p * 1.5);
+      txt.y = cy - p * 12;                                         // small initial rise
     }, Easings.easeOut);
+
+    // Stage 2 (200-400ms): scale 1.5 → 1.0 (settle)
+    await tween(200, p => {
+      txt.scale.set(1.5 - p * 0.5);
+    }, Easings.easeOut);
+
+    // Stage 3 (400-800ms): float up + fade
+    await tween(400, p => {
+      txt.y = (cy - 12) - p * 60;                                  // continued rise
+      txt.alpha = 1 - p;
+    }, Easings.easeIn);
 
     txt.destroy();
   }

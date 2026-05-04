@@ -128,6 +128,8 @@ export interface AttackOptions {
   particleColor?:  number;
   shakeIntensity?: number;
   side?: 'A' | 'B';            // clash positioning — A centre-left, B centre-right
+  /** chore #185-G: called once at the start of Phase 4 (fire) — caller spawns hit reactions */
+  onFireImpact?: () => void;
 }
 
 export async function attackTimeline(opts: AttackOptions): Promise<void> {
@@ -191,6 +193,13 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
     avatar.scale.set(baseSign * s, s);
   });
   avatar.scale.set(baseSign * origAbsScale * 1.30, origAbsScale * 1.30);
+
+  // chore #185-G: notify caller to spawn hit reactions concurrent with signature fx
+  try {
+    opts.onFireImpact?.();
+  } catch (err) {
+    if (import.meta.env.DEV) console.warn('[attackTimeline] onFireImpact threw', err);
+  }
 
   // Phase 4: Fire — dispatch on signature
   const ctx: Phase4Ctx = {
