@@ -1902,14 +1902,20 @@ export class BattleScreen implements Screen {
       if (hasAliveOfClan(this.formationA, 'azure')) {
         for (const wh of spin.sideA.wayHits) {
           if (wh.matchCount >= 4 && SYMBOLS[wh.symbolId]?.clan === 'azure') {
-            dmgA += Math.floor(wh.rawDmg * 0.2 * (this.cfg.betA / 100));
+            // chore #187: alive-gate for dragon passive (consistent with resonance + base dmg gate)
+            if (aliveASymbols.has(wh.symbolId)) {
+              dmgA += Math.floor(wh.rawDmg * 0.2 * (this.cfg.betA / 100));
+            }
           }
         }
       }
       if (hasAliveOfClan(this.formationB, 'azure')) {
         for (const wh of spin.sideB.wayHits) {
           if (wh.matchCount >= 4 && SYMBOLS[wh.symbolId]?.clan === 'azure') {
-            dmgB += Math.floor(wh.rawDmg * 0.2 * (this.cfg.betB / 100));
+            // chore #187: alive-gate for dragon passive
+            if (aliveBSymbols.has(wh.symbolId)) {
+              dmgB += Math.floor(wh.rawDmg * 0.2 * (this.cfg.betB / 100));
+            }
           }
         }
       }
