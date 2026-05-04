@@ -349,13 +349,13 @@ export class SlotReel extends Container {
 
   // ─── Spin ────────────────────────────────────────────────────────────────
   /**
-   * Spec-locked stop times (measured from spin() call, settle phase excluded):
+   * Spec (chore #192): ALL 5 reels start simultaneously at t=0; stops staggered in 3 stages.
+   *   R1+R5  lock at t ≈ 0.6 s  (fade 90ms + swap 510ms, lock = 600ms)
+   *   R2+R4  lock at t ≈ 1.1 s  (fade 90ms + swap 1010ms, lock = 1100ms)
+   *   R3     lock at t ≈ 1.6 s  (pre-flash 200ms + fade 90ms + swap 1320ms = 1610ms)
+   *                              (teaser: pre-flash 400ms → lock at 1810ms)
    *
-   *   R1+R5  lock at t = 0.6 s   (start t=0,    fade 90ms + swap 510ms)
-   *   R2+R4  lock at t = 1.1 s   (start t=500ms, fade 90ms + swap 510ms)
-   *   R3     lock at t = 1.6 s   (start t=1000ms, pre-flash 200ms + fade 90ms + swap 310ms)
-   *
-   * Each group is separated by 500 ms.
+   * Owner spec 2026-05-04: "大家一起轉，1+5 一起停，2+4 一起停，第 3 輪最後停"
    */
   async spin(finalGrid: number[][]): Promise<void> {
     // chore: light streak fade-in at spin start
@@ -367,27 +367,25 @@ export class SlotReel extends Container {
       });
     }
 
-    // Outer pair — start immediately, lock at t ≈ 600ms
-    const p04 = Promise.all([
-      this.spinColumn(0, finalGrid, 510),
-      this.spinColumn(4, finalGrid, 510),
-    ]);
-
-    // Inner pair — start 500ms later, lock at t ≈ 1100ms
-    await delay(500);
-    const p13 = Promise.all([
-      this.spinColumn(1, finalGrid, 510),
-      this.spinColumn(3, finalGrid, 510),
-    ]);
-
     // B4 teaser: if either outer/inner pair on one side shares a symbol,
     // escalate the center pre-flash to tease a possible 3-way.
     const teaser = hasPreMatch(finalGrid, 0, 1) || hasPreMatch(finalGrid, 4, 3);
 
-    // Center — start 500ms after inner, lock at t ≈ 1600ms (or ≈ 1800ms if teaser)
-    // (spinColumnCenter adds 200ms/400ms pre-flash + 90ms fade before swap)
-    await delay(500);
-    const p2 = this.spinColumnCenter(2, finalGrid, 310, teaser);
+    // chore #192: ALL 5 reels start simultaneously; stops staggered in 3 stages
+    // Stage 1 (t≈600ms):  cols 0+4 lock first  (fade 90 + swap 510)
+    // Stage 2 (t≈1100ms): cols 1+3 lock second (fade 90 + swap 1010)
+    // Stage 3 (t≈1610ms): col 2   locks last   (pre-flash 200 + fade 90 + swap 1320)
+    //                     teaser: pre-flash 400 → lock at t≈1810ms
+    const p04 = Promise.all([
+      this.spinColumn(0, finalGrid, 510),     // unchanged: lock t=600ms
+      this.spinColumn(4, finalGrid, 510),
+    ]);
+    const p13 = Promise.all([
+      this.spinColumn(1, finalGrid, 1010),    // chore #192: was 510, +500 to stagger lock to t=1100ms
+      this.spinColumn(3, finalGrid, 1010),
+    ]);
+    // chore #192: center starts at t=0; spinMs=1320 → lock = pre-flash(200)+fade(90)+1320 = 1610ms
+    const p2 = this.spinColumnCenter(2, finalGrid, 1320, teaser);
 
     await Promise.all([p04, p13, p2]);
 
