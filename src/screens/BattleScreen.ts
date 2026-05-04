@@ -2291,13 +2291,42 @@ export class BattleScreen implements Screen {
         }
       }
 
-      // Each mercenary hit → lightweight flash (all run concurrently)
+      // Each mercenary hit → proxy alive spirit runs attackTimeline (Wild fires spirit's signature)
       for (const mh of mercenaryHits) {
         const targets = defenderCells
           .filter((_, i) => activeDefenders[i]?.alive)     // chore: aligned with defenderCells
           .slice(0, 3)
           .map(c => ({ x: c.container.x, y: c.container.y }));
-        if (targets.length > 0) {
+
+        // chore #186: pick first alive attacker as Wild proxy
+        const proxySlot = activeAttackers.findIndex(u => u && u.alive);
+        if (targets.length > 0 && proxySlot >= 0) {
+          const proxyUnit = activeAttackers[proxySlot]!;
+          const targetSlots = defenderCells
+            .map((_, i) => (activeDefenders[i]?.alive ? i : -1))
+            .filter(i => i >= 0)
+            .slice(0, 3);
+          const targetSide = side === 'A' ? 'B' : 'A';
+          animations.push(attackTimeline({
+            stage:           this.container,
+            spiritContainer: attackerCells[proxySlot].container,
+            symbolId:        proxyUnit.symbolId,           // proxy spirit personality
+            spiritKey:       SYMBOLS[proxyUnit.symbolId].spiritKey,
+            targetPositions: targets,
+            side,
+            onFireImpact: () => {
+              const color = SYMBOLS[mh.symbolId].color;   // Wild/mercenary symbol color for burst
+              targets.forEach((tp, i) => {
+                this.spawnHitBurst(tp.x, tp.y, color);
+                const targetSlot = targetSlots[i];
+                if (targetSlot !== undefined) {
+                  this.defenderHitReact(targetSide, targetSlot);
+                }
+              });
+            },
+          }));
+        } else if (targets.length > 0) {
+          // chore #186: all attackers dead → fallback flash (dmg already 0 from alive-gate)
           animations.push(mercenaryWeakFx(
             this.container,
             targets,
