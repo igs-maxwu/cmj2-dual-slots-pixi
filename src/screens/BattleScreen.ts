@@ -1851,8 +1851,23 @@ export class BattleScreen implements Screen {
       this.updatePaylinesIndicator(totalHits);
 
       // ── Computation block (pure numerics — no awaiting, runs between stages) ──
-      let dmgA = spin.sideA.dmgDealt;
-      let dmgB = spin.sideB.dmgDealt;
+
+      // chore #186 spec note (2026-05-04 owner-approved):
+      //   Coin: based on reel matches (no formation alive check)
+      //   Damage:
+      //     - Drafted hit: only if A has alive spirit with matching symbolId
+      //     - Mercenary hit: only if A has any alive spirit (Wild proxies)
+      //   Visual:
+      //     - Drafted hit: matching alive spirit leaps (chore #182)
+      //     - Mercenary hit: first-alive spirit proxy leaps (chore #186)
+      const aliveA = this.formationA.filter(u => u !== null && u.alive);
+      const aliveB = this.formationB.filter(u => u !== null && u.alive);
+      const aliveASymbols = new Set(aliveA.map(u => u!.symbolId));
+      const aliveBSymbols = new Set(aliveB.map(u => u!.symbolId));
+
+      // chore #186: gate base dmg — if all attackers dead, deal 0 (coin unaffected)
+      let dmgA = aliveA.length > 0 ? spin.sideA.dmgDealt : 0;
+      let dmgB = aliveB.length > 0 ? spin.sideB.dmgDealt : 0;
 
       // ── M5 Resonance: ×1.5 on wayHits whose symbol clan is in boostedClans ──
       // Resonance first (per-wayHit clan-specific), Dragon bonus after.
@@ -1860,7 +1875,9 @@ export class BattleScreen implements Screen {
         for (const wh of spin.sideA.wayHits) {
           if (resonanceMultForClan(this.resonanceA, SYMBOLS[wh.symbolId].clan as ClanId) > 1) {
             coinA += Math.floor(wh.rawCoin * 0.5 * (this.cfg.betA / 100));
-            dmgA  += Math.floor(wh.rawDmg  * 0.5 * (this.cfg.betA / 100));
+            // chore #186: dmg alive-gate per hit (mercenary: any alive; drafted: matching alive)
+            const aliveDmgOkA = wh.isMercenary ? aliveA.length > 0 : aliveASymbols.has(wh.symbolId);
+            if (aliveDmgOkA) dmgA += Math.floor(wh.rawDmg * 0.5 * (this.cfg.betA / 100));
           }
         }
       }
@@ -1868,7 +1885,8 @@ export class BattleScreen implements Screen {
         for (const wh of spin.sideB.wayHits) {
           if (resonanceMultForClan(this.resonanceB, SYMBOLS[wh.symbolId].clan as ClanId) > 1) {
             coinB += Math.floor(wh.rawCoin * 0.5 * (this.cfg.betB / 100));
-            dmgB  += Math.floor(wh.rawDmg  * 0.5 * (this.cfg.betB / 100));
+            const aliveDmgOkB = wh.isMercenary ? aliveB.length > 0 : aliveBSymbols.has(wh.symbolId);
+            if (aliveDmgOkB) dmgB += Math.floor(wh.rawDmg * 0.5 * (this.cfg.betB / 100));
           }
         }
       }
