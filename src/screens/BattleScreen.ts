@@ -2456,7 +2456,29 @@ export class BattleScreen implements Screen {
 
   // ─── Damage number popups ────────────────────────────────────────────────
   private async playDamageEvents(events: DmgEvent[], targetSide: 'A' | 'B'): Promise<void> {
-    const pops = events.map(e => this.popDamage(targetSide, e.slotIndex, e.damageTaken));
+    // chore #188: distributeDamage returns sparse 9-elem grid slotIndex (row*3+col, 0-8);
+    // popDamage / slotToArenaPos uses dense 5-elem index (0-4) post-chore #181.
+    // Build sparse→dense map matching cellsA/B compaction order (non-null entries in grid order).
+    const formation = targetSide === 'A' ? this.formationA : this.formationB;
+    const sparseToDense = new Map<number, number>();
+    let denseIdx = 0;
+    formation.forEach((u, i) => {
+      if (u !== null) {
+        sparseToDense.set(i, denseIdx);
+        denseIdx++;
+      }
+    });
+
+    const pops = events.map(e => {
+      const dense = sparseToDense.get(e.slotIndex);
+      if (dense === undefined) {
+        if (import.meta.env.DEV) {
+          console.warn(`[BattleScreen] popDamage skipped — sparse slot ${e.slotIndex} not in formation`, e);
+        }
+        return Promise.resolve();
+      }
+      return this.popDamage(targetSide, dense, e.damageTaken);
+    });
     await Promise.all(pops);
   }
 
