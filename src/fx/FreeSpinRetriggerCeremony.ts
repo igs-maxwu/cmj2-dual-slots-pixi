@@ -1,4 +1,4 @@
-import { Container, Sprite, Text, Texture } from 'pixi.js';
+import { Assets, Container, Sprite, Text, Texture } from 'pixi.js';
 import { GlowFilter } from 'pixi-filters';
 import * as T from '@/config/DesignTokens';
 import { goldText } from '@/components/GoldText';
@@ -15,8 +15,9 @@ export async function playFreeSpinRetriggerCeremony(
   parent.addChild(root);
 
   // ── Stage 1 (0.0–0.4s): rainbow halo expand from centre ────────────────────
-  const haloUrl = `${import.meta.env.BASE_URL}assets/fx/sos2-rainbow-halo.webp`;
-  const haloTex = Texture.from(haloUrl);
+  // chore #190: prefer cached asset preloaded by LoadingScreen; fallback for edge cases
+  const haloTex = Assets.get<Texture>('sos2-rainbow-halo')
+    ?? Texture.from(`${import.meta.env.BASE_URL}assets/fx/sos2-rainbow-halo.webp`);
   const halo = new Sprite(haloTex);
   halo.anchor.set(0.5);
   halo.x = CANVAS_WIDTH / 2;

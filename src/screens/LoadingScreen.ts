@@ -158,6 +158,7 @@ export class LoadingScreen implements Screen {
     await Assets.load([
       { alias: 'sos2-fire-wave',     src: `${base}assets/fx/sos2-fire-wave.webp` },
       { alias: 'sos2-particles',     src: `${base}assets/fx/sos2-particles.webp` },
+      { alias: 'sos2-rainbow-halo',  src: `${base}assets/fx/sos2-rainbow-halo.webp` },   // chore #190: preload for FreeSpinRetriggerCeremony
       { alias: 'sos2-radial-lights', src: `${base}assets/fx/sos2-radial-lights.webp` },
       { alias: 'sos2-win-frame',     src: `${base}assets/fx/sos2-win-frame.webp` },   // d-06
     ]);
