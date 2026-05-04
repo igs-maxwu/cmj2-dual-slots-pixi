@@ -2505,6 +2505,60 @@ export class BattleScreen implements Screen {
     this.cascadeWallet('B');
   }
 
+  /**
+   * chore #185-B: Radial impact burst at target position (centre circle + 12 rays).
+   * 180ms scale 0→1.5 + alpha 1→0. Uses fxLayer. Fire-and-forget.
+   */
+  private spawnHitBurst(x: number, y: number, color: number): void {
+    const burst = new Graphics();
+    // Centre filled circle
+    burst.circle(0, 0, 16).fill({ color, alpha: 0.9 });
+    // 12 radial rays
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      burst.moveTo(0, 0)
+        .lineTo(Math.cos(a) * 32, Math.sin(a) * 32)
+        .stroke({ width: 4, color, alpha: 0.85 });
+    }
+    burst.x = x;
+    burst.y = y;
+    burst.alpha = 1;
+    burst.scale.set(0);
+    this.fxLayer.addChild(burst);
+
+    void tween(180, p => {
+      burst.alpha = 1 - p;
+      burst.scale.set(p * 1.5);
+    }, Easings.easeOut).then(() => { if (!burst.destroyed) burst.destroy(); });
+  }
+
+  /**
+   * chore #185-A: Defender shake + red tint flash 250ms.
+   * Shakes container x by ±6px sine decay; overlays a red translucent rect that fades out.
+   */
+  private defenderHitReact(side: 'A' | 'B', slotIndex: number): void {
+    const cells = side === 'A' ? this.cellsA : this.cellsB;
+    const ref = cells[slotIndex];
+    if (!ref) return;
+    const c = ref.container;
+    const origX = c.x;
+
+    // Red overlay anchored at sprite feet (covers spirit body area)
+    const overlay = new Graphics()
+      .rect(-NINE_CELL_SIZE / 2, -SPIRIT_H, NINE_CELL_SIZE, SPIRIT_H)
+      .fill({ color: 0xff3030, alpha: 0.55 });
+    c.addChild(overlay);
+
+    void tween(250, p => {
+      const shakeAmp = 6 * (1 - p);
+      c.x = origX + Math.sin(p * Math.PI * 6) * shakeAmp;
+      overlay.alpha = 0.55 * (1 - p);
+    }, Easings.easeOut).then(() => {
+      c.x = origX;
+      if (!overlay.destroyed) overlay.destroy();
+    });
+  }
+
   private async popDamage(side: 'A' | 'B', slotIndex: number, amount: number): Promise<void> {
     if (amount <= 0) return;
     // Use staggered arena position: torso centre = feet y − SPIRIT_H/2
