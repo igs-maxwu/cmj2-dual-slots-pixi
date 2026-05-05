@@ -7,22 +7,23 @@ import { tween, delay, Easings } from '@/systems/tween';
 import type { WayHit } from '@/systems/SlotEngine';
 import { AudioManager } from '@/systems/AudioManager';
 
-// ─── chore: SYMBOL_VISUAL redesign — same-clan same-color, unique last-char per spirit ────────────
-// Spirit ID 0-7: last char of spiritName (from SymbolsConfig) + clan color from DesignTokens CLAN palette
-// Specials: W / S / JP (clear labels); Curse kept at id 9 visually (weight=0 so never spawns — Path L)
+// ─── chore #198: SYMBOL_VISUAL — 8 unique gem colors per spirit ────────────────────────────────────
+// chore #198 supersedes chore #173 "same-clan same-color": unique colors for all 8 spirits so
+// players can distinguish siblings within the same clan. Clan recognition now via char/spiritKey.
+// Specials: W / S / JP unchanged; Curse kept at id 9 (weight=0, never spawns — Path L).
 const SYMBOL_VISUAL: Record<number, { char: string; color: number }> = {
-  0: { char: '寅', color: T.CLAN.whiteGlow     },  // 寅       — white tiger (白虎)
-  1: { char: '鸞', color: T.CLAN.vermilionGlow },  // 朱鸞 末字 — vermilion bird (朱雀)
-  2: { char: '雨', color: T.CLAN.blackGlow     },  // 朝雨 末字 — black tortoise (玄武)
-  3: { char: '璋', color: T.CLAN.azureGlow     },  // 孟辰璋 末字 — azure dragon (青龍)
-  4: { char: '嵐', color: T.CLAN.azureGlow     },  // 蒼嵐 末字 — azure dragon (青龍)
-  5: { char: '洛', color: T.CLAN.whiteGlow     },  // 珞洛 末字 — white tiger (白虎)
-  6: { char: '羽', color: T.CLAN.vermilionGlow },  // 凌羽 末字 — vermilion bird (朱雀)
-  7: { char: '墨', color: T.CLAN.blackGlow     },  // 玄墨 末字 — black tortoise (玄武)
-  8:  { char: 'W',  color: T.GOLD.glow         },  // Wild
-  9:  { char: '咒', color: 0xc77fe0            },  // Curse — weight=0 (Path L disabled); kept for M6 restore path
-  10: { char: 'S',  color: 0xff3b6b            },  // Scatter
-  11: { char: 'JP', color: T.GOLD.base         },  // Jackpot
+  0: { char: '寅', color: 0xfff0b3 },   // 白虎 1 (寅):    米黃
+  1: { char: '鸞', color: 0xff5050 },   // 朱雀 1 (朱鸞):  朱紅
+  2: { char: '雨', color: 0x4adb8e },   // 玄武 1 (朝雨):  翠綠
+  3: { char: '璋', color: 0x4a90e2 },   // 青龍 1 (孟辰璋): 深藍
+  4: { char: '嵐', color: 0x7ae8ff },   // 青龍 2 (蒼嵐):  亮天藍
+  5: { char: '洛', color: 0xffd980 },   // 白虎 2 (珞洛):  淺金
+  6: { char: '羽', color: 0xff8a3a },   // 朱雀 2 (凌羽):  橘紅
+  7: { char: '墨', color: 0x9a4adb },   // 玄武 2 (玄墨):  紫晶
+  8:  { char: 'W',  color: T.GOLD.glow  },  // Wild
+  9:  { char: '咒', color: 0xc77fe0    },  // Curse — weight=0 (Path L disabled); kept for M6 restore path
+  10: { char: 'S',  color: 0xff3b6b    },  // Scatter
+  11: { char: 'JP', color: T.GOLD.base },  // Jackpot
 };
 
 function hasPreMatch(grid: number[][], colLeft: number, colRight: number): boolean {
