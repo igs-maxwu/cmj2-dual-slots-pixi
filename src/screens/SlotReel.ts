@@ -32,6 +32,16 @@ function hasPreMatch(grid: number[][], colLeft: number, colRight: number): boole
   return false;
 }
 
+/** chore #198: 5-vertex pentagon polygon points, point-up (top vertex at 12 o'clock). */
+function pentagonPoints(cx: number, cy: number, r: number): number[] {
+  const pts: number[] = [];
+  for (let i = 0; i < 5; i++) {
+    const angle = -Math.PI / 2 + (i / 5) * Math.PI * 2;   // start at top
+    pts.push(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+  }
+  return pts;
+}
+
 const COLS = 5;
 const ROWS = 3;
 const CELL_W = 124;   // p10-v01: reduced from 128 (Variant B reel zone fits 330px h)
@@ -214,10 +224,10 @@ export class SlotReel extends Container {
   /**
    * p11-vA-03: Programmatic glossy ball — replaces gem PNG sprite.
    * Rebuilds 4 children inside cell.gemBall each call:
-   *   1. Drop shadow (slightly larger dark circle offset +2px Y)
-   *   2. Main ball   (clan color fill + stroke)
-   *   3. Highlight   (upper-left white ellipse for glossy effect)
-   *   4. Chinese char (clan character, white fill + clan stroke)
+   *   1. Drop shadow (pentagon offset +4px Y — chore #198)
+   *   2. Main gem    (pentagon fill + dark stroke — chore #198)
+   *   3. Highlight   (upper-left white ellipse for gloss)
+   *   4. Chinese char (spirit character, dark fill + gem stroke)
    * GlowFilter applied to gemBall for depth glow effect.
    */
   private setCellSymbol(cell: Cell, symId: number): void {
@@ -225,21 +235,23 @@ export class SlotReel extends Container {
     cell.currentSymbol = symId;
 
     const visual = SYMBOL_VISUAL[symId] ?? SYMBOL_VISUAL[0]!;
-    const r = Math.min(CELL_W, CELL_H) * 0.38;   // ball radius ≈ 38px
+    const r = Math.min(CELL_W, CELL_H) * 0.38;   // gem radius ≈ 38px
 
-    // Clear previous ball contents
+    // Clear previous gem contents
     cell.gemBall.removeChildren();
 
-    // Layer 1: Drop shadow
+    // Layer 1: Drop shadow pentagon (slightly larger, offset down)
+    // chore #198: pentagon gem replaces circle ball
     const shadow = new Graphics()
-      .circle(0, 2, r + 1)
+      .poly(pentagonPoints(0, 4, r + 1))
       .fill({ color: 0x000000, alpha: 0.50 });
     cell.gemBall.addChild(shadow);
 
-    // Layer 2: Main ball (solid clan color)
+    // Layer 2: Main pentagon gem (unique spirit color)
     const main = new Graphics()
-      .circle(0, 0, r)
+      .poly(pentagonPoints(0, 0, r))
       .fill({ color: visual.color, alpha: 1 });
+    main.stroke({ width: 1.5, color: 0x000000, alpha: 0.5 });   // dark outline for gem depth
     cell.gemBall.addChild(main);
 
     // Layer 3: Glossy highlight — small white ellipse upper-left
