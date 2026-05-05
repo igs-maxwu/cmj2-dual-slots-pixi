@@ -633,20 +633,31 @@ export class BattleScreen implements Screen {
     retreatBg.on('pointertap', () => this.onMatchEnd());
     hdr.addChild(retreatLabel);
 
-    // Center: ROUND pill
+    // Center: ROUND pill — chore #207 simplified (was goldText gradient + roundRect fill+stroke pill)
     this.roundPill = new Container();
     this.roundPill.x = CANVAS_WIDTH / 2;
     this.roundPill.y = midY;
 
+    // Subtler pill bg — top + bottom hairlines only, no fill (cleaner HUD style)
     const pillBg = new Graphics()
-      .roundRect(-52, -14, 104, 28, 14)
-      .fill({ color: 0x000000, alpha: 0.4 })
-      .stroke({ width: 1, color: T.GOLD.shadow, alpha: 0.6 });
+      .rect(-44, -10, 88, 1)                        // top hairline
+      .fill({ color: T.GOLD.shadow, alpha: 0.5 })
+      .rect(-44, 9, 88, 1)                           // bottom hairline
+      .fill({ color: T.GOLD.shadow, alpha: 0.5 });
     this.roundPill.addChild(pillBg);
 
-    this.roundText = goldText('ROUND 00', { fontSize: 14, withShadow: true });
+    // Plain Text replaces goldText — lighter, unified with HUD wallet labels
+    this.roundText = new Text({
+      text: 'ROUND 00',
+      style: {
+        fontFamily: T.FONT.body,
+        fontWeight: '600',
+        fontSize: 13,
+        fill: T.GOLD.glow,
+        letterSpacing: 2.5,
+      },
+    });
     this.roundText.anchor.set(0.5, 0.5);
-    this.roundText.style.letterSpacing = 2;
     this.roundPill.addChild(this.roundText);
     hdr.addChild(this.roundPill);
 
