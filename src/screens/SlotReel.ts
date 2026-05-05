@@ -307,16 +307,26 @@ export class SlotReel extends Container {
     else if (symId <= 5)     { pipCount = 2; pipColor = T.SYM.mid1; }
     else                     { pipCount = 3; pipColor = T.SYM.high1; }
 
-    // Centered horizontal row: 3px radius pips, 4px gap between pip edges
-    const pipR   = 3;
-    const pipGap = 4;
-    const totalW = pipCount * (pipR * 2) + (pipCount - 1) * pipGap;
-    const startX = -(totalW / 2) + pipR;
+    // chore #197: ⭐ 5-point gold star pips (was circle dots) — RPG rarity feel
+    const starOuterR  = 5;
+    const starInnerR  = starOuterR * 0.4;
+    const starSpacing = starOuterR * 2 + 2;   // tighter horizontal spacing
+    const totalW = pipCount * (starOuterR * 2) + (pipCount - 1) * 2;
+    const startX = -(totalW / 2) + starOuterR;
+
     for (let i = 0; i < pipCount; i++) {
-      const pip = new Graphics()
-        .circle(startX + i * (pipR * 2 + pipGap), 0, pipR)
-        .fill({ color: pipColor, alpha: 0.90 });
-      cell.pipsContainer.addChild(pip);
+      const star = new Graphics();
+      // 5-point star: 10 vertices alternating outer/inner radius, start at 12 o'clock
+      const cx = startX + i * starSpacing;
+      const points: number[] = [];
+      for (let v = 0; v < 10; v++) {
+        const r = v % 2 === 0 ? starOuterR : starInnerR;
+        const angle = (v / 10) * Math.PI * 2 - Math.PI / 2;
+        points.push(cx + Math.cos(angle) * r, Math.sin(angle) * r);
+      }
+      star.poly(points).fill({ color: pipColor, alpha: 0.95 });
+      star.stroke({ width: 0.5, color: 0x000000, alpha: 0.6 });   // dark outline for legibility on bright ball
+      cell.pipsContainer.addChild(star);
     }
   }
 
