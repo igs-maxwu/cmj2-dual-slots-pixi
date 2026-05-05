@@ -31,14 +31,19 @@ export function addCornerOrnaments(
   const s = size / 40;
 
   for (const p of places) {
-    const corner = new Graphics();
+    // chore #195: Pixi v9 deprecation fix — corner parent was Graphics (extends Container
+    // in v8 only). Use Container as parent so Graphics children attach via proper API.
+    // Visual is identical — only the parent type changes.
+    const corner = new Container();
 
-    // Outer L bracket: horizontal + vertical arms + diagonal accent
+    // Outer L bracket — own Graphics, child of Container
     // Translated from SVG: M2 2 L20 2 M2 2 L2 20 M2 2 L12 12
-    corner.moveTo(2 * s, 2 * s).lineTo(20 * s, 2 * s);   // horizontal arm
-    corner.moveTo(2 * s, 2 * s).lineTo(2 * s, 20 * s);   // vertical arm
-    corner.moveTo(2 * s, 2 * s).lineTo(12 * s, 12 * s);  // diagonal accent
-    corner.stroke({ width: 1.5, color: T.GOLD.base, alpha: 0.9 });
+    const outer = new Graphics();
+    outer.moveTo(2 * s, 2 * s).lineTo(20 * s, 2 * s);   // horizontal arm
+    outer.moveTo(2 * s, 2 * s).lineTo(2 * s, 20 * s);   // vertical arm
+    outer.moveTo(2 * s, 2 * s).lineTo(12 * s, 12 * s);  // diagonal accent
+    outer.stroke({ width: 1.5, color: T.GOLD.base, alpha: 0.9 });
+    corner.addChild(outer);
 
     // Inner highlight L (shorter, brighter)
     const inner = new Graphics();
