@@ -2315,6 +2315,7 @@ export class BattleScreen implements Screen {
             .map(c => ({ x: c.container.x, y: c.container.y }));
           const targetSide = side === 'A' ? 'B' : 'A';
           if (targets.length > 0) {
+            const attackerPos = this.slotToArenaPos(side, slot);
             animations.push(attackTimeline({
               stage:           this.container,
               spiritContainer: attackerCells[slot].container,  // chore: animate formation spirit directly
@@ -2322,6 +2323,7 @@ export class BattleScreen implements Screen {
               spiritKey:       SYMBOLS[bestDrafted.symbolId].spiritKey,
               targetPositions: targets,
               side,
+              posScale:        attackerPos.scale,   // chore #210: depth scale (0.85-1.10) for clash compensation
               // chore #185-G: burst at attack zone (cinematic impact)
               // chore #208: defenderHitReact removed here — now triggered per actual dmg in playDamageEvents
               onFireImpact: () => {
