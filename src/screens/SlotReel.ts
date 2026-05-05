@@ -236,10 +236,21 @@ export class SlotReel extends Container {
     main.stroke({ width: 1.5, color: 0x000000, alpha: 0.5 });
     cell.gemBall.addChild(main);
 
-    // Layer 3: Glossy highlight — small white ellipse upper-left (works on all shapes)
-    const highlight = new Graphics()
-      .ellipse(-r * 0.35, -r * 0.35, r * 0.45, r * 0.30)
-      .fill({ color: 0xFFFFFF, alpha: 0.55 });
+    // Layer 3: Glossy highlight — chore #203: matches gem shape (was fixed ellipse 球面光)
+    // Mirror of chore #202 GemSymbol pattern; circle keeps ellipse, polygons get inner facet
+    const highlight = new Graphics();
+    if (shape.sides === 0) {
+      // Circle (Wild / Scatter / JP) — keep ellipse ball reflection
+      highlight.ellipse(-r * 0.35, -r * 0.35, r * 0.45, r * 0.30)
+        .fill({ color: 0xFFFFFF, alpha: 0.55 });
+    } else {
+      // Polygon gem — inner smaller same-sided polygon offset up-left = facet highlight
+      const facetR  = r * 0.45;
+      const offsetX = -r * 0.15;
+      const offsetY = -r * 0.20;
+      highlight.poly(polygonPoints(offsetX, offsetY, facetR, shape.sides))
+        .fill({ color: 0xFFFFFF, alpha: 0.35 });
+    }
     cell.gemBall.addChild(highlight);
 
     // Layer 4: Chinese character centred on ball
