@@ -2632,20 +2632,25 @@ export class BattleScreen implements Screen {
     if (!ref) return;
     const c = ref.container;
     const origX = c.x;
+    const origZ = c.zIndex;
+
+    // chore #208 fix: lift cell above fxLayer (z=3000) so red overlay isn't covered by popDamage `-N` text + hit burst
+    c.zIndex = 3500;
 
     // chore #208: stronger red overlay (was alpha 0.55 → 0.75, color 0xff3030 → 0xff2020)
     const overlay = new Graphics()
       .rect(-NINE_CELL_SIZE / 2, -SPIRIT_H, NINE_CELL_SIZE, SPIRIT_H)
-      .fill({ color: 0xff2020, alpha: 0.75 });
+      .fill({ color: 0xff2020, alpha: 0.85 });
     c.addChild(overlay);
 
     // chore #208: shake amp 6→10, duration 250→350ms, frequency 6π→8π (snappier)
     void tween(350, p => {
       const shakeAmp = 10 * (1 - p);
       c.x = origX + Math.sin(p * Math.PI * 8) * shakeAmp;
-      overlay.alpha = 0.75 * (1 - p);
+      overlay.alpha = 0.85 * (1 - p);
     }, Easings.easeOut).then(() => {
       c.x = origX;
+      c.zIndex = origZ;
       if (!overlay.destroyed) overlay.destroy();
     });
   }
