@@ -347,7 +347,8 @@ export class SlotReel extends Container {
     else                     { pipCount = 3; pipColor = T.SYM.high1; }
 
     // chore #197: ⭐ 5-point gold star pips (was circle dots) — RPG rarity feel
-    const starOuterR  = 5;
+    // chore #199: bigger star (5→7 for visibility)
+    const starOuterR  = 7;
     const starInnerR  = starOuterR * 0.4;
     const starSpacing = starOuterR * 2 + 2;   // tighter horizontal spacing
     const totalW = pipCount * (starOuterR * 2) + (pipCount - 1) * 2;
