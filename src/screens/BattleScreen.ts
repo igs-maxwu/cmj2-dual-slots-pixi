@@ -2310,11 +2310,6 @@ export class BattleScreen implements Screen {
             .filter((_, i) => activeDefenders[i]?.alive)   // chore: activeDefenders aligned with defenderCells
             .slice(0, 3)
             .map(c => ({ x: c.container.x, y: c.container.y }));
-          // pre-compute target slot indices for defenderHitReact
-          const targetSlots = defenderCells
-            .map((_, i) => (activeDefenders[i]?.alive ? i : -1))
-            .filter(i => i >= 0)
-            .slice(0, 3);
           const targetSide = side === 'A' ? 'B' : 'A';
           if (targets.length > 0) {
             animations.push(attackTimeline({
@@ -2324,15 +2319,12 @@ export class BattleScreen implements Screen {
               spiritKey:       SYMBOLS[bestDrafted.symbolId].spiritKey,
               targetPositions: targets,
               side,
-              // chore #185-G: hit reactions fire concurrent with Phase 4 signature fx
+              // chore #185-G: burst at attack zone (cinematic impact)
+              // chore #208: defenderHitReact removed here — now triggered per actual dmg in playDamageEvents
               onFireImpact: () => {
                 const color = SYMBOLS[bestDrafted.symbolId].color;
-                targets.forEach((tp, i) => {
+                targets.forEach((tp) => {
                   this.spawnHitBurst(tp.x, tp.y, color);
-                  const targetSlot = targetSlots[i];
-                  if (targetSlot !== undefined) {
-                    this.defenderHitReact(targetSide, targetSlot);
-                  }
                 });
               },
             }));
@@ -2513,6 +2505,8 @@ export class BattleScreen implements Screen {
         }
         return Promise.resolve();
       }
+      // chore #208: defender shake + red flash on actual damage (was: only at attack target zone)
+      this.defenderHitReact(targetSide, dense);
       return this.popDamage(targetSide, dense, e.damageTaken);
     });
     await Promise.all(pops);
@@ -2639,16 +2633,17 @@ export class BattleScreen implements Screen {
     const c = ref.container;
     const origX = c.x;
 
-    // Red overlay anchored at sprite feet (covers spirit body area)
+    // chore #208: stronger red overlay (was alpha 0.55 → 0.75, color 0xff3030 → 0xff2020)
     const overlay = new Graphics()
       .rect(-NINE_CELL_SIZE / 2, -SPIRIT_H, NINE_CELL_SIZE, SPIRIT_H)
-      .fill({ color: 0xff3030, alpha: 0.55 });
+      .fill({ color: 0xff2020, alpha: 0.75 });
     c.addChild(overlay);
 
-    void tween(250, p => {
-      const shakeAmp = 6 * (1 - p);
-      c.x = origX + Math.sin(p * Math.PI * 6) * shakeAmp;
-      overlay.alpha = 0.55 * (1 - p);
+    // chore #208: shake amp 6→10, duration 250→350ms, frequency 6π→8π (snappier)
+    void tween(350, p => {
+      const shakeAmp = 10 * (1 - p);
+      c.x = origX + Math.sin(p * Math.PI * 8) * shakeAmp;
+      overlay.alpha = 0.75 * (1 - p);
     }, Easings.easeOut).then(() => {
       c.x = origX;
       if (!overlay.destroyed) overlay.destroy();
