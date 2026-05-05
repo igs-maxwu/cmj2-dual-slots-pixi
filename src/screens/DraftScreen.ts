@@ -53,8 +53,8 @@ const INFO_META_Y   = INFO_NAME_Y + INFO_NAME_H + 4;                   // 50
 // chore #200: meta size bump + gem icon zone + A/B horizontal
 const INFO_META_H   = 18;
 const INFO_GEM_Y    = INFO_META_Y + INFO_META_H + 6;                   // 74
-const INFO_GEM_R    = 18;                                               // gem radius
-const INFO_GEM_CY   = INFO_GEM_Y + INFO_GEM_R;                         // 92
+const INFO_GEM_R    = 24;                                               // gem radius (chore #201: was 18)
+const INFO_GEM_CY   = INFO_GEM_Y + INFO_GEM_R;                         // 98
 
 // chore #200: A/B buttons horizontal side-by-side (was vertical stack)
 const BTN_ZONE_H    = 30;
@@ -413,7 +413,7 @@ export class DraftScreen implements Screen {
     const prob = ((sym.weight / totalW) * 100).toFixed(1);
     const metaTxt = new Text({
       text: `W:${sym.weight}  ${prob}%`,
-      style: { fontFamily: T.FONT.num, fontSize: 12, fill: T.FG.cream, letterSpacing: 1, align: 'center' },
+      style: { fontFamily: T.FONT.num, fontSize: 14, fill: T.FG.cream, letterSpacing: 1, align: 'center' },  // chore #201: 12→14pt
     });
     metaTxt.anchor.set(0.5, 0);
     metaTxt.x = TILE_PAD + INFO_COL_W / 2;

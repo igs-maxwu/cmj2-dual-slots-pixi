@@ -16,7 +16,7 @@ import { SYMBOLS } from '@/config/SymbolsConfig';
  *   0 寅 (白虎1) 0xfff0b3 米黃 · 1 鸞 (朱雀1) 0xff5050 朱紅
  *   2 雨 (玄武1) 0x4adb8e 翠綠 · 3 璋 (青龍1) 0x4a90e2 深藍
  *   4 嵐 (青龍2) 0x7ae8ff 天藍 · 5 洛 (白虎2) 0xffd980 淺金
- *   6 羽 (朱雀2) 0xff8a3a 橘紅 · 7 墨 (玄武2) 0x9a4adb 紫晶
+ *   6 羽 (朱雀2) 0xff8a3a 橘紅 · 7 墨 (玄武2) 0xb567f0 亮紫
  */
 
 // ─── Shared data ─────────────────────────────────────────────────────────────
@@ -29,7 +29,7 @@ export const SYMBOL_VISUAL: Record<number, { char: string; color: number }> = {
   4: { char: '嵐', color: 0x7ae8ff },   // 青龍 2: 亮天藍
   5: { char: '洛', color: 0xffd980 },   // 白虎 2: 淺金
   6: { char: '羽', color: 0xff8a3a },   // 朱雀 2: 橘紅
-  7: { char: '墨', color: 0x9a4adb },   // 玄武 2: 紫晶
+  7: { char: '墨', color: 0xb567f0 },   // 玄武 2: 亮紫 (chore #201: was 0x9a4adb — too dark for char contrast)
   8:  { char: 'W',  color: T.GOLD.glow  },  // Wild
   9:  { char: '咒', color: 0xc77fe0    },  // Curse (weight=0, never spawns)
   10: { char: 'S',  color: 0xff3b6b    },  // Scatter
