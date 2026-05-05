@@ -1684,9 +1684,11 @@ export class BattleScreen implements Screen {
     banner.anchor.set(0.5, 0.5);
     // A: left quarter ~194px; B: right quarter ~525px — clear of VS badge centre
     banner.x = side === 'A' ? Math.round(CANVAS_WIDTH * 0.27) : Math.round(CANVAS_WIDTH * 0.73);
-    banner.y = 380;
+    // chore #196: move higher to zone separator area (was 380 = mid-arena)
+    banner.y = ZONE_SEP_Y;   // 262 — at 「戰」 gold separator line, just below JP marquee
     banner.alpha = 0;
-    banner.zIndex = 3500;   // chore #193: above fxLayer (z=3000) so always topmost
+    // chore #196: topmost layer — above all fxLayer (3000) / ceremonies (2000-2500) / attack (1500)
+    banner.zIndex = 5000;
     this.container.addChild(banner);
 
     await tween(200, t => { banner.alpha = t; }, Easings.easeOut);
