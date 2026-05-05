@@ -158,6 +158,9 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
   const origZIndex = avatar.zIndex;
   // base scale for this slot (e.g. 0.85 back / 1.10 front) — phases multiply on top
   const origAbsScale = Math.abs(origScaleX) || 1.0;
+  // chore #194: uniform scale at clash centre — back-row + front-row same size at centre
+  // (was origAbsScale × factor so back 0.85×1.30=1.105 vs front 1.10×1.30=1.430)
+  const CLASH_SCALE = 1.0;
 
   // Bring spirit to top during attack so it renders above all other formation elements
   avatar.zIndex = 1500;
@@ -181,18 +184,21 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
     avatar.x = origX + (centerX - origX) * ep;
     const arc = -personality.arcHeight * 4 * p * (1 - p);
     avatar.y = origY + (centerY - origY) * ep + arc;
-    const s = origAbsScale * (1.20 + ep * 0.10);
+    // chore #194: scale lerps from origAbsScale (origin slot) → CLASH_SCALE (centre) during leap
+    const factor = 1.20 + ep * 0.10;
+    const sBase = origAbsScale + (CLASH_SCALE - origAbsScale) * ep;
+    const s = sBase * factor;
     avatar.scale.set(baseSign * s, s);
   });
   avatar.x = centerX;
   avatar.y = centerY;
 
-  // Phase 3: Hold — scale pulse at clash centre
+  // Phase 3: Hold — scale pulse at clash centre (chore #194: CLASH_SCALE base, uniform)
   await tween(D.hold, p => {
-    const s = origAbsScale * (1.30 + Math.sin(p * Math.PI * 5) * 0.04);
+    const s = CLASH_SCALE * (1.30 + Math.sin(p * Math.PI * 5) * 0.04);
     avatar.scale.set(baseSign * s, s);
   });
-  avatar.scale.set(baseSign * origAbsScale * 1.30, origAbsScale * 1.30);
+  avatar.scale.set(baseSign * CLASH_SCALE * 1.30, CLASH_SCALE * 1.30);
 
   // chore #185-G: notify caller to spawn hit reactions concurrent with signature fx
   try {
@@ -231,7 +237,10 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
     const ep = Easings.easeOut(p);
     avatar.x = centerX + (origX - centerX) * ep;
     avatar.y = centerY + (origY - centerY) * ep;
-    const s = origAbsScale * (1.30 - ep * 0.30);   // 1.30 → 1.0 multiplier
+    // chore #194: scale lerp from CLASH_SCALE (centre) → origAbsScale (origin slot)
+    const factor = 1.30 - ep * 0.30;   // phase multiplier 1.30 → 1.0
+    const sBase = CLASH_SCALE + (origAbsScale - CLASH_SCALE) * ep;
+    const s = sBase * factor;
     avatar.scale.set(baseSign * s, s);
   });
 
