@@ -128,6 +128,8 @@ export interface AttackOptions {
   particleColor?:  number;
   shakeIntensity?: number;
   side?: 'A' | 'B';            // clash positioning — A centre-left, B centre-right
+  /** chore #210: depth scale (0.85-1.10) of formation slot — used to compensate sprite child scale at clash */
+  posScale?: number;
   /** chore #185-G: called once at the start of Phase 4 (fire) — caller spawns hit reactions */
   onFireImpact?: () => void;
 }
@@ -158,9 +160,14 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
   const origZIndex = avatar.zIndex;
   // base scale for this slot (e.g. 0.85 back / 1.10 front) — phases multiply on top
   const origAbsScale = Math.abs(origScaleX) || 1.0;
-  // chore #194: uniform scale at clash centre — back-row + front-row same size at centre
-  // (was origAbsScale × factor so back 0.85×1.30=1.105 vs front 1.10×1.30=1.430)
-  const CLASH_SCALE = 1.0;
+  // chore #210: clash uniform scale REAL fix (chore #194 was no-op — operated on container.scale which is always 1.0).
+  // drawFormation sets sprite.scale = baseScale × pos.scale on the SPRITE CHILD; container.scale stays 1.0.
+  // To make effective visual size uniform at clash:
+  //   effective = container.scale × sprite.scale = (1/posScale) × (baseScale × posScale) = baseScale (uniform)
+  // chore #210: container.scale = CLASH_SCALE/posScale compensates sprite child's baseScale × posScale.
+  // Replaces chore #194 which was no-op (operated on container scale that was always 1.0).
+  const posScale = opts.posScale ?? 1.0;
+  const CLASH_SCALE = 1.0 / posScale;
 
   // Bring spirit to top during attack so it renders above all other formation elements
   avatar.zIndex = 1500;
@@ -184,7 +191,7 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
     avatar.x = origX + (centerX - origX) * ep;
     const arc = -personality.arcHeight * 4 * p * (1 - p);
     avatar.y = origY + (centerY - origY) * ep + arc;
-    // chore #194: scale lerps from origAbsScale (origin slot) → CLASH_SCALE (centre) during leap
+    // chore #210: scale lerps from origAbsScale (origin slot) → CLASH_SCALE (centre) during leap
     const factor = 1.20 + ep * 0.10;
     const sBase = origAbsScale + (CLASH_SCALE - origAbsScale) * ep;
     const s = sBase * factor;
@@ -193,7 +200,7 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
   avatar.x = centerX;
   avatar.y = centerY;
 
-  // Phase 3: Hold — scale pulse at clash centre (chore #194: CLASH_SCALE base, uniform)
+  // Phase 3: Hold — scale pulse at clash centre (chore #210: CLASH_SCALE = 1/posScale, effective = 1.30×baseScale uniform)
   await tween(D.hold, p => {
     const s = CLASH_SCALE * (1.30 + Math.sin(p * Math.PI * 5) * 0.04);
     avatar.scale.set(baseSign * s, s);
@@ -237,7 +244,7 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
     const ep = Easings.easeOut(p);
     avatar.x = centerX + (origX - centerX) * ep;
     avatar.y = centerY + (origY - centerY) * ep;
-    // chore #194: scale lerp from CLASH_SCALE (centre) → origAbsScale (origin slot)
+    // chore #210: scale lerp from CLASH_SCALE (centre) → origAbsScale (origin slot)
     const factor = 1.30 - ep * 0.30;   // phase multiplier 1.30 → 1.0
     const sBase = CLASH_SCALE + (origAbsScale - CLASH_SCALE) * ep;
     const s = sBase * factor;
