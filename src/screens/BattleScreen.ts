@@ -2177,11 +2177,14 @@ export class BattleScreen implements Screen {
       }
       if (curseEventsOnA.length > 0) {
         this.logLines.push(`R${this.round.toString().padStart(2, '0')}  ⚡ Curse proc A −${CURSE_PROC_DMG}`);
-        await this.playDamageEvents(curseEventsOnA, 'A');
+        // chore #209: banner first so player sees WHY HP drops without a win line
+        await this.playCurseBanner('A');
+        await this.playDamageEvents(curseEventsOnA, 'A', 'curse');
       }
       if (curseEventsOnB.length > 0) {
         this.logLines.push(`R${this.round.toString().padStart(2, '0')}  ⚡ Curse proc B −${CURSE_PROC_DMG}`);
-        await this.playDamageEvents(curseEventsOnB, 'B');
+        await this.playCurseBanner('B');
+        await this.playDamageEvents(curseEventsOnB, 'B', 'curse');
       }
 
       const tagA = ratioA < 0.30 ? '↑' : '';
@@ -2483,7 +2486,7 @@ export class BattleScreen implements Screen {
   }
 
   // ─── Damage number popups ────────────────────────────────────────────────
-  private async playDamageEvents(events: DmgEvent[], targetSide: 'A' | 'B'): Promise<void> {
+  private async playDamageEvents(events: DmgEvent[], targetSide: 'A' | 'B', source: 'win' | 'curse' = 'win'): Promise<void> {
     // chore #188: distributeDamage returns sparse 9-elem grid slotIndex (row*3+col, 0-8);
     // popDamage / slotToArenaPos uses dense 5-elem index (0-4) post-chore #181.
     // Build sparse→dense map matching cellsA/B compaction order (non-null entries in grid order).
@@ -2505,11 +2508,64 @@ export class BattleScreen implements Screen {
         }
         return Promise.resolve();
       }
-      // chore #208: defender shake + red flash on actual damage (was: only at attack target zone)
-      this.defenderHitReact(targetSide, dense);
-      return this.popDamage(targetSide, dense, e.damageTaken);
+      // chore #208: defender shake + flash on actual damage; chore #209: forward source for curse vs win color
+      this.defenderHitReact(targetSide, dense, source);
+      return this.popDamage(targetSide, dense, e.damageTaken, source);
     });
     await Promise.all(pops);
+  }
+
+  // ─── chore #209: Curse proc banner ──────────────────────────────────────
+
+  /**
+   * chore #209: Shows "詛咒發動" banner with purple glow on the curse-recipient side.
+   * Plays before playDamageEvents so player sees WHY HP drops without a win line.
+   */
+  private async playCurseBanner(side: 'A' | 'B'): Promise<void> {
+    const wrap = new Container();
+    wrap.zIndex = 3600;   // above resonance banner (3500) + fxLayer (3000)
+
+    const sideX = side === 'A'
+      ? Math.round(CANVAS_WIDTH * 0.27)
+      : Math.round(CANVAS_WIDTH * 0.73);
+
+    // Dark side-vignette so banner pops against arena
+    const vignette = new Graphics()
+      .rect(sideX - 200, 320, 400, 140)
+      .fill({ color: 0x1a0033, alpha: 0.65 });
+    wrap.addChild(vignette);
+
+    const banner = new Text({
+      text: '詛咒發動',
+      style: {
+        fontFamily: T.FONT.title,
+        fontWeight: '900',
+        fontSize: T.FONT_SIZE.h1,
+        fill: 0xc266ff,
+        stroke: { color: 0x2a0044, width: 5, join: 'round' },
+        dropShadow: { color: 0x9933ee, blur: 8, distance: 0, alpha: 0.9 },
+        letterSpacing: 6,
+      },
+    });
+    banner.anchor.set(0.5, 0.5);
+    banner.x = sideX;
+    banner.y = 390;
+    wrap.addChild(banner);
+
+    wrap.alpha = 0;
+    this.container.addChild(wrap);
+
+    // Pulse-in + scale punch
+    banner.scale.set(0.6);
+    await tween(220, t => {
+      wrap.alpha = t;
+      banner.scale.set(0.6 + 0.4 * t);
+    }, Easings.easeOut);
+    banner.scale.set(1);
+
+    await delay(700);
+    await tween(280, t => { wrap.alpha = 1 - t; }, Easings.easeIn);
+    wrap.destroy({ children: true });
   }
 
   // ─── d-07: BigWin / MegaWin threshold helper ────────────────────────────
@@ -2626,7 +2682,7 @@ export class BattleScreen implements Screen {
    * chore #185-A: Defender shake + red tint flash 250ms.
    * Shakes container x by ±6px sine decay; overlays a red translucent rect that fades out.
    */
-  private defenderHitReact(side: 'A' | 'B', slotIndex: number): void {
+  private defenderHitReact(side: 'A' | 'B', slotIndex: number, source: 'win' | 'curse' = 'win'): void {
     const cells = side === 'A' ? this.cellsA : this.cellsB;
     const ref = cells[slotIndex];
     if (!ref) return;
@@ -2634,13 +2690,14 @@ export class BattleScreen implements Screen {
     const origX = c.x;
     const origZ = c.zIndex;
 
-    // chore #208 fix: lift cell above fxLayer (z=3000) so red overlay isn't covered by popDamage `-N` text + hit burst
+    // chore #208 fix: lift cell above fxLayer (z=3000) so overlay isn't covered by popDamage `-N` text + hit burst
     c.zIndex = 3500;
 
-    // chore #208: stronger red overlay (was alpha 0.55 → 0.75, color 0xff3030 → 0xff2020)
+    // chore #209: purple flash for curse, red for win-line
+    const overlayColor = source === 'curse' ? 0x9933ee : 0xff2020;
     const overlay = new Graphics()
       .rect(-NINE_CELL_SIZE / 2, -SPIRIT_H, NINE_CELL_SIZE, SPIRIT_H)
-      .fill({ color: 0xff2020, alpha: 0.85 });
+      .fill({ color: overlayColor, alpha: 0.85 });
     c.addChild(overlay);
 
     // chore #208: shake amp 6→10, duration 250→350ms, frequency 6π→8π (snappier)
@@ -2655,7 +2712,7 @@ export class BattleScreen implements Screen {
     });
   }
 
-  private async popDamage(side: 'A' | 'B', slotIndex: number, amount: number): Promise<void> {
+  private async popDamage(side: 'A' | 'B', slotIndex: number, amount: number, source: 'win' | 'curse' = 'win'): Promise<void> {
     if (amount <= 0) return;
     // Use staggered arena position: torso centre = feet y − SPIRIT_H/2
     const pos = this.slotToArenaPos(side, slotIndex);
@@ -2663,12 +2720,14 @@ export class BattleScreen implements Screen {
     const cy  = pos.y - SPIRIT_H / 2;
 
     // chore #185-C: bigger + double-stroke + scale punch for impact
+    // chore #209: purple `-N` for curse, red for win-line
+    const dmgFill = source === 'curse' ? 0xc266ff : T.CTA.red;
     const txt = new Text({
       text: `-${amount}`,
       style: {
         fontFamily: T.FONT.num, fontWeight: '700',
         fontSize: 34,                                              // was T.FONT_SIZE.xl ~22-26
-        fill: T.CTA.red,
+        fill: dmgFill,
         stroke: { color: 0x000, width: 5 },                        // thicker outline
         dropShadow: {
           color: 0x000000, alpha: 0.7, blur: 6, distance: 2,       // drop shadow for legibility
