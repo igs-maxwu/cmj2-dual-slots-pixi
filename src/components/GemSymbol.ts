@@ -99,10 +99,20 @@ export function drawGemSymbol(symId: number, r: number, charScale = 0.95): Conta
   }
   c.addChild(main);
 
-  // Layer 3: Glossy highlight (upper-left ellipse)
-  const hl = new Graphics()
-    .ellipse(-r * 0.2, -r * 0.4, r * 0.3, r * 0.15)
-    .fill({ color: 0xffffff, alpha: 0.5 });
+  // Layer 3: Glossy highlight — chore #202: matches gem shape (was fixed ellipse ball reflection)
+  const hl = new Graphics();
+  if (shape.sides === 0) {
+    // Circle (Wild / Scatter / JP) — keep ellipse ball reflection
+    hl.ellipse(-r * 0.2, -r * 0.4, r * 0.3, r * 0.15)
+      .fill({ color: 0xffffff, alpha: 0.5 });
+  } else {
+    // Polygon gem — inner smaller same-sided polygon offset up-left = facet highlight
+    const facetR  = r * 0.45;   // smaller inner facet
+    const offsetX = -r * 0.15;  // shift left (light from upper-left)
+    const offsetY = -r * 0.20;  // shift up
+    hl.poly(polygonPoints(offsetX, offsetY, facetR, shape.sides))
+      .fill({ color: 0xffffff, alpha: 0.35 });
+  }
   c.addChild(hl);
 
   // Layer 4: Character overlay (optional)
