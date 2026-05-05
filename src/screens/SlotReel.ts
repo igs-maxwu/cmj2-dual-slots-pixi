@@ -184,15 +184,9 @@ export class SlotReel extends Container {
    * Params mirror line 249 setCellSymbol — keep in sync if those change.
    */
   private resetGemBallFilter(cell: Cell): void {
-    const visual = SYMBOL_VISUAL[cell.currentSymbol];
-    if (!visual) return;
-    cell.gemBall.filters = [new GlowFilter({
-      color: visual.color,
-      distance: 12,
-      outerStrength: 1.0,
-      innerStrength: 0.2,
-      quality: 0.4,
-    })];
+    // chore #206: lazy mode — clear filters at lock (was restore default GlowFilter).
+    // GlowFilter is applied transiently only during win pulse (chore #185 pulseWay).
+    cell.gemBall.filters = [];
   }
 
   /**
@@ -278,14 +272,9 @@ export class SlotReel extends Container {
     charText.anchor.set(0.5, 0.5);
     cell.gemBall.addChild(charText);
 
-    // Subtle GlowFilter — clan color depth glow
-    cell.gemBall.filters = [new GlowFilter({
-      color: visual.color,
-      distance: 12,
-      outerStrength: 1.0,
-      innerStrength: 0.2,
-      quality: 0.4,
-    })];
+    // chore #206: lazy GlowFilter — no always-on filter; dark stroke + facet highlight provide depth.
+    // GlowFilter applied transiently: BlurFilter during spin (chore #170), glow during win pulse (chore #185).
+    cell.gemBall.filters = [];
 
     // p10-v02: refresh tier pips for the new symbol (unchanged)
     this.refreshCellPips(cell, symId);
