@@ -6,59 +6,14 @@ import { SYMBOLS } from '@/config/SymbolsConfig';
 import { tween, delay, Easings } from '@/systems/tween';
 import type { WayHit } from '@/systems/SlotEngine';
 import { AudioManager } from '@/systems/AudioManager';
-
-// ─── chore #198: SYMBOL_VISUAL — 8 unique gem colors per spirit ────────────────────────────────────
-// chore #198 supersedes chore #173 "same-clan same-color": unique colors for all 8 spirits so
-// players can distinguish siblings within the same clan. Clan recognition now via char/spiritKey.
-// Specials: W / S / JP unchanged; Curse kept at id 9 (weight=0, never spawns — Path L).
-const SYMBOL_VISUAL: Record<number, { char: string; color: number }> = {
-  0: { char: '寅', color: 0xfff0b3 },   // 白虎 1 (寅):    米黃
-  1: { char: '鸞', color: 0xff5050 },   // 朱雀 1 (朱鸞):  朱紅
-  2: { char: '雨', color: 0x4adb8e },   // 玄武 1 (朝雨):  翠綠
-  3: { char: '璋', color: 0x4a90e2 },   // 青龍 1 (孟辰璋): 深藍
-  4: { char: '嵐', color: 0x7ae8ff },   // 青龍 2 (蒼嵐):  亮天藍
-  5: { char: '洛', color: 0xffd980 },   // 白虎 2 (珞洛):  淺金
-  6: { char: '羽', color: 0xff8a3a },   // 朱雀 2 (凌羽):  橘紅
-  7: { char: '墨', color: 0x9a4adb },   // 玄武 2 (玄墨):  紫晶
-  8:  { char: 'W',  color: T.GOLD.glow  },  // Wild
-  9:  { char: '咒', color: 0xc77fe0    },  // Curse — weight=0 (Path L disabled); kept for M6 restore path
-  10: { char: 'S',  color: 0xff3b6b    },  // Scatter
-  11: { char: 'JP', color: T.GOLD.base },  // Jackpot
-};
+// chore #200: shared gem helpers — SYMBOL_VISUAL / polygonPoints / shapeFor moved to GemSymbol
+import { SYMBOL_VISUAL, polygonPoints, shapeFor } from '@/components/GemSymbol';
 
 function hasPreMatch(grid: number[][], colLeft: number, colRight: number): boolean {
   const left = new Set<number>();
   for (let r = 0; r < 3; r++) left.add(grid[r][colLeft]);
   for (let r = 0; r < 3; r++) if (left.has(grid[r][colRight])) return true;
   return false;
-}
-
-/** chore #199: generic n-vertex regular polygon, point-up (top vertex at 12 o'clock). */
-function polygonPoints(cx: number, cy: number, r: number, sides: number): number[] {
-  const pts: number[] = [];
-  for (let i = 0; i < sides; i++) {
-    const angle = -Math.PI / 2 + (i / sides) * Math.PI * 2;
-    pts.push(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
-  }
-  return pts;
-}
-
-/**
- * chore #199: gem shape per symbol tier.
- *   id 0-2 (low,  1⭐): 4-sided diamond (point-up square)
- *   id 3-5 (mid,  2⭐): 5-sided pentagon
- *   id 6-7 (high, 3⭐): 6-sided hexagon
- *   W / S / JP specials: circle (sides=0)
- *   Curse (weight=0, never spawns): pentagon fallback
- */
-function shapeFor(symId: number): { sides: number } {
-  const sym = SYMBOLS[symId];
-  if (!sym) return { sides: 5 };
-  if (sym.isWild || sym.isScatter || sym.isJackpot) return { sides: 0 };
-  if (sym.isCurse) return { sides: 5 };
-  if (symId <= 2) return { sides: 4 };   // low tier: diamond
-  if (symId <= 5) return { sides: 5 };   // mid tier: pentagon
-  return { sides: 6 };                    // high tier: hexagon
 }
 
 const COLS = 5;
