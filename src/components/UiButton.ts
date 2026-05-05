@@ -1,5 +1,4 @@
 import { Container, FillGradient, Graphics, Rectangle, Text } from 'pixi.js';
-import { DropShadowFilter } from 'pixi-filters';
 import * as T from '@/config/DesignTokens';
 import { AudioManager } from '@/systems/AudioManager';
 
@@ -154,6 +153,16 @@ export class UiButton extends Container {
         break;
     }
 
+    // chore #205: inline shadow — 3-layer dark roundRects offset down (replaces DropShadowFilter, 0 filter cost)
+    if (state !== 'disabled') {
+      this.bg.roundRect(-halfW + 1, -halfH + 4, this.w, this.h, radius)
+        .fill({ color: 0x000000, alpha: 0.20 });
+      this.bg.roundRect(-halfW + 0.5, -halfH + 3, this.w, this.h, radius)
+        .fill({ color: 0x000000, alpha: 0.25 });
+      this.bg.roundRect(-halfW, -halfH + 2, this.w, this.h, radius)
+        .fill({ color: 0x000000, alpha: 0.30 });
+    }
+
     // Layer 1: multi-stop vertical gradient (smoother than 2-rect simulation)
     const grad = new FillGradient({
       type:         'linear',
@@ -191,15 +200,5 @@ export class UiButton extends Container {
       }
     }
 
-    // Drop shadow — set once on first call, not reset on subsequent redraws
-    if (!this.bg.filters || (this.bg.filters as unknown[]).length === 0) {
-      this.bg.filters = [new DropShadowFilter({
-        color:   0x000000,
-        alpha:   0.5,
-        blur:    4,
-        offset:  { x: 0, y: 3 },
-        quality: 3,
-      })];
-    }
   }
 }
