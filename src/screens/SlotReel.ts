@@ -33,14 +33,32 @@ function hasPreMatch(grid: number[][], colLeft: number, colRight: number): boole
   return false;
 }
 
-/** chore #198: 5-vertex pentagon polygon points, point-up (top vertex at 12 o'clock). */
-function pentagonPoints(cx: number, cy: number, r: number): number[] {
+/** chore #199: generic n-vertex regular polygon, point-up (top vertex at 12 o'clock). */
+function polygonPoints(cx: number, cy: number, r: number, sides: number): number[] {
   const pts: number[] = [];
-  for (let i = 0; i < 5; i++) {
-    const angle = -Math.PI / 2 + (i / 5) * Math.PI * 2;   // start at top
+  for (let i = 0; i < sides; i++) {
+    const angle = -Math.PI / 2 + (i / sides) * Math.PI * 2;
     pts.push(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
   }
   return pts;
+}
+
+/**
+ * chore #199: gem shape per symbol tier.
+ *   id 0-2 (low,  1⭐): 4-sided diamond (point-up square)
+ *   id 3-5 (mid,  2⭐): 5-sided pentagon
+ *   id 6-7 (high, 3⭐): 6-sided hexagon
+ *   W / S / JP specials: circle (sides=0)
+ *   Curse (weight=0, never spawns): pentagon fallback
+ */
+function shapeFor(symId: number): { sides: number } {
+  const sym = SYMBOLS[symId];
+  if (!sym) return { sides: 5 };
+  if (sym.isWild || sym.isScatter || sym.isJackpot) return { sides: 0 };
+  if (sym.isCurse) return { sides: 5 };
+  if (symId <= 2) return { sides: 4 };   // low tier: diamond
+  if (symId <= 5) return { sides: 5 };   // mid tier: pentagon
+  return { sides: 6 };                    // high tier: hexagon
 }
 
 const COLS = 5;
@@ -225,8 +243,8 @@ export class SlotReel extends Container {
   /**
    * p11-vA-03: Programmatic glossy ball — replaces gem PNG sprite.
    * Rebuilds 4 children inside cell.gemBall each call:
-   *   1. Drop shadow (pentagon offset +4px Y — chore #198)
-   *   2. Main gem    (pentagon fill + dark stroke — chore #198)
+   *   1. Drop shadow (shape-matched polygon/circle offset +4px Y — chore #199)
+   *   2. Main gem    (4/5/6-sided or circle by tier + dark stroke — chore #199)
    *   3. Highlight   (upper-left white ellipse for gloss)
    *   4. Chinese char (spirit character, dark fill + gem stroke)
    * GlowFilter applied to gemBall for depth glow effect.
@@ -241,21 +259,29 @@ export class SlotReel extends Container {
     // Clear previous gem contents
     cell.gemBall.removeChildren();
 
-    // Layer 1: Drop shadow pentagon (slightly larger, offset down)
-    // chore #198: pentagon gem replaces circle ball
-    const shadow = new Graphics()
-      .poly(pentagonPoints(0, 4, r + 1))
-      .fill({ color: 0x000000, alpha: 0.50 });
+    // chore #199: gem shape per tier — 4(diamond) / 5(pentagon) / 6(hexagon) / 0(circle for specials)
+    const shape = shapeFor(symId);
+
+    // Layer 1: Drop shadow (shape-matched, offset down)
+    const shadow = new Graphics();
+    if (shape.sides === 0) {
+      shadow.circle(0, 4, r + 1).fill({ color: 0x000000, alpha: 0.50 });
+    } else {
+      shadow.poly(polygonPoints(0, 4, r + 1, shape.sides)).fill({ color: 0x000000, alpha: 0.50 });
+    }
     cell.gemBall.addChild(shadow);
 
-    // Layer 2: Main pentagon gem (unique spirit color)
-    const main = new Graphics()
-      .poly(pentagonPoints(0, 0, r))
-      .fill({ color: visual.color, alpha: 1 });
-    main.stroke({ width: 1.5, color: 0x000000, alpha: 0.5 });   // dark outline for gem depth
+    // Layer 2: Main gem (unique spirit color + dark outline)
+    const main = new Graphics();
+    if (shape.sides === 0) {
+      main.circle(0, 0, r).fill({ color: visual.color, alpha: 1 });
+    } else {
+      main.poly(polygonPoints(0, 0, r, shape.sides)).fill({ color: visual.color, alpha: 1 });
+    }
+    main.stroke({ width: 1.5, color: 0x000000, alpha: 0.5 });
     cell.gemBall.addChild(main);
 
-    // Layer 3: Glossy highlight — small white ellipse upper-left
+    // Layer 3: Glossy highlight — small white ellipse upper-left (works on all shapes)
     const highlight = new Graphics()
       .ellipse(-r * 0.35, -r * 0.35, r * 0.45, r * 0.30)
       .fill({ color: 0xFFFFFF, alpha: 0.55 });
