@@ -16,6 +16,7 @@ import { addCornerOrnaments } from '@/components/Decorations';
 import { AudioManager } from '@/systems/AudioManager';
 import { goldText } from '@/components/GoldText';
 import { detectResonance, type ResonanceResult } from '@/systems/Resonance';
+import { drawGemSymbol } from '@/components/GemSymbol';  // chore #200: shared gem icon
 
 // ─── Clan-grouped layout ────────────────────────────────────────────────────
 const CLAN_ORDER: ClanId[] = ['azure', 'white', 'vermilion', 'black'];
@@ -49,13 +50,19 @@ const INFO_NAME_Y   = TILE_PAD + 6;                                    // 14
 const INFO_NAME_H   = 32;
 const INFO_META_Y   = INFO_NAME_Y + INFO_NAME_H + 4;                   // 50
 
-// A/B buttons stack vertically at info-column bottom
-const BTN_ZONE_H    = 32;
-const BTN_GAP_VERT  = 4;
-const BTN_A_Y       = TILE_H - TILE_PAD - 2 * BTN_ZONE_H - BTN_GAP_VERT;  // 109
-const BTN_B_Y       = TILE_H - TILE_PAD - BTN_ZONE_H;                      // 145
-const BTN_W         = INFO_COL_W - 8;                                        // 92
-const BTN_X         = TILE_PAD + 4;                                          // 12
+// chore #200: meta size bump + gem icon zone + A/B horizontal
+const INFO_META_H   = 18;
+const INFO_GEM_Y    = INFO_META_Y + INFO_META_H + 6;                   // 74
+const INFO_GEM_R    = 18;                                               // gem radius
+const INFO_GEM_CY   = INFO_GEM_Y + INFO_GEM_R;                         // 92
+
+// chore #200: A/B buttons horizontal side-by-side (was vertical stack)
+const BTN_ZONE_H    = 30;
+const BTN_GAP_HORZ  = 4;
+const BTN_W         = (INFO_COL_W - 8 - BTN_GAP_HORZ) / 2;            // 44
+const BTN_A_X       = TILE_PAD + 4;                                     // 12
+const BTN_B_X       = BTN_A_X + BTN_W + BTN_GAP_HORZ;                   // 60
+const BTN_Y         = TILE_H - TILE_PAD - BTN_ZONE_H - 4;               // 143
 const BADGE_R       = 12;
 
 // ─── Module-level helper ─────────────────────────────────────────────────────
@@ -402,20 +409,26 @@ export class DraftScreen implements Screen {
     name.y = INFO_NAME_Y + INFO_NAME_H / 2;                // 14 + 16 = 30
     tile.addChild(name);
 
-    // ── LEFT: meta text — two-line in narrow info column ──
+    // ── LEFT: meta text — single line, 12pt (chore #200: was 9pt two-line) ──
     const prob = ((sym.weight / totalW) * 100).toFixed(1);
     const metaTxt = new Text({
-      text: `W:${sym.weight}\n${prob}%`,
-      style: { fontFamily: T.FONT.num, fontSize: 9, fill: T.FG.muted, letterSpacing: 1, align: 'center' },
+      text: `W:${sym.weight}  ${prob}%`,
+      style: { fontFamily: T.FONT.num, fontSize: 12, fill: T.FG.cream, letterSpacing: 1, align: 'center' },
     });
     metaTxt.anchor.set(0.5, 0);
     metaTxt.x = TILE_PAD + INFO_COL_W / 2;
     metaTxt.y = INFO_META_Y;
     tile.addChild(metaTxt);
 
-    // ── LEFT: Pick button A (top of vertical stack) ──
+    // ── LEFT: SYMBOL gem icon — visual link to reel (chore #200) ──
+    const gem = drawGemSymbol(idx, INFO_GEM_R, 0.9);
+    gem.x = TILE_PAD + INFO_COL_W / 2;
+    gem.y = INFO_GEM_CY;
+    tile.addChild(gem);
+
+    // ── LEFT: Pick button A (horizontal — chore #200: was vertical y=109) ──
     const btnA = new Container();
-    btnA.x = BTN_X; btnA.y = BTN_A_Y;
+    btnA.x = BTN_A_X; btnA.y = BTN_Y;
     const btnABg = new Graphics();
     btnA.addChild(btnABg);
     const btnALbl = new Text({
@@ -429,9 +442,9 @@ export class DraftScreen implements Screen {
     btnA.cursor    = 'pointer';
     tile.addChild(btnA);
 
-    // ── LEFT: Pick button B (below A) ──
+    // ── LEFT: Pick button B (right of A — chore #200 horizontal) ──
     const btnB = new Container();
-    btnB.x = BTN_X; btnB.y = BTN_B_Y;
+    btnB.x = BTN_B_X; btnB.y = BTN_Y;
     const btnBBg = new Graphics();
     btnB.addChild(btnBBg);
     const btnBLbl = new Text({
