@@ -58,7 +58,8 @@ export async function playStreakFlyText(
   parent.addChild(root);
 
   // ── Multiplier label ──────────────────────────────────────────────────────
-  const label = goldText(`×${multiplier.toFixed(1)}`, { fontSize: 36, withShadow: true });
+  // chore #212: was `×${multiplier.toFixed(1)}` (e.g. "×1.5") — owner wants explicit combo text
+  const label = goldText('Combo HIT!!', { fontSize: 32, withShadow: true });
   label.anchor.set(0.5, 0.5);
   label.x = startX;
   label.y = startY;
