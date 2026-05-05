@@ -224,16 +224,18 @@ export class ResultScreen implements Screen {
     const btnX = (CANVAS_WIDTH - btnW) / 2;
     const btnY = 1080;
 
+    // chore #213: wrapper Container pattern (mirror BattleScreen SPIN button) — atomic hit-test target.
+    // Was sibling layout (bg + 2 Texts → this.container) which let text glyph bounds intermittently
+    // swallow clicks despite chore #176 explicit hitArea. The wrapper makes children non-competing.
+    const btn = new Container();
+    btn.x = btnX;
+    btn.y = btnY;
+
     const bg = new Graphics()
-      .roundRect(btnX, btnY, btnW, btnH, 14)
+      .roundRect(0, 0, btnW, btnH, 14)            // local coords (wrapper handles offset)
       .fill({ color: T.GOLD.base })
       .stroke({ width: 2, color: T.GOLD.shadow });
-    // chore: Pixi 8 explicit hitArea — auto hit-test on offset roundRect unreliable (chore #151 lesson)
-    bg.hitArea   = new Rectangle(btnX, btnY, btnW, btnH);
-    bg.eventMode = 'static';
-    bg.cursor    = 'pointer';
-    bg.on('pointertap', () => this.onReturn());
-    this.container.addChild(bg);
+    btn.addChild(bg);
 
     const txt中 = new Text({
       text: '返回 DRAFT',
@@ -243,9 +245,10 @@ export class ResultScreen implements Screen {
       },
     });
     txt中.anchor.set(0.5, 0.5);
-    txt中.x = btnX + btnW / 2;
-    txt中.y = btnY + btnH / 2 - 6;
-    this.container.addChild(txt中);
+    txt中.x = btnW / 2;
+    txt中.y = btnH / 2 - 6;
+    txt中.eventMode = 'none';                     // chore #213 belt-and-suspenders
+    btn.addChild(txt中);
 
     const txtEn = new Text({
       text: 'Back to Draft',
@@ -255,8 +258,17 @@ export class ResultScreen implements Screen {
       },
     });
     txtEn.anchor.set(0.5, 0.5);
-    txtEn.x = btnX + btnW / 2;
-    txtEn.y = btnY + btnH / 2 + 14;
-    this.container.addChild(txtEn);
+    txtEn.x = btnW / 2;
+    txtEn.y = btnH / 2 + 14;
+    txtEn.eventMode = 'none';                     // chore #213 belt-and-suspenders
+    btn.addChild(txtEn);
+
+    // chore #213: hit-test on wrapper Container (atomic target), not on bg sibling
+    btn.hitArea   = new Rectangle(0, 0, btnW, btnH);
+    btn.eventMode = 'static';
+    btn.cursor    = 'pointer';
+    btn.on('pointertap', () => this.onReturn());
+
+    this.container.addChild(btn);
   }
 }
