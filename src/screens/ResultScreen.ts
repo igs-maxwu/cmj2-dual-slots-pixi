@@ -1,5 +1,4 @@
 import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
-import { GlowFilter } from 'pixi-filters';
 import type { Screen } from './ScreenManager';
 import { goldText } from '@/components/GoldText';
 import * as T from '@/config/DesignTokens';
@@ -84,12 +83,10 @@ export class ResultScreen implements Screen {
     banner.scale.set(0.7);
 
     // Main 中文 outcome text
+    // chore #218: remove GlowFilter (owner trial 2026-05-06: 文字光暈不好看). Keep goldText gradient + withShadow dropShadow as base polish.
     const mainText = goldText(cfg.中, { fontSize: 56, withShadow: true });
     mainText.anchor.set(0.5, 0.5);
     mainText.style.fill = cfg.color;
-    mainText.filters = [new GlowFilter({
-      color: cfg.color, distance: 18, outerStrength: 3, innerStrength: 0.5, quality: 0.4,
-    })];
     banner.addChild(mainText);
 
     // Sub English label

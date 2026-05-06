@@ -418,8 +418,9 @@ export class BattleScreen implements Screen {
     this.container.addChild(floorLines);
     this.container.addChild(hBands);
 
-    // ── Side labels (A · 我方 / 對手 · B) ────────────────────────────────
-    const labelY  = ARENA_TOP_Y + 10;
+    // ── Side labels (A · 我方 / 對手 · B) — chore #218: relocated from ARENA_TOP_Y+10=295 (overlapped formation slot 0/2)
+    // to y=230 (in 42px gap between JP marquee bottom 220 and ZONE_SEP_Y 262). Above formation = no overlap.
+    const labelY  = 230;
     const labelH  = 24;
 
     const bannerABg = new Graphics()
@@ -471,13 +472,11 @@ export class BattleScreen implements Screen {
       .stroke({ width: 1.5, color: T.GOLD.base, alpha: 1 });
     this.container.addChild(vsCircle);
 
+    // chore #218: remove GlowFilter (owner trial 2026-05-06)
     const vsText = goldText('VS', { fontSize: 16, withShadow: true });
     vsText.anchor.set(0.5, 0.5);
     vsText.x = vsCenterX;
     vsText.y = vsCenterY;
-    vsText.filters = [new GlowFilter({
-      color: 0xFFD37A, distance: 8, outerStrength: 1.8, innerStrength: 0.3, quality: 0.4,
-    })];
     this.container.addChild(vsText);
   }
 
@@ -799,13 +798,11 @@ export class BattleScreen implements Screen {
     this.container.addChild(poolLabel);
 
     // ── Centre: GRAND value — 42pt Cinzel gold + glow ──
+    // chore #218: remove GlowFilter (owner trial 2026-05-06)
     this.jpGrandText = goldText('5,000,000', { fontSize: 42, withShadow: true });
     this.jpGrandText.anchor.set(0.5, 0.5);
     this.jpGrandText.x = panelX + panelW / 2;
     this.jpGrandText.y = panelY + panelH * 0.50;
-    this.jpGrandText.filters = [new GlowFilter({
-      color: T.GOLD.base, distance: 18, outerStrength: 2.5, innerStrength: 0.5, quality: 0.4,
-    })];
     this.jpGrandText.zIndex = 11;
     this.container.addChild(this.jpGrandText);
 
