@@ -1486,9 +1486,85 @@ async function _sigTortoiseHammerSmash(ctx: Phase4Ctx): Promise<void> {
 
   // (c) 400–480ms: impact burst — flash + 8 radial cracks; kick off shake + shockwave
   AudioManager.playSfx('hit-heavy');
-  playComicBurst(stage, tp0.x, tp0.y, color, 1.2);    // chore #FX-BURST: 1.2x scale — 重武器更大爆
+  // chore #226: removed generic comic burst — replaced by tortoise shell hex stone (added below)
   const swPromise = applyShockwave(stage, tp0.x, tp0.y, 120, 150);
   void _screenShake(stage, ctx.shakeIntensity);
+
+  // chore #226: 龜甲六邊形大石 — frontal hex stone with tortoise shell tessellation
+  // Programmatic Graphics ~250px wide. Fire-and-forget overlapping smoke + flash + cracks.
+  {
+    const STONE_BODY = 0x4a5066;
+    const STONE_DARK = 0x252a3d;
+    const STONE_LITE = 0x7a8298;
+    const SHELL_GOLD = GOLD;          // existing 0xd4af37
+
+    const stone = new Graphics();
+
+    // Helper: hex polygon centered at (cx, cy) with circumradius r, pointy-top
+    const hexPath = (hx: number, hy: number, r: number): number[] => {
+      const pts: number[] = [];
+      for (let i = 0; i < 6; i++) {
+        const a = Math.PI / 6 + (i / 6) * Math.PI * 2;
+        pts.push(hx + Math.cos(a) * r, hy + Math.sin(a) * r);
+      }
+      return pts;
+    };
+
+    // Layer 1: SHADOW — offset hex down-right (depth feel)
+    stone.poly(hexPath(8, 10, 122)).fill({ color: 0x000000, alpha: 0.45 });
+
+    // Layer 2: STONE BODY — main hex 250px diameter (r=120)
+    stone.poly(hexPath(0, 0, 120)).fill({ color: STONE_BODY, alpha: 0.95 });
+    stone.poly(hexPath(0, 0, 120)).stroke({ width: 4, color: STONE_DARK, alpha: 1 });
+
+    // Layer 3: INNER STONE HIGHLIGHT — top-left light catch
+    stone.poly(hexPath(-12, -14, 102)).stroke({ width: 2, color: STONE_LITE, alpha: 0.6 });
+
+    // Layer 4: TORTOISE SHELL — 7-hex tessellation (1 center + 6 around)
+    // Center hex
+    stone.poly(hexPath(0, 0, 36)).fill({ color: STONE_DARK, alpha: 0.4 });
+    stone.poly(hexPath(0, 0, 36)).stroke({ width: 2.5, color: SHELL_GOLD, alpha: 0.85 });
+    // 6 surrounding hexes (distance ~62 from centre, angles 30/90/150/210/270/330°)
+    for (let i = 0; i < 6; i++) {
+      const a = Math.PI / 6 + (i / 6) * Math.PI * 2;
+      const sx = Math.cos(a) * 62;
+      const sy = Math.sin(a) * 62;
+      stone.poly(hexPath(sx, sy, 32)).fill({ color: STONE_DARK, alpha: 0.35 });
+      stone.poly(hexPath(sx, sy, 32)).stroke({ width: 2, color: SHELL_GOLD, alpha: 0.75 });
+    }
+
+    // Layer 5: GOLD RIM — outer hex with gold edge stroke
+    stone.poly(hexPath(0, 0, 116)).stroke({ width: 2, color: SHELL_GOLD, alpha: 0.9 });
+
+    // Layer 6: STRESS CRACKS — 3 thin lines radiating from centre (suggests heavy stone)
+    stone.moveTo(-30, -50).lineTo(40, 60).stroke({ width: 1.5, color: STONE_DARK, alpha: 0.7 });
+    stone.moveTo(50, -30).lineTo(-60, 40).stroke({ width: 1.5, color: STONE_DARK, alpha: 0.7 });
+    stone.moveTo(-15, 70).lineTo(20, -65).stroke({ width: 1.5, color: STONE_DARK, alpha: 0.55 });
+
+    stone.x = tp0.x;
+    stone.y = tp0.y;
+    stone.alpha = 0;
+    stone.scale.set(0.3);
+    stone.rotation = -0.05;             // slight tilt — heavy stone landed askew
+    stage.addChild(stone);
+    const stoneGlow = applyGlow(stone, SHELL_GOLD, 4, 18);
+
+    // Pulse-in 220ms: scale 0.3 → 1.5 + alpha 0 → 1 (heavy thud feel)
+    void tween(220, p => {
+      stone.alpha = p;
+      stone.scale.set(0.3 + 1.2 * p);
+      stone.rotation = -0.05 + 0.04 * p;
+    }, Easings.easeOut).then(async () => {
+      // Settle 100ms: scale 1.5 → 1.0
+      await tween(100, p => {
+        stone.scale.set(1.5 - 0.5 * p);
+      }, Easings.easeOut);
+      // Hold + fade 320ms: alpha 1 → 0
+      await tween(320, p => { stone.alpha = 1 - p; }, Easings.easeIn);
+      removeFilter(stone, stoneGlow);
+      stone.destroy();
+    });
+  }
 
   // d-04: ground impact — smoke plume (grey particles) + radial glow
   const smoke = _makeFxSprite('sos2-particles', 0xc0c0d0);
