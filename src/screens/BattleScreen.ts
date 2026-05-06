@@ -75,8 +75,11 @@ const SPIN_BTN_GAP = 16;
 const GHOST_BTN_W  = 110;
 const GHOST_BTN_H  = 46;
 
-// ── chore: PAYLINES decorative indicator (mockup variant-a alignment) ────────
-const PAYLINES_Y      = 935;   // just above SPIN_BTN_Y=970
+// ── chore: PAYLINES decorative indicator (chore #217 relocated 2026-05-06) ────
+// Old PAYLINES_Y=935 overlapped reel bottom (615 + 348 = 963). Moved to gap
+// between SPIN buttons (end 1030) and LOG panel (start 1055). 12px breathing
+// from button bottom; cell extents 1035..1049 fit cleanly in 25px gap.
+const PAYLINES_Y      = 1042;
 const PAYLINES_CELL_W = 14;
 const PAYLINES_CELL_H = 14;
 const PAYLINES_GAP    = 4;
