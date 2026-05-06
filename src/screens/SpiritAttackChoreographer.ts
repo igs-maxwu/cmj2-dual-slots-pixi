@@ -293,10 +293,17 @@ async function _sigLightningXCross(ctx: Phase4Ctx): Promise<void> {
     xBrand.alpha = p;
     xBrand.scale.set(0.5 + 0.7 * p);
   }, Easings.easeOut).then(async () => {
-    // Settle: 1.2x→1.0x in 80ms
-    await tween(80, p => { xBrand.scale.set(1.2 - 0.2 * p); }, Easings.easeOut);
-    // Hold + fade: 1.0x scale, alpha 1→0 in 190ms
-    await tween(190, p => { xBrand.alpha = 1 - p; }, Easings.easeIn);
+    // chore #220 polish: rotate while shrinking + fading (owner trial 2026-05-06).
+    // Phase B (settle 80ms): scale 1.2→1.0, rotation 0 → π/4 (45°)
+    // Phase C (fade 190ms): alpha 1→0, rotation π/4 → π/2 (90° total)
+    await tween(80, p => {
+      xBrand.scale.set(1.2 - 0.2 * p);
+      xBrand.rotation = p * Math.PI / 4;
+    }, Easings.easeOut);
+    await tween(190, p => {
+      xBrand.alpha    = 1 - p;
+      xBrand.rotation = Math.PI / 4 + p * Math.PI / 4;
+    }, Easings.easeIn);
     removeFilter(xBrand, xBrandGlow);
     xBrand.destroy();
   });
