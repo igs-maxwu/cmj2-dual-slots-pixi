@@ -927,9 +927,127 @@ async function _sigDragonDualSlash(ctx: Phase4Ctx): Promise<void> {
       particles[i].alpha = Math.max(0, particles[i].alpha - 0.04);
   });
 
+  // chore #224: 龍頭虛影 + 巨大十字劍光 — twin climax effects fire-and-forget at sword impact moment
+  {
+    const DRG_BODY = AZURE;       // 0x4a90e2
+    const DRG_LITE = AZURE_LITE;  // 0xa0d8ff
+    const DRG_DARK = 0x1a3a6a;
+
+    // ── Layer A: Dragon head silhouette (side profile, ~250px wide × 180px tall) ──
+    const dragon = new Graphics();
+    // Outline (side view facing right — snout tip on right, mane on left)
+    dragon.poly([
+      // Lower jaw + throat
+       128,  -8,    // snout tip
+       118,  10,    // upper lip front
+       100,  18,    // jaw bend
+        72,  28,    // jaw mid
+        40,  38,    // jaw back
+        10,  48,    // throat front
+       -30,  55,    // throat back
+       -70,  40,    // neck under
+      -110,  50,    // body trail
+      -135,  20,    // mane lower spike start
+      // Mane trailing (jagged spikes pointing back-left)
+      -145, -10,
+      -155, -38,    // spike 1
+      -120, -22,
+      -130, -55,    // spike 2
+       -95, -38,
+      -100, -75,    // spike 3
+       -65, -48,
+       -55, -85,    // spike 4
+       -25, -58,
+        -5, -78,    // front horn
+        20, -58,    // forehead
+        45, -68,    // brow horn
+        72, -42,
+        95, -35,    // upper jaw front ridge
+       115, -25,
+       128, -8,     // close back to snout
+    ]).fill({ color: DRG_BODY, alpha: 0.75 });
+    dragon.poly([
+       128,  -8, 118, 10, 100, 18, 72, 28, 40, 38, 10, 48, -30, 55, -70, 40,
+      -110,  50, -135, 20, -145, -10, -155, -38, -120, -22, -130, -55, -95, -38,
+      -100, -75, -65, -48, -55, -85, -25, -58, -5, -78, 20, -58, 45, -68,
+        72, -42, 95, -35, 115, -25, 128, -8,
+    ]).stroke({ width: 2, color: DRG_DARK, alpha: 1 });
+
+    // Mouth interior (dark V opening)
+    dragon.poly([72, 5, 122, 0, 110, 22, 80, 25])
+          .fill({ color: DRG_DARK, alpha: 0.9 });
+
+    // 2 sharp fangs (upper jaw)
+    dragon.poly([88, 5, 92, 18, 96, 5]).fill({ color: 0xffffff, alpha: 0.95 });
+    dragon.poly([108, 5, 112, 16, 116, 5]).fill({ color: 0xffffff, alpha: 0.95 });
+
+    // Eye (gold iris + black pupil + white highlight)
+    dragon.circle(45, -42, 6).fill({ color: 0xffd700, alpha: 1 });
+    dragon.circle(45, -42, 3).fill({ color: 0x000000, alpha: 1 });
+    dragon.circle(46, -43, 1.5).fill({ color: 0xffffff, alpha: 0.95 });
+
+    // Whiskers (2 thin curves trailing from snout)
+    dragon.moveTo(120, 5).bezierCurveTo(140, 25, 130, 50, 100, 60).stroke({ width: 2, color: DRG_LITE, alpha: 0.85 });
+    dragon.moveTo(118, 12).bezierCurveTo(135, 35, 115, 65, 80, 70).stroke({ width: 2, color: DRG_LITE, alpha: 0.85 });
+
+    dragon.x = cx;
+    dragon.y = cy - 70;
+    dragon.alpha = 0;
+    dragon.scale.set(0.4);
+    stage.addChild(dragon);
+    const dragonGlow = applyGlow(dragon, DRG_LITE, 4, 22);
+
+    // Pulse-in 220ms + settle 100ms + fade 320ms (~640ms total)
+    void tween(220, p => {
+      dragon.alpha = p * 0.9;
+      dragon.scale.set(0.4 + p);    // 0.4 → 1.4
+    }, Easings.easeOut).then(async () => {
+      await tween(100, p => { dragon.scale.set(1.4 - 0.4 * p); }, Easings.easeOut);
+      await tween(320, p => { dragon.alpha = 0.9 * (1 - p); }, Easings.easeIn);
+      removeFilter(dragon, dragonGlow);
+      dragon.destroy();
+    });
+
+    // ── Layer B: Giant cross sword light at midpoint(tp0, tp1) ──
+    const swordCx = (tp0.x + tp1.x) / 2;
+    const swordCy = (tp0.y + tp1.y) / 2;
+
+    const swordLight = new Graphics();
+    const ARM = 100;   // half-length each (full length 200px)
+
+    // X-cross outer azure (thick)
+    swordLight.moveTo(-ARM, -ARM).lineTo(ARM, ARM).stroke({ width: 18, color: DRG_BODY, alpha: 0.85 });
+    swordLight.moveTo(ARM, -ARM).lineTo(-ARM, ARM).stroke({ width: 18, color: DRG_BODY, alpha: 0.85 });
+
+    // X-cross white core (thin)
+    swordLight.moveTo(-ARM, -ARM).lineTo(ARM, ARM).stroke({ width: 6, color: 0xffffff, alpha: 1 });
+    swordLight.moveTo(ARM, -ARM).lineTo(-ARM, ARM).stroke({ width: 6, color: 0xffffff, alpha: 1 });
+
+    swordLight.x = swordCx;
+    swordLight.y = swordCy;
+    swordLight.alpha = 0;
+    swordLight.scale.set(0.5);
+    swordLight.rotation = Math.PI / 8;   // slight tilt for dynamic feel
+    stage.addChild(swordLight);
+    const swordGlow = applyGlow(swordLight, DRG_LITE, 5, 18);
+
+    // Faster pulse-in for sword light (cross flashes brighter than dragon)
+    void tween(140, p => {
+      swordLight.alpha = p;
+      swordLight.scale.set(0.5 + 0.8 * p);   // 0.5 → 1.3
+    }, Easings.easeOut).then(async () => {
+      await tween(80, p => {
+        swordLight.scale.set(1.3 - 0.2 * p);   // 1.3 → 1.1
+        swordLight.rotation += 0.01;
+      }, Easings.easeOut);
+      await tween(220, p => { swordLight.alpha = 1 - p; }, Easings.easeIn);
+      removeFilter(swordLight, swordGlow);
+      swordLight.destroy();
+    });
+  }
+
   // (d) 400–520ms: impact flash + glow rings
-  // chore #FX-BURST: comic burst at primary sword impact
-  playComicBurst(stage, tp0.x, tp0.y, color);
+  // chore #224: removed generic comic burst — replaced by dragon head + cross sword light (added above)
 
   const flash = new Graphics()
     .rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
