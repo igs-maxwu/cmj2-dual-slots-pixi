@@ -570,37 +570,67 @@ async function _sigDualFireball(ctx: Phase4Ctx): Promise<void> {
 
     const phoenix = new Graphics();
 
-    // Body — vertical ellipse (head/torso)
-    phoenix.ellipse(0, 0, 16, 28).fill({ color: PHX_BODY, alpha: 0.85 });
-    phoenix.ellipse(0, 0, 16, 28).stroke({ width: 2, color: PHX_EDGE, alpha: 1 });
+    // chore #222 polish: spread-winged bird (top-down view).
+    // Layered draw order: wings (back) → body (mid) → tail-feathers (front overlap)
 
-    // Left wing — fan polygon sweeping out + up
-    const leftPath: number[] = [-6, -8];
-    for (let i = 0; i <= 6; i++) {
-      const t = i / 6;
-      const angle = Math.PI * (0.5 + t * 0.5);   // 90° → 180° sweep
-      const r = 110 + Math.sin(t * Math.PI) * 30;
-      leftPath.push(Math.cos(angle) * r, Math.sin(angle) * r * 0.6 - 30);
-    }
-    leftPath.push(-12, 12);     // close near body bottom
-    phoenix.poly(leftPath).fill({ color: PHX_BODY, alpha: 0.65 });
-    phoenix.poly(leftPath).stroke({ width: 2, color: PHX_EDGE, alpha: 0.9 });
+    // Layer 1: LEFT WING — swept outward (leading edge top, trailing edge feather-notched)
+    const leftWing = [
+      -8,  -10,    // shoulder top (attach to body)
+      -55, -28,    // leading edge — sweep forward + up
+      -120, -18,   // wing tip (outer)
+      -110, 0,     // outer corner (kink down)
+      -90, 5,      // feather 1 outer
+      -82, -2,     //   notch
+      -68, 8,      // feather 2
+      -60, 0,      //   notch
+      -42, 12,     // feather 3 (trailing edge)
+      -30, 6,      //   notch
+      -16, 14,     // wing root bottom
+      -8,  16,     // shoulder bottom (attach back to body)
+    ];
+    phoenix.poly(leftWing).fill({ color: PHX_BODY, alpha: 0.75 });
+    phoenix.poly(leftWing).stroke({ width: 2, color: PHX_EDGE, alpha: 0.9 });
 
-    // Right wing — mirror
-    const rightPath: number[] = [6, -8];
-    for (let i = 0; i <= 6; i++) {
-      const t = i / 6;
-      const angle = -t * Math.PI * 0.5;          // 0° → -90° sweep
-      const r = 110 + Math.sin(t * Math.PI) * 30;
-      rightPath.push(Math.cos(angle) * r, Math.sin(angle) * r * 0.6 - 30);
-    }
-    rightPath.push(12, 12);
-    phoenix.poly(rightPath).fill({ color: PHX_BODY, alpha: 0.65 });
-    phoenix.poly(rightPath).stroke({ width: 2, color: PHX_EDGE, alpha: 0.9 });
+    // Layer 2: RIGHT WING — mirror of left (flip x)
+    const rightWing = leftWing.map((v, i) => i % 2 === 0 ? -v : v);
+    phoenix.poly(rightWing).fill({ color: PHX_BODY, alpha: 0.75 });
+    phoenix.poly(rightWing).stroke({ width: 2, color: PHX_EDGE, alpha: 0.9 });
 
-    // Tail — 3 flame strokes pointing down
-    phoenix.moveTo(-9, 28).lineTo(-4, 60).lineTo(0, 38).lineTo(4, 60).lineTo(9, 28)
-           .fill({ color: PHX_BODY, alpha: 0.7 });
+    // Layer 3: BODY — vertical pointed oval (head up, tail down)
+    const body = [
+       0,  -34,    // beak / head tip
+       8,  -22,    // head right
+       10, -8,     // neck right
+       9,   8,     // shoulder right
+       12,  20,    // body right
+       8,   30,    // tail base right
+       0,   38,    // tail centre lower
+      -8,   30,    // tail base left
+      -12,  20,
+      -9,   8,
+      -10, -8,
+      -8,  -22,
+    ];
+    phoenix.poly(body).fill({ color: PHX_BODY, alpha: 0.95 });
+    phoenix.poly(body).stroke({ width: 2, color: PHX_EDGE, alpha: 1 });
+
+    // Layer 4: TAIL FEATHERS — 5-fan splay below body (overlay)
+    const tail = [
+       0,   28,    // attach to body bottom
+      -18,  56,    // far-left feather
+      -10,  46,    // feather 1 mid
+      -4,   62,    // feather 2 mid-down
+       0,   50,    // centre feather tip
+       4,   62,    // feather 3 mid-down
+      10,   46,    // feather 4 mid
+      18,   56,    // far-right feather
+       0,   28,    // close back to attach
+    ];
+    phoenix.poly(tail).fill({ color: PHX_BODY, alpha: 0.7 });
+    phoenix.poly(tail).stroke({ width: 1.5, color: PHX_EDGE, alpha: 0.85 });
+
+    // Layer 5: HEAD HIGHLIGHT — small white circle for "eye/beak" depth
+    phoenix.circle(0, -22, 3).fill({ color: 0xffffff, alpha: 0.6 });
 
     phoenix.x = phoenixCx;
     phoenix.y = phoenixCy;
