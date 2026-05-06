@@ -130,6 +130,10 @@ export interface AttackOptions {
   side?: 'A' | 'B';            // clash positioning — A centre-left, B centre-right
   /** chore #210: depth scale (0.85-1.10) of formation slot — used to compensate sprite child scale at clash */
   posScale?: number;
+  /** chore #FX-PICK polish: override clash centre (default uses game arena hardcoded values).
+   *  FXPreviewScreen uses this to draw FX in preview area instead of picker overlap. */
+  clashX?: number;
+  clashY?: number;
   /** chore #185-G: called once at the start of Phase 4 (fire) — caller spawns hit reactions */
   onFireImpact?: () => void;
 }
@@ -143,11 +147,11 @@ export async function attackTimeline(opts: AttackOptions): Promise<void> {
   // chore: side-aware clash position — A leaps to centre-left, B to centre-right (140px gap between them)
   const side = opts.side ?? 'A';
   const CLASH_OFFSET = 70;
-  const centerX = side === 'A'
+  const centerX = opts.clashX ?? (side === 'A'
     ? Math.round(CANVAS_WIDTH / 2 - CLASH_OFFSET)
-    : Math.round(CANVAS_WIDTH / 2 + CLASH_OFFSET);
+    : Math.round(CANVAS_WIDTH / 2 + CLASH_OFFSET));
   // chore: raise centerY to mid-formation near VS badge (was CANVAS_HEIGHT*0.42=538, below front row)
-  const centerY = 420;
+  const centerY = opts.clashY ?? 420;
 
   const { stage, spiritContainer, targetPositions } = opts;
   const avatar = spiritContainer;   // alias — animate formation spirit directly (no clone)
