@@ -1871,8 +1871,11 @@ export class BattleScreen implements Screen {
       // ── pace-01 Stage 1: 轉輪 SPIN — sfx fires as reel stops ────────────────
       this.playWinTierSfx(spin.sideA.wayHits, spin.sideB.wayHits);
 
+      // chore #216: skip pacing + log when nothing happened this round
+      const hasAnyWin = spin.sideA.wayHits.length > 0 || spin.sideB.wayHits.length > 0;
+
       // Pace gap — let player see the stopped reel before highlights appear
-      await delay(BattleScreen.PACE_AFTER_REEL_STOP);
+      if (hasAnyWin) await delay(BattleScreen.PACE_AFTER_REEL_STOP);
 
       // ── pace-01 Stage 2: 對獎 REVEAL — wayHit highlight + JP particle burst ──
       // (parallel — same conceptual stage; both are visual results-of-spin)
@@ -2051,13 +2054,13 @@ export class BattleScreen implements Screen {
       this.totalDmgDealtBtoA += Math.max(0, dmgB);
 
       // Pace gap — let player read the highlighted ways before attack fires
-      await delay(BattleScreen.PACE_AFTER_REVEAL);
+      if (hasAnyWin) await delay(BattleScreen.PACE_AFTER_REVEAL);
 
       // ── pace-01 Stage 3: 出招 ATTACK — spirit signature animations ────────
       await this.playAttackAnimations(spin.sideA.wayHits, spin.sideB.wayHits);
 
       // Pace gap — let FX residue settle before HP drain
-      await delay(BattleScreen.PACE_AFTER_ATTACK);
+      if (hasAnyWin) await delay(BattleScreen.PACE_AFTER_ATTACK);
 
       // ── pace-01 Stage 4: 算傷害 DAMAGE — distribute + HP drain animations ──
       const eventsOnB = dmgA > 0 ? distributeDamage(this.formationB, dmgA, 'A') : [];
@@ -2090,7 +2093,7 @@ export class BattleScreen implements Screen {
       await Promise.all(dmgFx);
 
       // Pace gap — 0.3s breath before JP / Curse / BigWin / next round
-      await delay(BattleScreen.PACE_AFTER_DAMAGE);
+      if (hasAnyWin) await delay(BattleScreen.PACE_AFTER_DAMAGE);
 
       // ── M12 Jackpot trigger (j-03): detect 5-reel JP/Wild, draw tier, pay, reset ──
       await this.detectAndAwardJackpot(spin.grid);
@@ -2113,6 +2116,7 @@ export class BattleScreen implements Screen {
       const CURSE_PROC_DMG = 500;
       const curseEventsOnA: DmgEvent[] = [];
       const curseEventsOnB: DmgEvent[] = [];
+      let curseProcced = false;   // chore #216: preserve pacing on curse proc rounds
 
       if (this.curseStackA >= 3) {
         curseEventsOnA.push(...distributeDamage(this.formationA, CURSE_PROC_DMG, 'B'));
@@ -2126,6 +2130,7 @@ export class BattleScreen implements Screen {
           this.curseHudA.scale.set(1); this.curseHudA.alpha = 1; this.curseHudA.visible = false;
         });
         this.curseStackA = 0;
+        curseProcced = true;
       }
       if (this.curseStackB >= 3) {
         curseEventsOnB.push(...distributeDamage(this.formationB, CURSE_PROC_DMG, 'A'));
@@ -2138,6 +2143,7 @@ export class BattleScreen implements Screen {
           this.curseHudB.scale.set(1); this.curseHudB.alpha = 1; this.curseHudB.visible = false;
         });
         this.curseStackB = 0;
+        curseProcced = true;
       }
       if (curseEventsOnA.length > 0) {
         this.logLines.push(`R${this.round.toString().padStart(2, '0')}  ⚡ Curse proc A −${CURSE_PROC_DMG}`);
@@ -2151,13 +2157,16 @@ export class BattleScreen implements Screen {
         await this.playDamageEvents(curseEventsOnB, 'B', 'curse');
       }
 
-      const tagA = ratioA < 0.30 ? '↑' : '';
-      const tagB = ratioB < 0.30 ? '↑' : '';
-      this.logLines.push(
-        `R${this.round.toString().padStart(2, '0')}  ` +
-        `A→B dmg ${dmgA}${tagA} (${spin.sideA.wayHits.length} ways)   ` +
-        `B→A dmg ${dmgB}${tagB} (${spin.sideB.wayHits.length} ways)`,
-      );
+      // chore #216: skip log line on dead rounds (no win, no curse) to keep log focused
+      if (hasAnyWin || curseProcced) {
+        const tagA = ratioA < 0.30 ? '↑' : '';
+        const tagB = ratioB < 0.30 ? '↑' : '';
+        this.logLines.push(
+          `R${this.round.toString().padStart(2, '0')}  ` +
+          `A→B dmg ${dmgA}${tagA} (${spin.sideA.wayHits.length} ways)   ` +
+          `B→A dmg ${dmgB}${tagB} (${spin.sideB.wayHits.length} ways)`,
+        );
+      }
       this.refresh();
 
       // ── M10 Free Spin decrement at round end (all passives + damage settled) ──
@@ -2172,7 +2181,8 @@ export class BattleScreen implements Screen {
       this.refreshFreeSpinOverlay();   // count update or exit fade-out
 
       if (!this.running) return;
-      await delay(ROUND_GAP_MS);
+      // chore #216: skip round gap on dead rounds — go directly to next spin
+      if (hasAnyWin || curseProcced) await delay(ROUND_GAP_MS);
     }
 
     if (!this.running) return;
