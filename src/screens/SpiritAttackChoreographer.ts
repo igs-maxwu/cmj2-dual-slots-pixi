@@ -558,6 +558,72 @@ async function _sigDualFireball(ctx: Phase4Ctx): Promise<void> {
 
   // 2. Launch both fireballs (each to a different target)
   const launchMs = Math.floor(duration * 0.5);
+
+  // chore #222: 鳳凰展翼大幻影 — phoenix wings spread climax at target row centre
+  // Programmatic Graphics — body + 2 fan-shape wings + tail flame, ~250px wingspan.
+  // Fire-and-forget; overlaps with fireball launch + outlasts impact burst.
+  {
+    const phoenixCx = (targets[0].x + targets[targets.length - 1].x) / 2;
+    const phoenixCy = targets[0].y - 50;
+    const PHX_BODY  = 0xff8a6a;
+    const PHX_EDGE  = 0xffd37a;
+
+    const phoenix = new Graphics();
+
+    // Body — vertical ellipse (head/torso)
+    phoenix.ellipse(0, 0, 16, 28).fill({ color: PHX_BODY, alpha: 0.85 });
+    phoenix.ellipse(0, 0, 16, 28).stroke({ width: 2, color: PHX_EDGE, alpha: 1 });
+
+    // Left wing — fan polygon sweeping out + up
+    const leftPath: number[] = [-6, -8];
+    for (let i = 0; i <= 6; i++) {
+      const t = i / 6;
+      const angle = Math.PI * (0.5 + t * 0.5);   // 90° → 180° sweep
+      const r = 110 + Math.sin(t * Math.PI) * 30;
+      leftPath.push(Math.cos(angle) * r, Math.sin(angle) * r * 0.6 - 30);
+    }
+    leftPath.push(-12, 12);     // close near body bottom
+    phoenix.poly(leftPath).fill({ color: PHX_BODY, alpha: 0.65 });
+    phoenix.poly(leftPath).stroke({ width: 2, color: PHX_EDGE, alpha: 0.9 });
+
+    // Right wing — mirror
+    const rightPath: number[] = [6, -8];
+    for (let i = 0; i <= 6; i++) {
+      const t = i / 6;
+      const angle = -t * Math.PI * 0.5;          // 0° → -90° sweep
+      const r = 110 + Math.sin(t * Math.PI) * 30;
+      rightPath.push(Math.cos(angle) * r, Math.sin(angle) * r * 0.6 - 30);
+    }
+    rightPath.push(12, 12);
+    phoenix.poly(rightPath).fill({ color: PHX_BODY, alpha: 0.65 });
+    phoenix.poly(rightPath).stroke({ width: 2, color: PHX_EDGE, alpha: 0.9 });
+
+    // Tail — 3 flame strokes pointing down
+    phoenix.moveTo(-9, 28).lineTo(-4, 60).lineTo(0, 38).lineTo(4, 60).lineTo(9, 28)
+           .fill({ color: PHX_BODY, alpha: 0.7 });
+
+    phoenix.x = phoenixCx;
+    phoenix.y = phoenixCy;
+    phoenix.alpha = 0;
+    phoenix.scale.set(0.3);
+    stage.addChild(phoenix);
+
+    const phoenixGlow = applyGlow(phoenix, PHX_EDGE, 5, 22);
+
+    // Pulse-in 240ms: scale 0.3→1.4, alpha 0→1
+    void tween(240, p => {
+      phoenix.alpha = p;
+      phoenix.scale.set(0.3 + 1.1 * p);
+    }, Easings.easeOut).then(async () => {
+      // Settle 100ms: scale 1.4→1.0
+      await tween(100, p => { phoenix.scale.set(1.4 - 0.4 * p); }, Easings.easeOut);
+      // Hold + fade 280ms: alpha 1→0
+      await tween(280, p => { phoenix.alpha = 1 - p; }, Easings.easeIn);
+      removeFilter(phoenix, phoenixGlow);
+      phoenix.destroy();
+    });
+  }
+
   const launchPromises = balls.map(async (fb, i) => {
     const tp  = targets[Math.min(i, targets.length - 1)];
     const sx  = fb.x, sy = fb.y;
@@ -572,10 +638,9 @@ async function _sigDualFireball(ctx: Phase4Ctx): Promise<void> {
     });
     removeFilter(fb, lg);
 
-    // chore #FX-BURST: comic burst at impact
-    playComicBurst(stage, tp.x, tp.y, color);
+    // chore #222: removed generic comic burst — replaced by phoenix-themed climax (see top of fn)
 
-    // Impact burst
+    // Impact burst (existing — small fireball impact effect)
     const burst = new Graphics().circle(0, 0, 22).fill({ color, alpha: 0.72 });
     burst.x = tp.x; burst.y = tp.y;
     stage.addChild(burst);
