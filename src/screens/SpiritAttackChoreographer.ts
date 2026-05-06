@@ -357,6 +357,20 @@ async function _sigTripleDash(ctx: Phase4Ctx): Promise<void> {
     const endX    = tp.x + (Math.random() - 0.5) * 24;
     const endY    = tp.y;
 
+    // chore #221: speed lines — 4 short horizontal streaks behind dash start
+    const speedLines = new Graphics();
+    const dirX = endX > startX ? -1 : 1;       // streaks point away from target direction
+    for (let s = 0; s < 4; s++) {
+      const sy = startY - 24 + s * 12;          // vertical spread
+      const sx = startX + dirX * 8;
+      speedLines.moveTo(sx, sy)
+                .lineTo(sx + dirX * 32, sy)
+                .stroke({ width: 2, color: 0xffffff, alpha: 0.7 });
+    }
+    stage.addChild(speedLines);
+    void tween(200, p => { speedLines.alpha = 1 - p; })
+         .then(() => speedLines.destroy());
+
     // Afterimage: faint circle at departure point
     const ghost = new Graphics().circle(0, 0, 22).fill({ color, alpha: 0.38 });
     ghost.x = startX; ghost.y = startY;
@@ -370,18 +384,54 @@ async function _sigTripleDash(ctx: Phase4Ctx): Promise<void> {
       avatar.y = startY + (endY - startY) * Easings.easeIn(p);
     }, Easings.easeIn);
 
-    // Claw slash marks at impact
+    // chore #221: deeper claw gash — triple-stroke (dark base + colored mid + white core)
+    // length 56→80 / width 3.5→4 (mid) / 6 (base) / 1.5 (core)
     const claw = new Graphics();
     for (let i = 0; i < 3; i++) {
       const angle = (-0.4 + i * 0.4) + Math.PI / 2;
-      claw
-        .moveTo(tp.x - Math.cos(angle) * 8, tp.y - Math.sin(angle) * 28)
-        .lineTo(tp.x + Math.cos(angle) * 8, tp.y + Math.sin(angle) * 28)
-        .stroke({ width: 3.5, color, alpha: 0.85 });
+      const x1 = tp.x - Math.cos(angle) * 12;
+      const y1 = tp.y - Math.sin(angle) * 40;
+      const x2 = tp.x + Math.cos(angle) * 12;
+      const y2 = tp.y + Math.sin(angle) * 40;
+      // Dark base stroke (depth)
+      claw.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: 6, color: 0x000000, alpha: 0.7 });
+      // Main coloured stroke
+      claw.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: 4, color, alpha: 0.95 });
+      // White core highlight
+      claw.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: 1.5, color: 0xffffff, alpha: 1 });
     }
     stage.addChild(claw);
-    await tween(110, p => { claw.alpha = 1 - p; });
+    await tween(140, p => { claw.alpha = 1 - p; });    // 110→140ms 多看一下
     claw.destroy();
+
+    // chore #221: dust burst at impact — 6 radial particles + gravity
+    const dustParts: { g: Graphics; vx: number; vy: number }[] = [];
+    for (let d = 0; d < 6; d++) {
+      const angle = (d / 6) * Math.PI * 2 + Math.random() * 0.4;
+      const speed = 1.8 + Math.random() * 1.4;
+      const dust = new Graphics()
+        .circle(0, 0, 3 + Math.random() * 2)
+        .fill({ color: 0xc8804a, alpha: 0.85 });
+      dust.x = tp.x;
+      dust.y = tp.y;
+      stage.addChild(dust);
+      dustParts.push({
+        g: dust,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 0.8,        // slight upward bias
+      });
+    }
+    void tween(240, p => {
+      for (const dp of dustParts) {
+        dp.g.x += dp.vx;
+        dp.g.y += dp.vy;
+        dp.vy += 0.18;                            // gravity
+        dp.g.scale.set(1 + p * 0.3);
+        dp.g.alpha = 0.85 * (1 - p);
+      }
+    }).then(() => {
+      for (const dp of dustParts) dp.g.destroy();
+    });
   }
 
   // Final heavy claw burst: 4 radiating slashes
