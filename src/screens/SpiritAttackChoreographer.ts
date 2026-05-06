@@ -276,8 +276,34 @@ async function _sigLightningXCross(ctx: Phase4Ctx): Promise<void> {
   stage.addChild(slash);
   const slashGlow = applyGlow(slash, color, 4, 12);
 
+  // chore #220: giant X-brand burst — 1.5× larger than slash, white core + cyan glow stroke
+  const xBrand = new Graphics();
+  const brandArm = 70;
+  xBrand.x = cx; xBrand.y = cy;
+  // White core: thick centre line
+  xBrand.moveTo(-brandArm, -brandArm).lineTo(brandArm, brandArm).stroke({ width: 4, color: 0xffffff, alpha: 1 });
+  xBrand.moveTo( brandArm, -brandArm).lineTo(-brandArm, brandArm).stroke({ width: 4, color: 0xffffff, alpha: 1 });
+  xBrand.alpha = 0;
+  xBrand.scale.set(0.5);
+  stage.addChild(xBrand);
+  const xBrandGlow = applyGlow(xBrand, color, 5, 18);
+
+  // Pulse-in: 0.5x→1.2x scale + alpha 0→1 in 180ms
+  void tween(180, p => {
+    xBrand.alpha = p;
+    xBrand.scale.set(0.5 + 0.7 * p);
+  }, Easings.easeOut).then(async () => {
+    // Settle: 1.2x→1.0x in 80ms
+    await tween(80, p => { xBrand.scale.set(1.2 - 0.2 * p); }, Easings.easeOut);
+    // Hold + fade: 1.0x scale, alpha 1→0 in 190ms
+    await tween(190, p => { xBrand.alpha = 1 - p; }, Easings.easeIn);
+    removeFilter(xBrand, xBrandGlow);
+    xBrand.destroy();
+  });
+
   // 2. Shockwave ring from centre (concurrent)
-  const swPromise = applyShockwave(stage, cx, cy, 130, duration);
+  // chore #220: bigger shockwave for more presence (was radius=130)
+  const swPromise = applyShockwave(stage, cx, cy, 180, duration);
 
   // 3. Staggered lightning bolts to each target
   const boltMs = Math.floor(duration * 0.65);
@@ -293,12 +319,13 @@ async function _sigLightningXCross(ctx: Phase4Ctx): Promise<void> {
 
   await Promise.all(boltPromises);
 
-  // 4. White screen flash
+  // 4. Screen flash
+  // chore #220: cyan-tinted flash (was generic white) — matches 蒼嵐 personality.particleColor
   const flash = new Graphics()
     .rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
-    .fill({ color: 0xffffff, alpha: 0.55 });
+    .fill({ color: 0x6ab7ff, alpha: 0.40 });
   stage.addChild(flash);
-  await tween(110, p => { flash.alpha = 0.55 * (1 - p); });
+  await tween(120, p => { flash.alpha = 0.40 * (1 - p); });
   flash.destroy();
 
   // 5. Hitstop placeholder (proper ticker freeze wired in T5)
