@@ -717,8 +717,81 @@ async function _sigPythonSummon(ctx: Phase4Ctx): Promise<void> {
     circle.stroke({ width: 1.5, color, alpha: alpha * 0.8 });
   });
 
-  // chore #FX-BURST: comic burst at target
-  playComicBurst(stage, tp.x, tp.y, color);
+  // chore #223: 翠綠巨蟒大張口咬下 — vertical S-curve body + open jaws + fangs descending onto target.
+  // Programmatic Graphics ~240px tall, fire-and-forget overlapping serpent + impact pulses.
+  {
+    const PYT_BODY = 0x4adb8e;
+    const PYT_LITE = 0x8ff5c0;
+    const PYT_DARK = 0x1a4030;
+
+    const python = new Graphics();
+
+    // Layer 1: BODY — S-curve coiled tail descending from above (bezier stroke)
+    // Path origin = python centre = tp; body extends upward to y=-240
+    python.moveTo(0, -240);
+    python.bezierCurveTo(60, -200, -60, -120, 0, -10);
+    python.stroke({ width: 32, color: PYT_BODY, alpha: 0.85 });
+    // Inner brighter core
+    python.moveTo(0, -240);
+    python.bezierCurveTo(60, -200, -60, -120, 0, -10);
+    python.stroke({ width: 18, color: PYT_LITE, alpha: 0.7 });
+
+    // Layer 2: HEAD — ellipse at (0, -8), 32×24
+    python.ellipse(0, -8, 32, 24).fill({ color: PYT_BODY, alpha: 0.95 });
+    python.ellipse(0, -8, 32, 24).stroke({ width: 2.5, color: PYT_DARK, alpha: 1 });
+
+    // Layer 3: UPPER JAW — wide-open V-shape extending down from head
+    // Points: left mouth corner → right mouth corner → mouth back centre
+    python.poly([
+      -28,  5,     // left mouth corner
+       28,  5,     // right mouth corner
+       18, 28,     // right inner mouth
+        0, 35,     // mouth back tip (deepest point)
+      -18, 28,     // left inner mouth
+    ]).fill({ color: PYT_DARK, alpha: 0.95 });
+    python.poly([
+      -28,  5,
+       28,  5,
+       18, 28,
+        0, 35,
+      -18, 28,
+    ]).stroke({ width: 2, color: PYT_BODY, alpha: 1 });
+
+    // Layer 4: TWO FANGS — white triangles pointing down from upper jaw
+    python.poly([-14, 5, -10, 22, -6, 5]).fill({ color: 0xffffff, alpha: 0.95 });
+    python.poly([-14, 5, -10, 22, -6, 5]).stroke({ width: 1, color: PYT_DARK, alpha: 0.7 });
+    python.poly([ 14, 5,  10, 22,  6, 5]).fill({ color: 0xffffff, alpha: 0.95 });
+    python.poly([ 14, 5,  10, 22,  6, 5]).stroke({ width: 1, color: PYT_DARK, alpha: 0.7 });
+
+    // Layer 5: EYE — gold iris + black pupil (offset on head)
+    python.circle(-13, -10, 5).fill({ color: 0xffd700, alpha: 0.95 });
+    python.circle(-13, -10, 2.5).fill({ color: 0x000000, alpha: 1 });
+    // Highlight on eye
+    python.circle(-12, -11, 1).fill({ color: 0xffffff, alpha: 0.9 });
+
+    python.x = tp.x;
+    python.y = tp.y;
+    python.alpha = 0;
+    python.scale.set(0.3);
+    stage.addChild(python);
+
+    const pythonGlow = applyGlow(python, PYT_LITE, 5, 22);
+
+    // Pulse-in 260ms: scale 0.3→1.4, alpha 0→1
+    void tween(260, p => {
+      python.alpha = p;
+      python.scale.set(0.3 + 1.1 * p);
+    }, Easings.easeOut).then(async () => {
+      // Settle 100ms: scale 1.4→1.0
+      await tween(100, p => { python.scale.set(1.4 - 0.4 * p); }, Easings.easeOut);
+      // Hold + fade 300ms: alpha 1→0
+      await tween(300, p => { python.alpha = 1 - p; }, Easings.easeIn);
+      removeFilter(python, pythonGlow);
+      python.destroy();
+    });
+  }
+
+  // chore #223: removed generic comic burst — replaced by giant python jaws climax (see below)
 
   // 2. Shockwave ring at target (substitutes for DisplacementFilter distortion)
   const swPromise = applyShockwave(stage, tp.x, tp.y, 90, 180);
