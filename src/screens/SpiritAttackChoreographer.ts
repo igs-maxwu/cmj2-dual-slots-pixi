@@ -1756,7 +1756,7 @@ async function _sigPhoenixFlameArrow(ctx: Phase4Ctx): Promise<void> {
   removeFilter(arrowG, arrowGlow);
   arrowG.destroy();
   AudioManager.playSfx('damage-crit');
-  playComicBurst(stage, tp0.x, tp0.y, color);          // chore #FX-BURST
+  // chore #227: removed generic comic burst — replaced by 巨型鳳凰展翼 (added below)
 
   const swPromise = applyShockwave(stage, tp0.x, tp0.y, 90, 100);
   void _screenShake(stage, ctx.shakeIntensity);
@@ -1766,16 +1766,111 @@ async function _sigPhoenixFlameArrow(ctx: Phase4Ctx): Promise<void> {
     .fill({ color: 0xffffff, alpha: 0.5 });
   stage.addChild(flash);
 
-  // Phoenix silhouette: 2 rings + 2 wing rects
-  const pxOuter = new Graphics().circle(0, 0, 60).fill({ color: 0xff8844, alpha: 0.35 });
-  pxOuter.x = tp0.x; pxOuter.y = tp0.y;
-  const pxInner = new Graphics().circle(0, 0, 30).fill({ color, alpha: 0.65 });
-  pxInner.x = tp0.x; pxInner.y = tp0.y;
-  const wingL = new Graphics().rect(-60, -10, 60, 20).fill({ color, alpha: 0.50 });
-  wingL.x = tp0.x; wingL.y = tp0.y; wingL.rotation = -0.4;
-  const wingR = new Graphics().rect(0, -10, 60, 20).fill({ color, alpha: 0.50 });
-  wingR.x = tp0.x; wingR.y = tp0.y; wingR.rotation = 0.4;
-  stage.addChild(pxOuter, pxInner, wingL, wingR);
+  // chore #227: 巨型鳳凰展翼 — replaces simple "2 rings + 2 wing rects" silhouette.
+  // 6-layer composition: BG flame aura + V-spread wings + vertical body + flame tail + beak/eye + sparks.
+  // ~300px wingspan, ~290px tall (head -55 to flame tail tip 145).
+  const PHX_WING   = 0xff6a3a;
+  const PHX_BODY   = 0xff8a3a;
+  const PHX_TRIM   = 0xffd37a;
+  const PHX_FLAME  = 0xff5520;
+  const PHX_HALO   = 0xffaa44;
+
+  const phoenix = new Graphics();
+
+  // Layer 1: BG FLAME AURA — 3 concentric circles for fire halo
+  phoenix.circle(0, 0, 140).fill({ color: PHX_HALO,  alpha: 0.15 });
+  phoenix.circle(0, 0, 100).fill({ color: 0xff8844, alpha: 0.22 });
+  phoenix.circle(0, 0,  70).fill({ color: PHX_FLAME, alpha: 0.25 });
+
+  // Layer 2: V-SPREAD WINGS — 2 wings angled upward, flame-feather outline
+  const leftWing = [
+     -8, -10,    // shoulder attach
+    -45, -65,    // upper feather curve
+    -90, -110,   // wing tip 1
+   -130, -130,   // wing tip 2 (highest)
+   -150, -100,   // outer wing edge
+   -130,  -70,
+   -100,  -40,
+    -75,  -10,   // wing back outer
+    -55,    0,   // wing back inner
+    -25,    5,   // shoulder bottom attach
+  ];
+  phoenix.poly(leftWing).fill({ color: PHX_WING, alpha: 0.85 });
+  phoenix.poly(leftWing).stroke({ width: 2, color: PHX_TRIM, alpha: 1 });
+  const rightWing = leftWing.map((v, i) => i % 2 === 0 ? -v : v);
+  phoenix.poly(rightWing).fill({ color: PHX_WING, alpha: 0.85 });
+  phoenix.poly(rightWing).stroke({ width: 2, color: PHX_TRIM, alpha: 1 });
+
+  // Layer 3: BODY — vertical phoenix body (head up, tail down)
+  const body = [
+     0, -55,
+     8, -42,
+    10, -25,
+    12,  -5,
+    10,  10,
+     8,  25,
+    10,  40,
+     5,  55,    // body bottom (where flame tail starts)
+    -5,  55,
+   -10,  40,
+    -8,  25,
+   -10,  10,
+   -12,  -5,
+   -10, -25,
+    -8, -42,
+  ];
+  phoenix.poly(body).fill({ color: PHX_BODY, alpha: 0.95 });
+  phoenix.poly(body).stroke({ width: 2, color: PHX_TRIM, alpha: 1 });
+
+  // Layer 4: FLAME TAIL — 5 flame curl strokes extending downward
+  const flameStrokes: number[][] = [
+    [0, 55,  -8,  80,  -3, 100, -10, 130,   0, 148],   // central flame
+    [0, 55, -28,  75, -22, 100, -34, 120, -25, 140],   // left-mid flame
+    [0, 55,  28,  75,  22, 100,  34, 120,  25, 140],   // right-mid flame
+    [0, 55, -50,  70, -55, 100, -60, 125],              // outer-left flame
+    [0, 55,  50,  70,  55, 100,  60, 125],              // outer-right flame
+  ];
+  // Flame outer (orange-red, thick)
+  for (const path of flameStrokes) {
+    phoenix.moveTo(path[0], path[1]);
+    for (let i = 2; i < path.length; i += 2) phoenix.lineTo(path[i], path[i + 1]);
+    phoenix.stroke({ width: 5, color: PHX_FLAME, alpha: 0.92 });
+  }
+  // Flame inner core (light, thin highlight)
+  for (const path of flameStrokes) {
+    phoenix.moveTo(path[0], path[1]);
+    for (let i = 2; i < path.length; i += 2) phoenix.lineTo(path[i], path[i + 1]);
+    phoenix.stroke({ width: 1.8, color: 0xffeec0, alpha: 0.85 });
+  }
+
+  // Layer 5: BEAK + EYE
+  phoenix.poly([0, -55, -3, -45, 3, -45]).fill({ color: 0xffd700, alpha: 1 });
+  phoenix.circle(-3, -38, 2).fill({ color: 0x000000, alpha: 1 });
+  phoenix.circle( 3, -38, 2).fill({ color: 0x000000, alpha: 1 });
+
+  // Layer 6: SPARKS — 8 small ember dots scattered around phoenix
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2;
+    const r = 135 + (i % 3) * 8;
+    phoenix.circle(Math.cos(angle) * r, Math.sin(angle) * r, 3).fill({ color: PHX_HALO, alpha: 0.85 });
+  }
+
+  phoenix.x = tp0.x;
+  phoenix.y = tp0.y - 20;     // slightly above target to centre wings
+  phoenix.alpha = 0;
+  phoenix.scale.set(0.3);
+  stage.addChild(phoenix);
+  const phoenixGlow = applyGlow(phoenix, PHX_TRIM, 5, 24);
+
+  // chore #227: phoenix pulse-in (fire-and-forget, overlaps with flash + bloom)
+  void tween(240, p => {
+    phoenix.alpha = p;
+    phoenix.scale.set(0.3 + 1.2 * p);   // 0.3 → 1.5
+  }, Easings.easeOut).then(async () => {
+    await tween(100, p => {
+      phoenix.scale.set(1.5 - 0.4 * p);  // 1.5 → 1.1
+    }, Easings.easeOut);
+  });
 
   const bloom = applyBloom(stage, 1.5);
   await tween(80, p => { flash.alpha = 0.5 * (1 - p); });
@@ -1793,12 +1888,10 @@ async function _sigPhoenixFlameArrow(ctx: Phase4Ctx): Promise<void> {
     emberVX.push((Math.random() - 0.5) * 1.0);
   }
 
+  // chore #227: phoenix fade — replaces 4 simple Graphics fades. Embers untouched.
   await Promise.all([
     tween(120, p => {
-      pxOuter.alpha = 0.35 * (1 - p);
-      pxInner.alpha = 0.65 * (1 - p);
-      wingL.alpha   = 0.50 * (1 - p);
-      wingR.alpha   = 0.50 * (1 - p);
+      phoenix.alpha = 1 - p;
       for (let i = 0; i < embers.length; i++) {
         embers[i].x = tp0.x + emberVX[i] * p * 60;
         embers[i].y = tp0.y - p * 60;
@@ -1809,8 +1902,8 @@ async function _sigPhoenixFlameArrow(ctx: Phase4Ctx): Promise<void> {
   ]);
 
   // Cleanup
-  pxOuter.destroy(); pxInner.destroy();
-  wingL.destroy();   wingR.destroy();
+  removeFilter(phoenix, phoenixGlow);
+  phoenix.destroy();
   for (const em of embers) em.destroy();
   await swPromise;
   void avatar;
