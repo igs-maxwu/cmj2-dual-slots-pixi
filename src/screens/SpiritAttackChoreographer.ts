@@ -12,7 +12,7 @@
  *   Phase 4: Fire   — signature dispatch (concurrent with shake)
  *   Phase 5: Return — fly back to formation
  */
-import { Assets, Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/GameConfig';
 import { tween, delay, Easings } from '@/systems/tween';
 import { applyGlow, applyBloom, applyShockwave, removeFilter } from '@/fx/GlowWrapper';
@@ -1260,13 +1260,149 @@ async function _sigTigerFistCombo(ctx: Phase4Ctx): Promise<void> {
 
   // (b) 120–300ms: 1st heavy punch → target 0
   await doPunch(tp0, 180);
-  playComicBurst(stage, tp0.x, tp0.y, TIGER, 0.85);   // chore #FX-BURST
   // (c) 300–480ms: 2nd heavy punch → target 1
   await doPunch(tp1, 180);
-  playComicBurst(stage, tp1.x, tp1.y, TIGER, 0.85);   // chore #FX-BURST
   // (d) 480–560ms: 3rd decisive blow (faster)
   await doPunch(tp0, 80);
-  playComicBurst(stage, tp0.x, tp0.y, TIGER, 0.85);   // chore #FX-BURST
+
+  // chore #225: removed 3 generic comic bursts — replaced by single climax 寅字虎面圖騰 (added below)
+
+  // chore #225: 寅字虎面圖騰大字 — frontal tiger face emblem with 寅 character on forehead.
+  // Container wraps Graphics + Text (Text can't be Graphics child). Fire-and-forget overlapping
+  // earth crack + tiger ghost. ~260px tall.
+  {
+    const TIGER_BODY = TIGER;       // 0xff8c33 orange
+    const TIGER_DARK = 0x3a1a04;
+    const TIGER_LITE = 0xffd4a0;
+    const NOSE_PINK  = 0xc94545;
+    const EAR_PINK   = 0xff9999;
+
+    const tigerWrap = new Container();
+    const tigerCx = (tp0.x + tp1.x) / 2;
+    const tigerCy = (tp0.y + tp1.y) / 2 - 30;
+    tigerWrap.x = tigerCx;
+    tigerWrap.y = tigerCy;
+    tigerWrap.alpha = 0;
+    tigerWrap.scale.set(0.3);
+
+    const tg = new Graphics();
+    tigerWrap.addChild(tg);
+
+    // Layer 1: BACKGROUND HALO — soft circle behind face
+    tg.circle(0, 0, 130).fill({ color: TIGER_LITE, alpha: 0.25 });
+
+    // Layer 2: FACE — round angular outline
+    const face = [
+      -75, -75,   // forehead-left
+      -85, -45,
+      -88, -10,
+      -80,  25,
+      -65,  55,
+      -40,  78,
+      -10,  88,
+        0,  90,
+       10,  88,
+       40,  78,
+       65,  55,
+       80,  25,
+       88, -10,
+       85, -45,
+       75, -75,
+       55, -82,   // forehead between ears
+       30, -78,
+        0, -78,   // forehead centre
+      -30, -78,
+      -55, -82,
+    ];
+    tg.poly(face).fill({ color: TIGER_BODY, alpha: 0.95 });
+    tg.poly(face).stroke({ width: 3, color: TIGER_DARK, alpha: 1 });
+
+    // Layer 3: EARS — 2 triangles + inner pink
+    tg.poly([-72, -78, -110, -125, -52, -98]).fill({ color: TIGER_BODY, alpha: 0.95 });
+    tg.poly([-72, -78, -110, -125, -52, -98]).stroke({ width: 3, color: TIGER_DARK, alpha: 1 });
+    tg.poly([-68, -82, -98, -115, -58, -100]).fill({ color: EAR_PINK, alpha: 0.85 });
+    tg.poly([ 72, -78,  110, -125,  52, -98]).fill({ color: TIGER_BODY, alpha: 0.95 });
+    tg.poly([ 72, -78,  110, -125,  52, -98]).stroke({ width: 3, color: TIGER_DARK, alpha: 1 });
+    tg.poly([ 68, -82,  98, -115,  58, -100]).fill({ color: EAR_PINK, alpha: 0.85 });
+
+    // Layer 4: STRIPES — black curves on cheeks (3 each side) + forehead pair
+    // Left cheek
+    tg.moveTo(-65, -50).bezierCurveTo(-72, -32, -75, -10, -68, 8).stroke({ width: 4, color: TIGER_DARK, alpha: 0.95 });
+    tg.moveTo(-50, -62).bezierCurveTo(-58, -42, -62, -22, -55, -2).stroke({ width: 4, color: TIGER_DARK, alpha: 0.95 });
+    tg.moveTo(-35, -70).bezierCurveTo(-38, -55, -42, -38, -38, -22).stroke({ width: 3, color: TIGER_DARK, alpha: 0.95 });
+    // Right cheek (mirror)
+    tg.moveTo( 65, -50).bezierCurveTo( 72, -32,  75, -10,  68, 8).stroke({ width: 4, color: TIGER_DARK, alpha: 0.95 });
+    tg.moveTo( 50, -62).bezierCurveTo( 58, -42,  62, -22,  55, -2).stroke({ width: 4, color: TIGER_DARK, alpha: 0.95 });
+    tg.moveTo( 35, -70).bezierCurveTo( 38, -55,  42, -38,  38, -22).stroke({ width: 3, color: TIGER_DARK, alpha: 0.95 });
+    // Forehead vertical pair (bracketing 寅 character area)
+    tg.moveTo(-22, -70).lineTo(-18, -45).stroke({ width: 3.5, color: TIGER_DARK, alpha: 0.95 });
+    tg.moveTo( 22, -70).lineTo( 18, -45).stroke({ width: 3.5, color: TIGER_DARK, alpha: 0.95 });
+
+    // Layer 5: WHITE MUZZLE — ellipse around mouth area
+    tg.ellipse(0, 30, 38, 24).fill({ color: 0xffeeee, alpha: 0.9 });
+    tg.ellipse(0, 30, 38, 24).stroke({ width: 1.5, color: TIGER_DARK, alpha: 0.7 });
+
+    // Layer 6: NOSE — pink triangle
+    tg.poly([-11, 8, 11, 8, 0, 22]).fill({ color: NOSE_PINK, alpha: 1 });
+    tg.poly([-11, 8, 11, 8, 0, 22]).stroke({ width: 2, color: TIGER_DARK, alpha: 1 });
+
+    // Layer 7: MOUTH — W-shape + lower jaw line
+    tg.moveTo(-15, 30).lineTo(-8, 38).lineTo(0, 32).lineTo(8, 38).lineTo(15, 30)
+      .stroke({ width: 2.5, color: TIGER_DARK, alpha: 1 });
+    tg.moveTo(0, 22).lineTo(0, 32).stroke({ width: 2, color: TIGER_DARK, alpha: 1 });
+
+    // Layer 8: EYES — 2 large yellow with vertical slit pupils (TIGER feature)
+    tg.circle(-32, -28, 14).fill({ color: 0xffffff, alpha: 1 });
+    tg.circle(-32, -28, 14).stroke({ width: 2.5, color: TIGER_DARK, alpha: 1 });
+    tg.circle(-32, -28, 11).fill({ color: 0xffd700, alpha: 1 });    // yellow iris
+    tg.ellipse(-32, -28, 2.5, 9).fill({ color: 0x000000, alpha: 1 });// vertical slit
+    tg.circle(-29, -32, 2).fill({ color: 0xffffff, alpha: 0.95 });   // highlight
+    tg.circle( 32, -28, 14).fill({ color: 0xffffff, alpha: 1 });
+    tg.circle( 32, -28, 14).stroke({ width: 2.5, color: TIGER_DARK, alpha: 1 });
+    tg.circle( 32, -28, 11).fill({ color: 0xffd700, alpha: 1 });
+    tg.ellipse( 32, -28, 2.5, 9).fill({ color: 0x000000, alpha: 1 });
+    tg.circle( 35, -32, 2).fill({ color: 0xffffff, alpha: 0.95 });
+
+    // Layer 9: WHISKERS — 6 white curves (3 each side)
+    tg.moveTo(-32, 30).bezierCurveTo(-65, 28, -90, 30, -110, 33).stroke({ width: 2, color: 0xffffff, alpha: 0.85 });
+    tg.moveTo(-32, 35).bezierCurveTo(-65, 38, -90, 43, -105, 48).stroke({ width: 2, color: 0xffffff, alpha: 0.85 });
+    tg.moveTo(-32, 40).bezierCurveTo(-60, 50, -85, 60, -100, 65).stroke({ width: 2, color: 0xffffff, alpha: 0.85 });
+    tg.moveTo( 32, 30).bezierCurveTo( 65, 28,  90, 30,  110, 33).stroke({ width: 2, color: 0xffffff, alpha: 0.85 });
+    tg.moveTo( 32, 35).bezierCurveTo( 65, 38,  90, 43,  105, 48).stroke({ width: 2, color: 0xffffff, alpha: 0.85 });
+    tg.moveTo( 32, 40).bezierCurveTo( 60, 50,  85, 60,  100, 65).stroke({ width: 2, color: 0xffffff, alpha: 0.85 });
+
+    // Layer 10: 寅 CHARACTER — calligraphy-style Text on forehead (replaces tiger 王)
+    const yinChar = new Text({
+      text: '寅',
+      style: {
+        fontFamily: '"Noto Serif TC", "Ma Shan Zheng", serif',
+        fontWeight: '900',
+        fontSize: 36,
+        fill: TIGER_DARK,
+        stroke: { color: TIGER_BODY, width: 2 },
+      },
+    });
+    yinChar.anchor.set(0.5, 0.5);
+    yinChar.x = 0;
+    yinChar.y = -55;   // forehead position
+    tigerWrap.addChild(yinChar);
+
+    stage.addChild(tigerWrap);
+    const tigerGlow = applyGlow(tigerWrap, TIGER_BODY, 5, 22);
+
+    // Pulse-in 240ms: scale 0.3→1.4 + alpha 0→1
+    void tween(240, p => {
+      tigerWrap.alpha = p;
+      tigerWrap.scale.set(0.3 + 1.1 * p);
+    }, Easings.easeOut).then(async () => {
+      // Settle 100ms: scale 1.4→1.0
+      await tween(100, p => { tigerWrap.scale.set(1.4 - 0.4 * p); }, Easings.easeOut);
+      // Hold + fade 300ms: alpha 1→0
+      await tween(300, p => { tigerWrap.alpha = 1 - p; }, Easings.easeIn);
+      removeFilter(tigerWrap, tigerGlow);
+      tigerWrap.destroy({ children: true });
+    });
+  }
 
   // (d cont) 560–620ms: earth crack cross + shockwave (concurrent, fire-and-forget shake)
   const crackX = tp0.x, crackY = tp0.y + 40;
