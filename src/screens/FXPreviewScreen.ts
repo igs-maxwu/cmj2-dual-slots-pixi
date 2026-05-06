@@ -225,7 +225,8 @@ export class FXPreviewScreen implements Screen {
     const previewLeft = 280;
     const previewW = CANVAS_WIDTH - previewLeft;
     const previewCx = previewLeft + previewW / 2;
-    const y = Math.round(CANVAS_HEIGHT * 0.72);
+    // chore #FX-PICK polish: target row closer to clash so attack lines visible together
+    const y = Math.round(CANVAS_HEIGHT * 0.62);
     return [
       { x: previewCx - 60, y },
       { x: previewCx,      y },
@@ -263,17 +264,24 @@ export class FXPreviewScreen implements Screen {
     while (this.looping && gen === this.loopGen) {
       // chore: attackTimeline animates a spiritContainer directly — use temp container for preview
       const previewSpirit = new Container();
-      previewSpirit.x = 280 + 80;     // chore #FX-PICK: left of preview area, right of picker
-      previewSpirit.y = Math.round(CANVAS_HEIGHT * 0.50);
+      // chore #FX-PICK polish: align with new clashY so spirit can leap visibly to clash centre
+      previewSpirit.x = 280 + 60;                              // ≈ 340 (60px left of clash 500)
+      previewSpirit.y = Math.round(CANVAS_HEIGHT * 0.55);      // ≈ 704 (below clash 576)
       this.stage.addChild(previewSpirit);
       this.previewSpirit = previewSpirit;
 
+      // chore #FX-PICK polish: override clash centre to fall in right-side preview area
+      // (default hardcoded 290/420 lands behind picker panel)
+      const previewLeft = 280;
+      const previewCx = previewLeft + (CANVAS_WIDTH - previewLeft) / 2;
       await attackTimeline({
         stage:           this.stage,
         spiritContainer: previewSpirit,
         symbolId,
         spiritKey,
         targetPositions: this.targetPositions(),
+        clashX:          previewCx,                              // ≈ 500
+        clashY:          Math.round(CANVAS_HEIGHT * 0.45),       // ≈ 576 (upper-mid preview area)
       });
 
       if (!previewSpirit.destroyed) previewSpirit.destroy();
