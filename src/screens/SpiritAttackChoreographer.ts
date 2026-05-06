@@ -35,6 +35,69 @@ function _makeFxSprite(assetKey: string, tint: number = 0xffffff): Sprite | null
   return s;
 }
 
+/**
+ * chore #FX-BURST: comic-style "BAM!" impact burst.
+ *
+ * Draws a 16-point jagged starburst polygon at (x, y):
+ * - White core (alpha 0.95) for screen-dominant pop
+ * - Coloured 6px stroke (spirit's particleColor) for character flavour
+ *
+ * Animation (380ms total):
+ * - Pulse-in 180ms: scale 0.3 → 1.4, alpha 0 → 1
+ * - Settle 80ms: scale 1.4 → 1.1
+ * - Fade 120ms: alpha 1 → 0 (scale stays 1.1)
+ *
+ * Peak visual diameter ≈ 260px. Fire-and-forget (caller does not await).
+ *
+ * @param stage  Container to add burst to
+ * @param x      Burst centre X (in stage coords)
+ * @param y      Burst centre Y
+ * @param color  Stroke colour (typically personality.particleColor)
+ * @param scale  Optional size multiplier (default 1.0)
+ */
+function playComicBurst(stage: Container, x: number, y: number, color: number, scale: number = 1.0): void {
+  const POINTS = 16;          // alternating outer/inner = 16 vertices
+  const OUTER_R = 130 * scale;
+  const INNER_R = 50 * scale;
+  const STROKE_W = 6 * scale;
+
+  const burst = new Graphics();
+  // Build star polygon path
+  for (let i = 0; i < POINTS; i++) {
+    const angle = (i / POINTS) * Math.PI * 2 - Math.PI / 2;   // start pointing up
+    const r = i % 2 === 0 ? OUTER_R : INNER_R;
+    const px = Math.cos(angle) * r;
+    const py = Math.sin(angle) * r;
+    if (i === 0) burst.moveTo(px, py);
+    else         burst.lineTo(px, py);
+  }
+  burst.closePath();
+  burst.fill({ color: 0xffffff, alpha: 0.95 });
+  burst.stroke({ width: STROKE_W, color, alpha: 1 });
+
+  burst.x = x;
+  burst.y = y;
+  burst.alpha = 0;
+  burst.scale.set(0.3);
+  stage.addChild(burst);
+
+  // Pulse-in 180ms
+  void tween(180, p => {
+    burst.alpha = p;
+    burst.scale.set(0.3 + 1.1 * p);     // 0.3 → 1.4
+  }, Easings.easeOut).then(async () => {
+    // Settle 80ms
+    await tween(80, p => {
+      burst.scale.set(1.4 - 0.3 * p);    // 1.4 → 1.1
+    }, Easings.easeOut);
+    // Fade 120ms
+    await tween(120, p => {
+      burst.alpha = 1 - p;
+    }, Easings.easeIn);
+    burst.destroy();
+  });
+}
+
 // ─── Signature types ────────────────────────────────────────────────────────
 
 export type SpiritSignature =
@@ -278,6 +341,9 @@ async function _sigLightningXCross(ctx: Phase4Ctx): Promise<void> {
   slash.moveTo(-arm, -arm).lineTo(arm, arm).stroke({ width: 5, color, alpha: 0.9 });
   slash.moveTo( arm, -arm).lineTo(-arm, arm).stroke({ width: 5, color, alpha: 0.9 });
   stage.addChild(slash);
+  // chore #FX-BURST: comic burst at clash centre
+  playComicBurst(stage, cx, cy, color);
+
   const slashGlow = applyGlow(slash, color, 4, 12);
 
   // chore #220: giant X-brand burst — 1.5× larger than slash, white core + cyan glow stroke
@@ -408,6 +474,9 @@ async function _sigTripleDash(ctx: Phase4Ctx): Promise<void> {
     await tween(140, p => { claw.alpha = 1 - p; });    // 110→140ms 多看一下
     claw.destroy();
 
+    // chore #FX-BURST: comic burst at impact
+    playComicBurst(stage, tp.x, tp.y, color, 0.85);   // slightly smaller — 3 hits per attack
+
     // chore #221: dust burst at impact — 6 radial particles + gravity
     const dustParts: { g: Graphics; vx: number; vy: number }[] = [];
     for (let d = 0; d < 6; d++) {
@@ -503,6 +572,9 @@ async function _sigDualFireball(ctx: Phase4Ctx): Promise<void> {
     });
     removeFilter(fb, lg);
 
+    // chore #FX-BURST: comic burst at impact
+    playComicBurst(stage, tp.x, tp.y, color);
+
     // Impact burst
     const burst = new Graphics().circle(0, 0, 22).fill({ color, alpha: 0.72 });
     burst.x = tp.x; burst.y = tp.y;
@@ -549,6 +621,9 @@ async function _sigPythonSummon(ctx: Phase4Ctx): Promise<void> {
     circle.lineTo(pts[0].x, pts[0].y);
     circle.stroke({ width: 1.5, color, alpha: alpha * 0.8 });
   });
+
+  // chore #FX-BURST: comic burst at target
+  playComicBurst(stage, tp.x, tp.y, color);
 
   // 2. Shockwave ring at target (substitutes for DisplacementFilter distortion)
   const swPromise = applyShockwave(stage, tp.x, tp.y, 90, 180);
@@ -685,6 +760,9 @@ async function _sigDragonDualSlash(ctx: Phase4Ctx): Promise<void> {
   });
 
   // (d) 400–520ms: impact flash + glow rings
+  // chore #FX-BURST: comic burst at primary sword impact
+  playComicBurst(stage, tp0.x, tp0.y, color);
+
   const flash = new Graphics()
     .rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
     .fill({ color: 0xffffff, alpha: 0.4 });
@@ -792,10 +870,13 @@ async function _sigTigerFistCombo(ctx: Phase4Ctx): Promise<void> {
 
   // (b) 120–300ms: 1st heavy punch → target 0
   await doPunch(tp0, 180);
+  playComicBurst(stage, tp0.x, tp0.y, TIGER, 0.85);   // chore #FX-BURST
   // (c) 300–480ms: 2nd heavy punch → target 1
   await doPunch(tp1, 180);
+  playComicBurst(stage, tp1.x, tp1.y, TIGER, 0.85);   // chore #FX-BURST
   // (d) 480–560ms: 3rd decisive blow (faster)
   await doPunch(tp0, 80);
+  playComicBurst(stage, tp0.x, tp0.y, TIGER, 0.85);   // chore #FX-BURST
 
   // (d cont) 560–620ms: earth crack cross + shockwave (concurrent, fire-and-forget shake)
   const crackX = tp0.x, crackY = tp0.y + 40;
@@ -879,6 +960,7 @@ async function _sigTortoiseHammerSmash(ctx: Phase4Ctx): Promise<void> {
 
   // (c) 400–480ms: impact burst — flash + 8 radial cracks; kick off shake + shockwave
   AudioManager.playSfx('hit-heavy');
+  playComicBurst(stage, tp0.x, tp0.y, color, 1.2);    // chore #FX-BURST: 1.2x scale — 重武器更大爆
   const swPromise = applyShockwave(stage, tp0.x, tp0.y, 120, 150);
   void _screenShake(stage, ctx.shakeIntensity);
 
@@ -1072,6 +1154,7 @@ async function _sigPhoenixFlameArrow(ctx: Phase4Ctx): Promise<void> {
   removeFilter(arrowG, arrowGlow);
   arrowG.destroy();
   AudioManager.playSfx('damage-crit');
+  playComicBurst(stage, tp0.x, tp0.y, color);          // chore #FX-BURST
 
   const swPromise = applyShockwave(stage, tp0.x, tp0.y, 90, 100);
   void _screenShake(stage, ctx.shakeIntensity);
