@@ -267,6 +267,20 @@ export class FXPreviewScreen implements Screen {
       // chore #FX-PICK polish: align with new clashY so spirit can leap visibly to clash centre
       previewSpirit.x = 280 + 60;                              // ≈ 340 (60px left of clash 500)
       previewSpirit.y = Math.round(CANVAS_HEIGHT * 0.55);      // ≈ 704 (below clash 576)
+
+      // chore #FX-PICK polish 2: visible placeholder body — needed so dash-style FX
+      // (e.g. 珞洛 triple-dash speed lines + per-impact claw/dust) have a visible
+      // attacker. attackTimeline animates avatar (this container) but without a child
+      // the motion is invisible. Picks colour from spirit's gem visual.
+      const visualColor = SYMBOLS[symbolId]?.color ?? 0xFFD700;
+      const body = new Graphics()
+        .circle(0, 0, 24)
+        .fill({ color: visualColor, alpha: 0.85 })
+        .stroke({ width: 2, color: 0xffffff, alpha: 0.7 });
+      // White inner highlight (gem-style)
+      body.circle(-7, -7, 7).fill({ color: 0xffffff, alpha: 0.5 });
+      previewSpirit.addChild(body);
+
       this.stage.addChild(previewSpirit);
       this.previewSpirit = previewSpirit;
 
