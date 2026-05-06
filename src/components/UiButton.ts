@@ -15,10 +15,9 @@ import { AudioManager } from '@/systems/AudioManager';
  * s12-ui-03: replaces Sprite + btn-normal.webp / btn-ornate.webp path.
  * chore #204: upgraded to FillGradient 3-stop + double border + top highlight + corner dots + drop shadow
  */
+// chore #219: removed color + stroke — neither was used by callers, defaults moved into Text style.
 export interface UiButtonOpts {
   fontSize?: number;
-  color?: number;
-  stroke?: number;
 }
 
 export class UiButton extends Container {
@@ -45,15 +44,17 @@ export class UiButton extends Container {
     this.drawBg('normal');
 
     // Label
+    // chore #219: dark warm-brown fill on gold gradient (was T.FG.white — poor contrast on light top
+    // of gradient ~1.5:1). 0x2a1a05 matches reel gem char + SPIN button style; ~9:1 WCAG AAA contrast.
+    // Stroke removed — dark fill on gold needs no outline (stroke became visual noise).
     this.lbl = new Text({
       text,
       style: {
         fontFamily: T.FONT.title,
         fontWeight: '700',
         fontSize: opts.fontSize ?? Math.round(height * 0.42),
-        fill: opts.color ?? T.FG.white,
+        fill: 0x2a1a05,
         letterSpacing: 2,
-        stroke: { color: 0x000, width: opts.stroke ?? 2 },
       },
     });
     this.lbl.anchor.set(0.5, 0.5);
