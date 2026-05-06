@@ -936,105 +936,163 @@ async function _sigDragonDualSlash(ctx: Phase4Ctx): Promise<void> {
     // ── Layer A: Dragon head silhouette (frontal Chinese dragon, ~260×300px) ──
     const dragon = new Graphics();
 
-    // chore #224 polish: frontal Chinese dragon face — 5-layer composition
-    // Layer 1: MANE — 12-vertex jagged radial spikes (back layer)
-    dragon.poly([
-       0, -110,    // top notch
-      45, -125,    // top-right spike tip
-      55, -85,
-     105, -75,    // upper-right spike
-      85, -45,
-     130, -20,    // right horizontal spike
-      95,   5,
-     120,  45,    // lower-right spike
-      55,  60,
-      45,  95,    // lower-right-down spike
-       0,  78,
-     -45,  95,    // lower-left-down spike
-     -55,  60,
-    -120,  45,    // lower-left spike
-     -95,   5,
-    -130, -20,    // left horizontal spike
-     -85, -45,
-    -105, -75,    // upper-left spike
-     -55, -85,
-     -45, -125,   // top-left spike tip
-       0, -110,
-    ]).fill({ color: DRG_BODY, alpha: 0.55 });
+    // chore #224 polish 2: richer Chinese dragon — 8-layer composition based on owner reference
 
-    // Layer 2: HORNS — 2 antler-like V-shapes at top
-    dragon.poly([
-     -22, -82,
-     -38, -130,
-     -42, -100,
-     -58, -148,
-     -32, -90,
-    ]).fill({ color: DRG_DARK, alpha: 0.95 });
-    dragon.poly([
-      22, -82,
-      38, -130,
-      42, -100,
-      58, -148,
-      32, -90,
-    ]).fill({ color: DRG_DARK, alpha: 0.95 });
+    // Layer 1: MANE — flame-curl spikes (10 around head, each a flame teardrop)
+    const maneSpikes: Array<[number, number, number]> = [
+      // [angle (rad), distance, length]
+      [-Math.PI*0.50, 100, 50],   // top centre
+      [-Math.PI*0.35, 100, 55],   // top-right
+      [-Math.PI*0.20, 105, 50],   // upper-right
+      [-Math.PI*0.05,  110, 45],  // right
+      [ Math.PI*0.10,  110, 40],  // lower-right
+      [ Math.PI*0.30,  105, 50],  // bottom-right
+      [ Math.PI*0.65,  105, 50],  // bottom-left (mirror)
+      [ Math.PI*0.85,  110, 40],  // lower-left
+      [-Math.PI*0.95, 110, 45],   // left
+      [-Math.PI*0.80, 105, 50],   // upper-left
+      [-Math.PI*0.65, 100, 55],   // top-left
+    ];
+    for (const [ang, dist, len] of maneSpikes) {
+      const baseX = Math.cos(ang) * (dist - 30);
+      const baseY = Math.sin(ang) * (dist - 30);
+      const tipX  = Math.cos(ang) * (dist + len);
+      const tipY  = Math.sin(ang) * (dist + len);
+      const sideX = -Math.sin(ang) * 12;
+      const sideY = Math.cos(ang) * 12;
+      // Curl: flame teardrop with sweep
+      dragon.poly([
+        baseX - sideX, baseY - sideY,
+        baseX + sideX, baseY + sideY,
+        tipX  + sideX * 0.3, tipY + sideY * 0.3,
+        tipX,                tipY,
+      ]).fill({ color: DRG_BODY, alpha: 0.65 });
+      dragon.poly([
+        baseX - sideX, baseY - sideY,
+        baseX + sideX, baseY + sideY,
+        tipX  + sideX * 0.3, tipY + sideY * 0.3,
+        tipX,                tipY,
+      ]).stroke({ width: 1.5, color: DRG_DARK, alpha: 0.6 });
+    }
 
-    // Layer 3: FACE — frontal oval (16-vertex symmetric)
+    // Layer 2: HORNS — branched antlers (each: main stem + 2 forks)
+    const drawAntler = (mirror: number) => {
+      const m = mirror;
+      // Main stem stroke
+      dragon.moveTo(m * 22, -82).bezierCurveTo(m * 35, -110, m * 40, -130, m * 50, -150)
+            .stroke({ width: 7, color: DRG_DARK, alpha: 0.95 });
+      dragon.moveTo(m * 22, -82).bezierCurveTo(m * 35, -110, m * 40, -130, m * 50, -150)
+            .stroke({ width: 3, color: DRG_LITE, alpha: 0.85 });
+      // Branch 1 (outer fork at mid-stem)
+      dragon.moveTo(m * 36, -115).bezierCurveTo(m * 55, -118, m * 70, -128, m * 78, -138)
+            .stroke({ width: 5, color: DRG_DARK, alpha: 0.95 });
+      dragon.moveTo(m * 36, -115).bezierCurveTo(m * 55, -118, m * 70, -128, m * 78, -138)
+            .stroke({ width: 2, color: DRG_LITE, alpha: 0.85 });
+      // Branch 2 (inner fork near tip)
+      dragon.moveTo(m * 44, -135).bezierCurveTo(m * 38, -148, m * 35, -158, m * 30, -165)
+            .stroke({ width: 4, color: DRG_DARK, alpha: 0.95 });
+      dragon.moveTo(m * 44, -135).bezierCurveTo(m * 38, -148, m * 35, -158, m * 30, -165)
+            .stroke({ width: 1.5, color: DRG_LITE, alpha: 0.85 });
+    };
+    drawAntler(-1);
+    drawAntler( 1);
+
+    // Layer 3: FACE — angular polygon with brow ridge + cheekbones
     const face = [
-       0, -85,
-      28, -82,
-      52, -65,
-      70, -38,
-      78,   0,
-      70,  35,
-      52,  60,
-      28,  76,
-       0,  82,    // chin
-     -28,  76,
-     -52,  60,
-     -70,  35,
-     -78,   0,
-     -70, -38,
-     -52, -65,
-     -28, -82,
+       0,  -88,    // forehead top
+      24,  -82,    // forehead-right
+      52,  -68,    // brow ridge right
+      72,  -42,    // cheekbone right (angular bump)
+      80,  -10,    // cheek mid
+      75,   18,    // cheek lower
+      62,   42,    // jaw upper-right
+      42,   62,    // jaw lower-right
+      18,   78,
+       0,   82,    // chin
+     -18,   78,
+     -42,   62,
+     -62,   42,
+     -75,   18,
+     -80,  -10,
+     -72,  -42,
+     -52,  -68,
+     -24,  -82,
     ];
     dragon.poly(face).fill({ color: DRG_BODY, alpha: 0.95 });
     dragon.poly(face).stroke({ width: 2.5, color: DRG_DARK, alpha: 1 });
 
-    // Layer 4: MOUTH — V opening + teeth row + 2 fangs
-    // Open mouth interior (dark)
+    // Layer 4: BUSHY BROWS — 2 thick curved strokes above eyes (key Chinese dragon feature)
+    dragon.moveTo(-50, -38).bezierCurveTo(-42, -52, -22, -52, -10, -42)
+          .stroke({ width: 8, color: DRG_DARK, alpha: 0.95 });
+    dragon.moveTo(-50, -38).bezierCurveTo(-42, -52, -22, -52, -10, -42)
+          .stroke({ width: 4, color: DRG_LITE, alpha: 0.7 });
+    dragon.moveTo( 50, -38).bezierCurveTo( 42, -52,  22, -52,  10, -42)
+          .stroke({ width: 8, color: DRG_DARK, alpha: 0.95 });
+    dragon.moveTo( 50, -38).bezierCurveTo( 42, -52,  22, -52,  10, -42)
+          .stroke({ width: 4, color: DRG_LITE, alpha: 0.7 });
+
+    // Layer 5: EYES — large round with iris + pupil + highlight
+    dragon.circle(-30, -22, 13).fill({ color: 0xffffff, alpha: 1 });
+    dragon.circle(-30, -22, 13).stroke({ width: 2, color: DRG_DARK, alpha: 1 });
+    dragon.circle(-30, -22, 9).fill({ color: 0xffd700, alpha: 1 });    // gold iris
+    dragon.circle(-30, -22, 4.5).fill({ color: 0x000000, alpha: 1 });  // pupil
+    dragon.circle(-27, -25, 2.5).fill({ color: 0xffffff, alpha: 0.95 });// highlight
+    dragon.circle( 30, -22, 13).fill({ color: 0xffffff, alpha: 1 });
+    dragon.circle( 30, -22, 13).stroke({ width: 2, color: DRG_DARK, alpha: 1 });
+    dragon.circle( 30, -22, 9).fill({ color: 0xffd700, alpha: 1 });
+    dragon.circle( 30, -22, 4.5).fill({ color: 0x000000, alpha: 1 });
+    dragon.circle( 33, -25, 2.5).fill({ color: 0xffffff, alpha: 0.95 });
+
+    // Layer 6: NOSE — wide round nose + 2 nostril dots
+    dragon.ellipse(0, 8, 18, 12).fill({ color: DRG_BODY, alpha: 1 });
+    dragon.ellipse(0, 8, 18, 12).stroke({ width: 2, color: DRG_DARK, alpha: 1 });
+    dragon.circle(-7, 10, 2.5).fill({ color: DRG_DARK, alpha: 1 });    // left nostril
+    dragon.circle( 7, 10, 2.5).fill({ color: DRG_DARK, alpha: 1 });    // right nostril
+
+    // Layer 7: MOUTH — open V + tongue/flame + 2 fangs + small teeth
+    // Mouth interior dark
     dragon.poly([
-     -28, 32,
-      28, 32,
-      20, 58,
-       0, 68,
-     -20, 58,
+     -32,  32,
+      32,  32,
+      24,  60,
+       0,  72,
+     -24,  60,
     ]).fill({ color: DRG_DARK, alpha: 0.95 });
-
-    // Teeth row (5 small triangles on upper jaw line)
+    // Tongue/flame (orange-red curl in mouth)
+    dragon.poly([
+      -8, 38,
+       8, 38,
+       6, 55,
+       0, 65,
+      -6, 55,
+    ]).fill({ color: 0xff6a3a, alpha: 0.9 });
+    // 5 small teeth (upper jaw)
     for (let i = 0; i < 5; i++) {
-      const tx = -22 + i * 11;
-      dragon.poly([tx - 3, 33, tx, 42, tx + 3, 33]).fill({ color: 0xffffff, alpha: 0.95 });
+      const tx = -24 + i * 12;
+      dragon.poly([tx - 3, 33, tx, 41, tx + 3, 33]).fill({ color: 0xffffff, alpha: 0.95 });
     }
-    // 2 large fangs (lower)
-    dragon.poly([-15, 33, -10, 55, -5, 33]).fill({ color: 0xffffff, alpha: 1 });
-    dragon.poly([ 15, 33,  10, 55,  5, 33]).fill({ color: 0xffffff, alpha: 1 });
+    // 2 large fangs
+    dragon.poly([-18, 33, -13, 56, -8, 33]).fill({ color: 0xffffff, alpha: 1 });
+    dragon.poly([-18, 33, -13, 56, -8, 33]).stroke({ width: 1, color: DRG_DARK, alpha: 0.6 });
+    dragon.poly([ 18, 33,  13, 56,  8, 33]).fill({ color: 0xffffff, alpha: 1 });
+    dragon.poly([ 18, 33,  13, 56,  8, 33]).stroke({ width: 1, color: DRG_DARK, alpha: 0.6 });
 
-    // Layer 5: EYES + NOSE + BEARD WHISKERS
-    // Two eyes (symmetric — gold iris + black pupil + white highlight)
-    dragon.circle(-25, -12, 11).fill({ color: 0xffd700, alpha: 1 });
-    dragon.circle(-25, -12, 5).fill({ color: 0x000000, alpha: 1 });
-    dragon.circle(-23, -14, 2.5).fill({ color: 0xffffff, alpha: 0.95 });
-    dragon.circle( 25, -12, 11).fill({ color: 0xffd700, alpha: 1 });
-    dragon.circle( 25, -12, 5).fill({ color: 0x000000, alpha: 1 });
-    dragon.circle( 27, -14, 2.5).fill({ color: 0xffffff, alpha: 0.95 });
-
-    // Nose ridge (small triangle pointing down between eyes)
-    dragon.poly([-7, 8, 7, 8, 0, 20]).fill({ color: DRG_DARK, alpha: 0.85 });
-
-    // Beard whiskers — 3 bezier curves flowing down from face
-    dragon.moveTo(-45, 55).bezierCurveTo(-70, 95, -55, 135, -22, 150).stroke({ width: 3, color: DRG_LITE, alpha: 0.85 });
-    dragon.moveTo( 45, 55).bezierCurveTo( 70, 95,  55, 135,  22, 150).stroke({ width: 3, color: DRG_LITE, alpha: 0.85 });
-    dragon.moveTo(  0, 80).bezierCurveTo( -5, 105,  5, 122,  0, 138).stroke({ width: 2.5, color: DRG_LITE, alpha: 0.85 });
+    // Layer 8: WHISKERS — 6 flowing curves (2 nose-side + 2 mouth-corner + 2 chin-beard)
+    // Nose-side whiskers (long, sweep down + outward)
+    dragon.moveTo(-15, 12).bezierCurveTo(-50, 35, -85, 80, -50, 145)
+          .stroke({ width: 3, color: DRG_LITE, alpha: 0.85 });
+    dragon.moveTo( 15, 12).bezierCurveTo( 50, 35,  85, 80,  50, 145)
+          .stroke({ width: 3, color: DRG_LITE, alpha: 0.85 });
+    // Mouth-corner whiskers (medium, sweep down)
+    dragon.moveTo(-32, 35).bezierCurveTo(-58, 75, -38, 115, -25, 140)
+          .stroke({ width: 2.5, color: DRG_LITE, alpha: 0.8 });
+    dragon.moveTo( 32, 35).bezierCurveTo( 58, 75,  38, 115,  25, 140)
+          .stroke({ width: 2.5, color: DRG_LITE, alpha: 0.8 });
+    // Chin beard (2 short central whiskers)
+    dragon.moveTo(-8, 78).bezierCurveTo(-12, 100, -8, 120, -5, 138)
+          .stroke({ width: 2.5, color: DRG_LITE, alpha: 0.85 });
+    dragon.moveTo( 8, 78).bezierCurveTo( 12, 100,  8, 120,  5, 138)
+          .stroke({ width: 2.5, color: DRG_LITE, alpha: 0.85 });
 
     dragon.x = cx;
     dragon.y = cy - 70;
